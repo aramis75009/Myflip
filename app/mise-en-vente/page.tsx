@@ -33,12 +33,14 @@ import FileGeneration from "./_components/FileGeneration";
 import RailArticles from "./_components/RailArticles";
 import { descripteurBarre } from "./_barreAction";
 import { ecrire, effacer, lire } from "./_persistance";
+import { publierVinted as orchestrerPublicationVinted } from "./_publierVinted";
 import {
   etatInitial,
   fichePrete,
   MAX_PHOTOS,
   reducerMev,
   skuEnDoublon,
+  type ArticleEnCours,
   type Photo,
 } from "./_reducer";
 import { btnGhost, cardCls } from "./_ui";
@@ -346,8 +348,15 @@ export default function MiseEnVentePage() {
   // deux enregistrements qui se chevauchent, et l'échec du premier efface
   // l'update optimiste du second. Sérialiser ici rend l'instantané correct,
   // sans toucher à un hook partagé par /stock et /a-comptabiliser.
-  async function enregistrer(ids: string[], statut: string) {
+  // Renvoie `true` si TOUS les ids demandés ont été enregistrés avec succès.
+  // Les appelants existants (`onEnregistrer`, `onEnregistrerTout`) ignorent
+  // cette valeur via `void enregistrer(...)` — le comportement observable
+  // pour eux ne change pas. `publierVinted` l'utilise, lui, pour décider si
+  // l'onglet Vinted doit s'ouvrir : ne JAMAIS retirer cette valeur de retour
+  // sans vérifier ce que ça casserait côté extension (cf. _publierVinted.ts).
+  async function enregistrer(ids: string[], statut: string): Promise<boolean> {
     setSaveEnCours(true);
+    const reussites = new Set<string>();
     for (const id of ids) {
       const f = etatRef.current.fiches.find((x) => x.id === id);
       if (!f?.article) continue;
@@ -367,6 +376,7 @@ export default function MiseEnVentePage() {
           differerInvalidation: true,
         });
         dispatch({ type: "enregistre", id, statut });
+        reussites.add(id);
       } catch (err) {
         dispatch({
           type: "enregistrement/echec",
@@ -382,6 +392,21 @@ export default function MiseEnVentePage() {
       queryClient.invalidateQueries({ queryKey: [cle] });
     }
     setSaveEnCours(false);
+    return ids.every((id) => reussites.has(id));
+  }
+
+  // ── Publier sur Vinted ──────────────────────────────────────────────────
+  // Le PATCH avant tout, l'onglet ensuite — et seulement si le PATCH a
+  // réussi. L'orchestration (garde succès/échec) est une fonction PURE dans
+  // _publierVinted.ts, testée sans DOM ; ici on ne branche que les vrais
+  // effets de bord (événement DOM, ouverture d'onglet).
+  function publierVinted(f: ArticleEnCours) {
+    return orchestrerPublicationVinted(
+      f,
+      (id, statut) => enregistrer([id], statut),
+      (detail) => window.dispatchEvent(new CustomEvent("myflip:publier-vinted", { detail })),
+      () => window.open("https://www.vinted.fr/items/new", "_blank", "noopener,noreferrer"),
+    );
   }
 
   // ── Barre d'action ──────────────────────────────────────────────────────
@@ -550,6 +575,10 @@ export default function MiseEnVentePage() {
                 statut,
               )
             }
+            onPublierVinted={(id) => {
+              const f = etat.fiches.find((x) => x.id === id);
+              if (f) void publierVinted(f);
+            }}
             onEditerAnnonce={(id, champ, valeur) =>
               dispatch({ type: "annonce", id, champ, valeur })
             }

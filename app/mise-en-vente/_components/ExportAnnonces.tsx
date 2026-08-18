@@ -18,6 +18,7 @@ type Props = {
   enregistrementEnCours: boolean;
   onEnregistrer: (id: string, statut: string) => void;
   onEnregistrerTout: (statut: string) => void;
+  onPublierVinted: (id: string) => void;
   onEditerAnnonce: (
     id: string,
     champ: "titre" | "description" | "motsCles",
@@ -32,6 +33,7 @@ export default function ExportAnnonces({
   enregistrementEnCours,
   onEnregistrer,
   onEnregistrerTout,
+  onPublierVinted,
   onEditerAnnonce,
   onTelecharger,
 }: Props) {
@@ -201,11 +203,14 @@ export default function ExportAnnonces({
                   </div>
                 </div>
 
-                <a
-                  href="https://www.vinted.fr/items/new"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2.5 rounded-[14px] bg-[#09B1BA] px-4 py-3 transition-transform hover:-translate-y-0.5"
+                {/* `<button>`, pas `<a target="_blank">` : un lien ouvrirait
+                    l'onglet Vinted AU CLIC, avant que le PATCH asynchrone ait
+                    résolu. Un échec produirait quand même un onglet, orphelin
+                    côté extension — cf. _publierVinted.ts. */}
+                <button
+                  disabled={enregistrementEnCours}
+                  onClick={() => onPublierVinted(f.id)}
+                  className="flex w-full items-center gap-2.5 rounded-[14px] bg-[#09B1BA] px-4 py-3 transition-transform hover:-translate-y-0.5 disabled:opacity-50"
                 >
                   <span className="flex h-8 w-8 flex-none items-center justify-center rounded-[9px] bg-white/20 font-grotesk text-[15px] font-extrabold text-white">
                     V
@@ -214,7 +219,7 @@ export default function ExportAnnonces({
                     Publier sur Vinted
                   </span>
                   <ArrowRight className="ml-auto h-4 w-4 flex-none text-white" strokeWidth={2.3} />
-                </a>
+                </button>
               </div>
             </div>
           </div>
