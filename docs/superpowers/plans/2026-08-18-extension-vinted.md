@@ -1324,15 +1324,23 @@ Expected: FAIL — module introuvable.
 // extension-vinted/pairing.js
 //
 // Apparie chaque événement tabs.onCreated à son message de mise en file,
-// PAR openerTabId, dans l'ordre chronologique d'arrivée de chaque liste —
-// jamais "le premier onglet qui charge consomme la tête d'une file
-// générique" (bug trouvé en revue Design : ça mélange les articles quand
-// plusieurs onglets sont ouverts dans le désordre).
+// PAR openerTabId, par ordre CAUSAL — un message n'est éligible pour un
+// événement que si son ts est strictement antérieur à celui de l'événement,
+// parce que la séquence réelle est toujours : succès du PATCH → message de
+// mise en file envoyé → window.open() → tabs.onCreated. Jamais "le premier
+// onglet qui charge consomme la tête d'une file générique" (bug trouvé en
+// revue Design : ça mélange les articles quand plusieurs onglets sont
+// ouverts dans le désordre) — et jamais un simple appariement par RANG au
+// sein du même openerTabId non plus (un rang ignore l'ordre causal réel et
+// peut apparier un événement à un message qui n'existait pas encore quand
+// l'onglet a été créé).
 //
-// Un événement sans message correspondant pour son openerTabId (le PATCH a
-// échoué mais le clic avait déjà ouvert l'onglet avant la correction Eng —
-// ou tout autre cas non prévu) reste dans unmatchedEvents : il NE consomme
-// PAS le message suivant d'un autre openerTabId ou d'un rang différent.
+// Un événement sans message éligible (le plus ancien message non consommé
+// a un ts >= au sien, ou il n'en reste aucun) reste dans unmatchedEvents :
+// il NE consomme PAS le message suivant. C'est ce qui rend le mécanisme
+// robuste à un événement orphelin (PATCH échoué mais onglet quand même créé
+// avant la correction Eng, ou tout autre cas non prévu) sans avoir besoin
+// d'un mécanisme d'expiration par timeout séparé.
 
 export function pairEvents(tabCreatedEvents, queueMessages) {
   const pairs = [];
@@ -1361,16 +1369,22 @@ export function pairEvents(tabCreatedEvents, queueMessages) {
 
   for (const [openerTabId, eventIndexes] of eventsByOpener) {
     const messageIndexes = byOpener.get(openerTabId) ?? [];
-    const n = Math.min(eventIndexes.length, messageIndexes.length);
-    for (let k = 0; k < n; k++) {
-      const ei = eventIndexes[k];
-      const mi = messageIndexes[k];
-      pairs.push({
-        tabId: tabCreatedEvents[ei].tabId,
-        entryId: queueMessages[mi].entryId,
-      });
-      usedEventIndexes.add(ei);
-      usedMessageIndexes.add(mi);
+    let msgPtr = 0;
+    for (const ei of eventIndexes) {
+      const eventTs = tabCreatedEvents[ei].ts;
+      if (msgPtr < messageIndexes.length && queueMessages[messageIndexes[msgPtr]].ts < eventTs) {
+        const mi = messageIndexes[msgPtr];
+        pairs.push({
+          tabId: tabCreatedEvents[ei].tabId,
+          entryId: queueMessages[mi].entryId,
+        });
+        usedEventIndexes.add(ei);
+        usedMessageIndexes.add(mi);
+        msgPtr++;
+      }
+      // Sinon : aucun message éligible pour cet événement (le plus ancien
+      // message restant n'était pas encore là quand l'onglet a été créé) —
+      // l'événement reste orphelin, msgPtr n'avance pas.
     }
   }
 
@@ -1386,7 +1400,7 @@ export function pairEvents(tabCreatedEvents, queueMessages) {
 Run: `npx vitest run extension-vinted/pairing.test.js`
 Expected: PASS — 5/5 tests.
 
-(Le test « événement orphelin » du Step 1 est volontairement simple — il vérifie que l'appariement par rang au sein d'un même `openerTabId` protège déjà contre le décalage, sans avoir besoin d'un mécanisme d'expiration séparé : l'événement à `ts:10` n'a pas de message à son rang 0 qui lui corresponde puisque son seul message a `ts:15` et arrive rang 0 aussi — si ce test échoue avec l'implémentation ci-dessus, c'est le signal qu'un mécanisme d'expiration par timeout doit être ajouté ; ajuster l'implémentation avant de continuer, pas le test.)
+(Trace du test « événement orphelin » contre l'implémentation ci-dessus, vérifiée avant dispatch : événements triés `[{100,ts10},{101,ts20}]`, messages triés `[{second,ts15}]`. Pour l'événement `ts10` : `messages[0].ts=15 < 10` est faux → aucun message éligible, l'événement `100` reste orphelin, `msgPtr` n'avance pas. Pour l'événement `ts20` : `messages[0].ts=15 < 20` est vrai → apparié à `second`. Résultat : `{tabId:101, entryId:"second"}`, conforme à l'assertion du test. C'est la contrainte causale — un message n'est éligible que s'il est antérieur à l'événement — qui rend ce test correct, pas un simple appariement par rang.)
 
 - [ ] **Step 5: Commit**
 
