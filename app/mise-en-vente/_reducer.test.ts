@@ -222,6 +222,14 @@ describe("pré-remplissage du QCM depuis l'article", () => {
   });
 });
 
+describe("champ prix du QCM", () => {
+  it("met à jour le champ prix comme n'importe quel autre champ", () => {
+    let e = etatInitial("f0");
+    e = reducerMev(e, { type: "qcm", id: "f0", champ: "prix", valeur: "22" });
+    expect(e.fiches[0].qcm.prix).toBe("22");
+  });
+});
+
 describe("prompt par article", () => {
   it("chaque fiche porte son propre promptId", () => {
     let e = etatA(2);

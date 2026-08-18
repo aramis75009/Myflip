@@ -9,7 +9,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FileText, Plus, RotateCcw, RotateCw, Upload, X, ZoomIn } from "lucide-react";
+import { usePrixReferences } from "@/lib/hooks";
 import { ETATS, MATIERES_SUGGESTIONS, TAILLES } from "@/lib/listingOptions";
+import { pickPrix } from "@/lib/pickPrix";
 import type { PromptTemplateDTO } from "@/lib/types";
 import { fichiersImages } from "../_fichiers";
 import {
@@ -117,6 +119,26 @@ export default function FicheArticle({
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
   }, [active]);
+
+  // Prix suggéré — pré-rempli depuis les prix de référence dès que marque et
+  // catégorie sont connues (détectées au lookup SKU, ou changées à la main).
+  //
+  // Ce composant n'existe QUE quand `fiche.article` est résolu (page.tsx ne le
+  // monte pas avant) : cet effet ne peut donc jamais tourner sur une fiche pas
+  // encore rattachée à un article, et ne verrouille jamais un prix par défaut
+  // avant que marque/catégorie soient réellement connues.
+  //
+  // Invariant : ne JAMAIS écraser un `qcm.prix` non vide, qu'il vienne d'une
+  // saisie manuelle ou d'un pré-remplissage précédent — une fois posé, le champ
+  // devient la source de vérité et cesse d'être suivi.
+  const { data: prixRefs = [] } = usePrixReferences();
+  const onQcmRef = useRef(onQcm);
+  onQcmRef.current = onQcm;
+  useEffect(() => {
+    if (qcm.prix !== "") return;
+    const match = pickPrix(prixRefs, qcm.marque || null, qcm.categorie || null);
+    if (match) onQcmRef.current("prix", String(match.prix));
+  }, [qcm.marque, qcm.categorie, qcm.prix, prixRefs]);
 
   // Glisser-déposer. Sans `preventDefault` sur `dragover`, le navigateur refuse
   // le dépôt et se contente d'ouvrir le fichier à la place de la page — il
@@ -465,6 +487,20 @@ export default function FicheArticle({
               ))}
             </select>
           )}
+        </div>
+
+        <div className={`${cardCls} p-5 md:px-6`}>
+          <label className={labelCls}>Prix suggéré</label>
+          <input
+            type="number"
+            min={0}
+            step={0.5}
+            inputMode="decimal"
+            value={qcm.prix}
+            onChange={(e) => onQcm("prix", e.target.value)}
+            placeholder="0,00"
+            className={`${inputCls} mt-2 font-mono`}
+          />
         </div>
       </div>
     </div>

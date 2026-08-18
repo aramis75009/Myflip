@@ -83,6 +83,7 @@ export type Qcm = {
   matiere: string;
   matiere2: string;
   details: string;
+  prix: string;
 };
 
 export type Photo = {
@@ -191,6 +192,7 @@ const QCM_VIDE: Qcm = {
   matiere: "",
   matiere2: "",
   details: "",
+  prix: "",
 };
 
 export function ficheVide(id: string): ArticleEnCours {
