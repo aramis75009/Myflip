@@ -220,6 +220,23 @@ export default function ExportAnnonces({
                   </span>
                   <ArrowRight className="ml-auto h-4 w-4 flex-none text-white" strokeWidth={2.3} />
                 </button>
+
+                <button
+                  onClick={() =>
+                    copier(
+                      `${f.id}-tout`,
+                      `${f.annonce.titre}\n\n${f.annonce.description}\n\n${f.annonce.motsCles}`
+                    )
+                  }
+                  className="inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-surface text-[13px] font-semibold text-[var(--ink2)] transition-colors hover:border-[var(--border-strong)]"
+                >
+                  {copie === `${f.id}-tout` ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                  Copier tout
+                </button>
               </div>
             </div>
           </div>
