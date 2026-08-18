@@ -202,6 +202,8 @@ export async function PUT(req: NextRequest) {
     // ou nul ; si les deux sont présentes et non nulles, le minimum doit être
     // strictement inférieur au maximum — sinon la fourchette ne veut rien dire.
     if ("delaiVintedMinMinutes" in body || "delaiVintedMaxMinutes" in body) {
+      const minPresent = "delaiVintedMinMinutes" in body;
+      const maxPresent = "delaiVintedMaxMinutes" in body;
       const min = body.delaiVintedMinMinutes;
       const max = body.delaiVintedMaxMinutes;
       const minN = min == null ? null : Number(min);
@@ -214,14 +216,38 @@ export async function PUT(req: NextRequest) {
           { status: 400 },
         );
       }
-      if (minN != null && maxN != null && minN >= maxN) {
+
+      // Une mise à jour PARTIELLE (une seule borne dans le corps) doit être
+      // comparée à la valeur DÉJÀ EN BASE pour l'autre borne, pas seulement
+      // aux champs présents dans la requête. Sans ça, un appelant qui n'envoie
+      // que `delaiVintedMinMinutes` pourrait faire passer le minimum au-dessus
+      // d'un maximum déjà enregistré, sans jamais déclencher ce contrôle —
+      // aucun caller actuel ne fait d'update partiel (l'UI envoie toujours les
+      // deux bornes), mais la route reste exposée telle quelle à un futur
+      // appelant qui le ferait.
+      let effectiveMin = minN;
+      let effectiveMax = maxN;
+      if (!minPresent || !maxPresent) {
+        const existant = await prisma.userSettings.findUnique({
+          where: { userId },
+          select: { delaiVintedMinMinutes: true, delaiVintedMaxMinutes: true },
+        });
+        if (!minPresent) effectiveMin = existant?.delaiVintedMinMinutes ?? null;
+        if (!maxPresent) effectiveMax = existant?.delaiVintedMaxMinutes ?? null;
+      }
+
+      if (
+        effectiveMin != null &&
+        effectiveMax != null &&
+        effectiveMin >= effectiveMax
+      ) {
         return NextResponse.json(
           { error: "Le délai minimum doit être inférieur au maximum." },
           { status: 400 },
         );
       }
-      if ("delaiVintedMinMinutes" in body) data.delaiVintedMinMinutes = minN;
-      if ("delaiVintedMaxMinutes" in body) data.delaiVintedMaxMinutes = maxN;
+      if (minPresent) data.delaiVintedMinMinutes = minN;
+      if (maxPresent) data.delaiVintedMaxMinutes = maxN;
     }
 
     if (Object.keys(data).length === 0) {

@@ -17,7 +17,7 @@ import { useReglages, useSetDelaiVinted } from "@/lib/hooks";
 const labelCls =
   "font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--faint)]";
 const inputCls =
-  "min-h-[44px] w-full rounded-[16px] border border-[var(--border)] bg-[var(--surface-2)] px-4 text-[14px] text-[var(--ink)] outline-none transition-colors focus:border-[var(--acc)]";
+  "min-h-[44px] w-full rounded-[16px] border border-[var(--border)] bg-[var(--surface-2)] px-4 text-[14px] text-[var(--ink)] outline-none transition-colors focus:border-[var(--acc)] disabled:cursor-not-allowed disabled:opacity-60";
 
 /** Chaîne de saisie → entier ou `null` (champ vide = borne non réglée). */
 function versNombre(v: string): number | null {
@@ -50,11 +50,29 @@ export default function ExtensionVinted() {
     );
   }, [reglages, touche]);
 
-  // Les deux bornes s'envoient toujours ensemble : la validation serveur
-  // (min < max) ne compare que les champs présents dans la requête, jamais
-  // une valeur déjà en base. Un `onBlur` sur un seul des deux champs enverrait
-  // un min neuf sans le comparer au max qui vient d'être tapé, ou l'inverse.
+  // Tant que le premier chargement n'a pas résolu, `min`/`max` valent encore
+  // "" par défaut — pas parce que rien n'est réglé côté serveur, mais parce
+  // que la réponse n'est pas encore arrivée. Bloquer la saisie jusque-là (champs
+  // désactivés plus bas) : sinon, taper puis quitter un champ avant la fin du
+  // GET enverrait `null` pour l'autre borne et écraserait une valeur déjà
+  // enregistrée (cf. revue). Une fois `pretAModifier` vrai, l'effet ci-dessus a
+  // déjà tourné avant que l'utilisateur ait pu interagir (les champs étaient
+  // désactivés jusque-là) : `min`/`max` reflètent alors soit le serveur, soit
+  // une saisie déjà en cours — jamais un vide accidentel. Une valeur locale
+  // vide à ce stade est donc une intention explicite de l'utilisateur
+  // (effacer la borne), pas un défaut de synchronisation : on ne doit PAS la
+  // remplacer par l'ancienne valeur serveur, sinon « vider le champ » ne
+  // s'enregistrerait jamais.
+  const pretAModifier = reglages != null;
+
+  // Les deux bornes s'envoient toujours ensemble, même si la route accepte
+  // désormais une mise à jour partielle (elle va relire l'autre borne en base
+  // pour la comparaison min < max — cf. app/api/user/settings/route.ts). Les
+  // envoyer toutes les deux reste plus simple à raisonner ici : la valeur
+  // comparée est alors exactement celle affichée à l'écran, jamais une valeur
+  // en base que l'utilisateur ne voit pas au moment du blur.
   function enregistrerFourchette() {
+    if (!pretAModifier) return;
     enregistrer.mutate(
       {
         delaiVintedMinMinutes: versNombre(min),
@@ -95,6 +113,7 @@ export default function ExtensionVinted() {
             min={0}
             step={1}
             value={min}
+            disabled={!pretAModifier}
             onChange={(e) => {
               setTouche(true);
               setMin(e.target.value);
@@ -115,6 +134,7 @@ export default function ExtensionVinted() {
             min={0}
             step={1}
             value={max}
+            disabled={!pretAModifier}
             onChange={(e) => {
               setTouche(true);
               setMax(e.target.value);
