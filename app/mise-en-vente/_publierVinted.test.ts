@@ -18,7 +18,15 @@ const article = (extra: Partial<ArticleDTO> = {}): ArticleDTO =>
 const photo = (id: string) =>
   ({ id, base: null, rotation: 0, url: `blob:${id}`, blob: { id } as unknown as Blob });
 
-/** Fiche prête pour l'export : article résolu, annonce générée, une photo. */
+/**
+ * Fiche prête pour l'export : article résolu, annonce générée, une photo.
+ *
+ * `id: "f0"` (identité CLIENT, cf. _reducer.ts) et `article.id: "art_PRL1"`
+ * (identité BASE) sont délibérément DIFFÉRENTS — c'est ce qui permet aux
+ * tests ci-dessous de distinguer un appel avec le bon id d'un appel avec
+ * l'autre. Un vrai bug de prod (`f.article.id` passé à la place de `f.id`)
+ * les a un temps confondus : cf. le fix documenté dans task-8-report.md.
+ */
 function ficheDeTest(): ArticleEnCours {
   return {
     ...ficheVide("f0"),
@@ -49,7 +57,11 @@ describe("publierVinted — invariant critique : PATCH gate l'onglet", () => {
       ouvrirOnglet,
     );
 
-    expect(enregistrerUn).toHaveBeenCalledWith("art_PRL1", "Brouillon");
+    // f.id ("f0"), PAS f.article.id ("art_PRL1") : c'est l'id CLIENT que
+    // `enregistrer()` (page.tsx) résout via `fiches.find((x) => x.id === id)`.
+    // Lui passer l'id article ne matche jamais aucune fiche : la publication
+    // deviendrait alors structurellement impossible en prod (bug déjà vécu).
+    expect(enregistrerUn).toHaveBeenCalledWith("f0", "Brouillon");
     expect(emettreEvenement).not.toHaveBeenCalled();
     expect(ouvrirOnglet).not.toHaveBeenCalled();
     expect(resultat).toBe(false);
@@ -68,12 +80,27 @@ describe("publierVinted — invariant critique : PATCH gate l'onglet", () => {
       ouvrirOnglet,
     );
 
+    expect(enregistrerUn).toHaveBeenCalledWith("f0", "Brouillon");
     expect(emettreEvenement).toHaveBeenCalledTimes(1);
     expect(ouvrirOnglet).toHaveBeenCalledTimes(1);
     // L'événement précède l'ouverture : l'extension doit pouvoir capter le
     // detail avant que l'onglet Vinted n'existe.
     expect(appels).toEqual(["evenement", "onglet"]);
     expect(resultat).toBe(true);
+  });
+
+  it("passe l'id CLIENT de la fiche à enregistrerUn, jamais l'id article — régression du bug de prod", async () => {
+    // Garde de fixture : si quelqu'un aligne un jour `id` et `article.id`
+    // dans `ficheDeTest()`, ce test ne prouverait plus rien — on le vérifie
+    // explicitement pour que ce cas-là échoue bruyamment plutôt qu'en silence.
+    const f = ficheDeTest();
+    expect(f.id).not.toBe(f.article!.id);
+
+    const enregistrerUn = vi.fn().mockResolvedValue(true);
+    await publierVinted(f, enregistrerUn, vi.fn(), vi.fn());
+
+    expect(enregistrerUn).toHaveBeenCalledWith(f.id, "Brouillon");
+    expect(enregistrerUn).not.toHaveBeenCalledWith(f.article!.id, "Brouillon");
   });
 
   it("ne tente même pas l'enregistrement si la fiche n'a pas d'article", async () => {

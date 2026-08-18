@@ -56,7 +56,13 @@ export async function publierVinted(
   ouvrirOnglet: () => void,
 ): Promise<boolean> {
   if (!f.article) return false;
-  const succes = await enregistrerUn(f.article.id, "Brouillon");
+  // ⚠️ `f.id` — l'identité CLIENT de la fiche (cf. _reducer.ts), PAS
+  // `f.article.id`. `enregistrer()` (page.tsx) résout ses ids via
+  // `etatRef.current.fiches.find((x) => x.id === id)` : lui passer
+  // `f.article.id` ne matche jamais aucune fiche, la boucle `continue`
+  // silencieusement, aucun PATCH ne part, et `enregistrer()` renvoie
+  // toujours `false` — la publication devient structurellement impossible.
+  const succes = await enregistrerUn(f.id, "Brouillon");
   if (!succes) return false;
   emettreEvenement(detailPublicationVinted(f));
   ouvrirOnglet();
