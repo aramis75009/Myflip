@@ -14,19 +14,108 @@
 //      qui n'a pas d'API MyFlip dédiée pour les lire (cf. commentaire
 //      lireDelaiRegle() dans background.js).
 //
-// `location.pathname` est lu une seule fois à l'injection. Une navigation
-// SPA (next/link) d'une page matchée vers l'autre sans rechargement complet
-// ne re-déclenche pas ce script — limite connue, sans impact pratique tant
-// que l'utilisateur charge /compte au moins une fois par changement (accès
-// direct, rafraîchissement, ou navigation depuis une page NON matchée par
-// l'extension).
+// MyFlip navigue en SPA (components/Sidebar.tsx utilise next/link) : un
+// content script s'injecte une fois par CHARGEMENT DE PAGE RÉEL, pas par
+// changement de route côté client. Un utilisateur qui atterrit sur une page
+// non matchée (ex. /dashboard après connexion) puis clique vers
+// /mise-en-vente dans la sidebar ne provoque donc PAS une nouvelle
+// injection — si on ne lisait `location.pathname` qu'une fois au chargement
+// du script, l'écouteur de publication ne s'attacherait jamais dans ce
+// parcours pourtant normal (trouvé en revue, fix round 1 de cette tâche).
+// `reagirALaRoute()` est donc ré-évaluée à chaque navigation détectée, pas
+// seulement à l'injection.
+let publicationEcoutee = false; // écouteur "myflip:publier-vinted" posé une seule fois pour toute la vie du script
+let compteSyncEnCours = false; // synchroniserDelaiVinted() actif pour la visite COURANTE de /compte
+let nettoyerCompteSync = null; // déconnecte les observers de la visite /compte précédente en la quittant
 
-if (location.pathname.startsWith("/mise-en-vente")) {
-  ecouterPublicationVinted();
+reagirALaRoute();
+demarrerDetectionNavigationSpa(reagirALaRoute);
+
+function reagirALaRoute() {
+  const chemin = location.pathname;
+
+  if (chemin.startsWith("/mise-en-vente") && !publicationEcoutee) {
+    ecouterPublicationVinted();
+    publicationEcoutee = true;
+  }
+
+  if (chemin.startsWith("/compte")) {
+    if (!compteSyncEnCours) {
+      compteSyncEnCours = true;
+      nettoyerCompteSync = synchroniserDelaiVinted();
+    }
+  } else if (compteSyncEnCours) {
+    // On quitte /compte : les <input> de la visite précédente vont être
+    // démontées par React (nouvelle visite = nouveaux noeuds DOM plus tard),
+    // donc rien à observer entre-temps. Sans ce nettoyage, un observer
+    // encore en attente d'éléments (jamais trouvés) continuerait à réagir à
+    // des mutations DOM sans rapport sur la nouvelle page jusqu'à son
+    // timeout interne.
+    compteSyncEnCours = false;
+    nettoyerCompteSync?.();
+    nettoyerCompteSync = null;
+  }
 }
 
-if (location.pathname.startsWith("/compte")) {
-  synchroniserDelaiVinted();
+/**
+ * Détecte les navigations SPA (next/link, sans rechargement complet) pour
+ * que `reagirALaRoute()` soit ré-évaluée à chaque changement de route.
+ *
+ * `history.pushState`/`replaceState` sont patchés DANS LE CONTEXTE DE LA
+ * PAGE (via un <script> injecté), pas depuis ce content script directement.
+ * Raison : la "Xray vision" de Firefox fait qu'une réaffectation directe de
+ * `history.pushState = ...` depuis un content script crée une propriété
+ * expando visible uniquement de ce content script — le vrai
+ * `history.pushState` que Next.js appelle resterait l'original, non
+ * intercepté (confirmé via la doc Mozilla sur Xray vision / "Sharing
+ * objects with page scripts" ; la variante correcte depuis un content
+ * script demanderait `window.wrappedJSObject` + `exportFunction`, plus
+ * fragile qu'un <script> inline pour ce cas précis). Un <script> injecté
+ * s'exécute nativement dans le monde de la page : le patch y est visible
+ * par construction, sans API Firefox spécifique. Site sans CSP (vérifié :
+ * aucun header Content-Security-Policy dans next.config.mjs, middleware.ts
+ * ou vercel.json), donc pas de risque de blocage silencieux de ce script
+ * inline par une directive script-src.
+ *
+ * Le pont retour vers ce content script (isolé du contexte page) est le
+ * même mécanisme déjà utilisé et vérifié dans ce fichier pour
+ * "myflip:publier-vinted" : un événement DOM sur `window`, qui traverse
+ * la frontière d'isolation dans les deux sens.
+ */
+function demarrerDetectionNavigationSpa(onChange) {
+  injecterInterceptionHistorique();
+  window.addEventListener("popstate", onChange);
+  window.addEventListener("myflip:locationchange", onChange);
+}
+
+function injecterInterceptionHistorique() {
+  const script = document.createElement("script");
+  script.textContent = `(${patchHistoriquePage.toString()})();`;
+  (document.head || document.documentElement).appendChild(script);
+  script.remove();
+}
+
+/**
+ * Exécuté dans le contexte de la PAGE (via injecterInterceptionHistorique),
+ * pas celui de ce content script — ne référencer ni `browser`, ni aucune
+ * variable du scope englobant : le corps de cette fonction est stringifié
+ * et rejoué tel quel dans un autre monde JS.
+ */
+function patchHistoriquePage() {
+  const original = {
+    pushState: history.pushState,
+    replaceState: history.replaceState,
+  };
+  history.pushState = function (...args) {
+    const r = original.pushState.apply(this, args);
+    window.dispatchEvent(new Event("myflip:locationchange"));
+    return r;
+  };
+  history.replaceState = function (...args) {
+    const r = original.replaceState.apply(this, args);
+    window.dispatchEvent(new Event("myflip:locationchange"));
+    return r;
+  };
 }
 
 /**
@@ -60,46 +149,74 @@ function ecouterPublicationVinted() {
  * Pas d'API dédiée pour lire UserSettings.delaiVintedMinMinutes/MaxMinutes
  * depuis l'extension (invariant du design) : seule source disponible, le
  * DOM des deux <input> de /compte (id stables `delai-vinted-min` /
- * `delai-vinted-max`, cf. ExtensionVinted.tsx). Ces champs sont désactivés
- * tant que le premier GET des réglages n'a pas résolu (pretAModifier) — on
- * n'écrit donc rien tant qu'ils sont `disabled`, pour ne jamais écraser une
- * valeur déjà enregistrée en storage par un vide de chargement transitoire.
+ * `delai-vinted-max`, cf. ExtensionVinted.tsx).
  *
- * Signal d'écriture : l'événement "change" natif des deux <input>, qui
- * couvre à la fois la perte de focus après saisie (le même moment où
- * ExtensionVinted.tsx déclenche sa propre sauvegarde via onBlur) et un
- * ajustement au clavier/spinner sans blur. Une synchronisation initiale est
- * aussi faite dès que les champs apparaissent activés, pour couvrir le cas
- * où Aramis visite /compte sans rien modifier (les valeurs déjà
- * enregistrées côté serveur doivent quand même atteindre le storage de
- * l'extension).
+ * Deux signaux d'écriture distincts, car ils couvrent deux moments
+ * différents :
+ *   - "change" natif sur chaque <input> : édition manuelle, même moment que
+ *     l'onBlur qui déclenche la sauvegarde serveur côté ExtensionVinted.tsx.
+ *   - transition `disabled` → activé : chargement initial. Les deux champs
+ *     sont `disabled` et vides tant que le premier GET de useReglages()
+ *     n'a pas résolu (pretAModifier) ; ce flip est piloté par React comme
+ *     attribut DOM, pas un événement "change", donc guetté séparément via
+ *     un second MutationObserver dédié à l'attribut `disabled`. Sans ce
+ *     second signal, visiter /compte sans rien modifier ne copiait jamais
+ *     les valeurs déjà enregistrées côté serveur vers le storage de
+ *     l'extension — trouvé en revue, fix round 1 de cette tâche.
+ *
+ * Renvoie une fonction de nettoyage qui déconnecte les observers encore
+ * actifs (appelée par reagirALaRoute() en quittant /compte).
  */
 function synchroniserDelaiVinted() {
   const TIMEOUT_MS = 20_000;
   const debut = Date.now();
+  let attache = false;
+  let attrObserver = null;
 
   const observer = new MutationObserver(essayerAttacher);
   observer.observe(document.documentElement, { childList: true, subtree: true });
   essayerAttacher();
 
   function essayerAttacher() {
+    if (attache) return;
     const champMin = document.getElementById("delai-vinted-min");
     const champMax = document.getElementById("delai-vinted-max");
     if (!(champMin instanceof HTMLInputElement) || !(champMax instanceof HTMLInputElement)) {
       if (Date.now() - debut > TIMEOUT_MS) observer.disconnect();
       return;
     }
-    observer.disconnect();
+    attache = true;
+    observer.disconnect(); // plus besoin de guetter l'apparition des champs
 
     const synchroniser = () => copierDelaiVersStorage(champMin, champMax);
     champMin.addEventListener("change", synchroniser);
     champMax.addEventListener("change", synchroniser);
-    // Sync initiale : uniquement si les champs sont déjà activés (données
-    // chargées), sinon on attend le prochain "change" — inutile de poller,
-    // le premier changement utile viendra soit de l'utilisateur, soit ne
-    // viendra jamais (rien à copier de toute façon).
-    if (!champMin.disabled && !champMax.disabled) synchroniser();
+
+    if (!champMin.disabled && !champMax.disabled) {
+      // Déjà activés (données chargées avant que ce content script ait fini
+      // de chercher les champs) : sync immédiate, rien d'autre à observer.
+      synchroniser();
+      return;
+    }
+    // Encore désactivés : guetter la transition disabled → activé.
+    // "disabled" est un attribut booléen réfléchi par le DOM (contrairement
+    // à `value`/`checked`) — que React le pose via la propriété IDL ou via
+    // setAttribute, le navigateur reflète toujours l'attribut en conséquence,
+    // donc cet observer se déclenche de façon fiable dans les deux cas.
+    attrObserver = new MutationObserver(() => {
+      if (champMin.disabled || champMax.disabled) return;
+      attrObserver.disconnect();
+      attrObserver = null;
+      synchroniser();
+    });
+    attrObserver.observe(champMin, { attributes: true, attributeFilter: ["disabled"] });
+    attrObserver.observe(champMax, { attributes: true, attributeFilter: ["disabled"] });
   }
+
+  return () => {
+    observer.disconnect();
+    attrObserver?.disconnect();
+  };
 }
 
 /** Chaîne de saisie → entier ou `null` (champ vide = borne non réglée). Même
