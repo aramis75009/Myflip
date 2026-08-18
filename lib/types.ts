@@ -48,6 +48,16 @@ export type PromptTemplateDTO = {
   updatedAt: string; // ISO
 };
 
+export type PrixReferenceDTO = {
+  id: string;
+  marque: string | null;
+  categorie: string | null;
+  prix: number;
+  estDefaut: boolean;
+  createdAt: string; // ISO
+  updatedAt: string; // ISO
+};
+
 export type CommandeDTO = {
   id: string;
   date: string;
