@@ -358,6 +358,7 @@ export default function MiseEnVentePage() {
             titreAnnonce: f.annonce.titre,
             descriptionAnnonce: f.annonce.description,
             motsClesAnnonce: f.annonce.motsCles,
+            prixVente: f.qcm.prix ? Number(f.qcm.prix) : undefined,
             statut,
           },
           // `statut` déclenche quatre invalidations par patch : à cinq
