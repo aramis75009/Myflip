@@ -14,6 +14,6 @@ export default defineConfig({
   plugins: [tsconfigPaths()],
   test: {
     environment: "node",
-    include: ["lib/**/*.test.ts", "app/**/*.test.ts"],
+    include: ["lib/**/*.test.ts", "app/**/*.test.ts", "extension-vinted/**/*.test.js"],
   },
 });
