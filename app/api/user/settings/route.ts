@@ -80,6 +80,9 @@ type Body = Partial<
   objectifMensuel?: number | null;
   onboardingEtape?: number;
   onboardingTermine?: boolean;
+  // Extension Vinted (18/08/2026) : fourchette de délai anti-ban.
+  delaiVintedMinMinutes?: number | null;
+  delaiVintedMaxMinutes?: number | null;
 };
 
 /**
@@ -122,6 +125,8 @@ export async function GET() {
       objectifMensuel: s?.objectifMensuel ?? null,
       onboardingEtape: s?.onboardingEtape ?? 1,
       onboardingTermine: s?.onboardingTermine ?? false,
+      delaiVintedMinMinutes: s?.delaiVintedMinMinutes ?? null,
+      delaiVintedMaxMinutes: s?.delaiVintedMaxMinutes ?? null,
       // D'où vient la valeur réellement utilisée : du compte, ou de
       // l'application. C'est ce qui permet d'afficher « tu utilises la clé de
       // l'app » plutôt que de laisser croire que rien n'est configuré.
@@ -190,6 +195,33 @@ export async function PUT(req: NextRequest) {
       const n = Number(body.objectifMensuel);
       data.objectifMensuel =
         body.objectifMensuel == null || !Number.isFinite(n) || n < 0 ? null : n;
+    }
+
+    // Extension Vinted : fourchette de délai anti-ban avant remplissage
+    // automatique. Chaque borne, indépendamment, doit être un entier positif
+    // ou nul ; si les deux sont présentes et non nulles, le minimum doit être
+    // strictement inférieur au maximum — sinon la fourchette ne veut rien dire.
+    if ("delaiVintedMinMinutes" in body || "delaiVintedMaxMinutes" in body) {
+      const min = body.delaiVintedMinMinutes;
+      const max = body.delaiVintedMaxMinutes;
+      const minN = min == null ? null : Number(min);
+      const maxN = max == null ? null : Number(max);
+      const invalide = (n: number | null) =>
+        n != null && (!Number.isInteger(n) || n < 0);
+      if (invalide(minN) || invalide(maxN)) {
+        return NextResponse.json(
+          { error: "Délai invalide : un entier positif, ou vide." },
+          { status: 400 },
+        );
+      }
+      if (minN != null && maxN != null && minN >= maxN) {
+        return NextResponse.json(
+          { error: "Le délai minimum doit être inférieur au maximum." },
+          { status: 400 },
+        );
+      }
+      if ("delaiVintedMinMinutes" in body) data.delaiVintedMinMinutes = minN;
+      if ("delaiVintedMaxMinutes" in body) data.delaiVintedMaxMinutes = maxN;
     }
 
     if (Object.keys(data).length === 0) {

@@ -7,6 +7,7 @@ import { Lock } from "lucide-react";
 import { toast } from "sonner";
 import { CardTitle, Frame, Module } from "@/components/console";
 import Integrations from "@/components/compte/Integrations";
+import ExtensionVinted from "@/components/compte/ExtensionVinted";
 import { useObjectifMensuel } from "@/lib/hooks";
 import { euros } from "@/lib/calc";
 
@@ -168,6 +169,8 @@ export default function ComptePage() {
       </section>
 
       <Integrations />
+
+      <ExtensionVinted />
     </Frame>
   );
 }

@@ -114,6 +114,12 @@ model UserSettings {
   onboardingEtape   Int     @default(1)
   onboardingTermine Boolean @default(false)
 
+  // Extension Vinted (18/08/2026) : fourchette de délai anti-ban avant
+  // remplissage automatique. Nullable, PAS de défaut — Aramis choisit sa
+  // propre fourchette ; un délai implicite de 0 annulerait le garde-fou.
+  delaiVintedMinMinutes Int?
+  delaiVintedMaxMinutes Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

@@ -268,6 +268,30 @@ export function useSetObjectif() {
   });
 }
 
+/**
+ * Fourchette de délai anti-ban de l'extension Vinted (en minutes).
+ *
+ * Les deux bornes s'envoient toujours ensemble, jamais une seule à la fois :
+ * la validation serveur (min < max) ne compare que les champs présents dans
+ * le corps de la requête, pas la valeur déjà enregistrée. Envoyer les deux à
+ * chaque `onBlur` évite qu'un changement du max, seul, échappe à la
+ * comparaison avec un min resté en base.
+ */
+export function useSetDelaiVinted() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (delai: {
+      delaiVintedMinMinutes: number | null;
+      delaiVintedMaxMinutes: number | null;
+    }) =>
+      jsonFetch<{ ok: true }>("/api/user/settings", {
+        method: "PUT",
+        body: JSON.stringify(delai),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["reglages"] }),
+  });
+}
+
 // ---------- Commandes ----------
 
 /**

@@ -380,6 +380,13 @@ export type UserSettingsDTO = {
   /** Étape en cours du parcours de démarrage (1 à 3). */
   onboardingEtape: number;
   onboardingTermine: boolean;
+  /**
+   * Fourchette de délai anti-ban (en minutes) avant remplissage automatique
+   * d'un nouvel onglet Vinted par l'extension. Nullable, sans défaut : tant
+   * qu'elle n'est pas réglée, l'extension ne remplit rien (garde-fou).
+   */
+  delaiVintedMinMinutes: number | null;
+  delaiVintedMaxMinutes: number | null;
   source: {
     openrouter: SourceReglage;
     trello: SourceTrello;
