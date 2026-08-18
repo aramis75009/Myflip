@@ -12,6 +12,7 @@ import type {
   CompteVente,
   DashboardDTO,
   NotificationsDTO,
+  PrixReferenceDTO,
   PromptTemplateDTO,
   StatsDTO,
   UserSettingsDTO,
@@ -471,6 +472,55 @@ export function useDeletePrompt() {
     mutationFn: (id: string) =>
       jsonFetch<{ ok: true }>(`/api/prompts/${id}`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["prompts"] }),
+  });
+}
+
+// ---------- Prix de référence (Extension Vinted) ----------
+
+export type PrixInput = {
+  marque: string | null;
+  categorie: string | null;
+  prix: number;
+  estDefaut: boolean;
+};
+
+export function usePrixReferences() {
+  return useQuery({
+    queryKey: ["prixReferences"],
+    queryFn: () => jsonFetch<PrixReferenceDTO[]>("/api/prix"),
+  });
+}
+
+export function useCreatePrix() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: PrixInput) =>
+      jsonFetch<PrixReferenceDTO>("/api/prix", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["prixReferences"] }),
+  });
+}
+
+export function useUpdatePrix() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Partial<PrixInput> }) =>
+      jsonFetch<PrixReferenceDTO>(`/api/prix/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["prixReferences"] }),
+  });
+}
+
+export function useDeletePrix() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      jsonFetch<{ ok: true }>(`/api/prix/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["prixReferences"] }),
   });
 }
 
