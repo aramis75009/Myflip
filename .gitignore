@@ -47,3 +47,6 @@ scripts/init-user.mjs
 # État local gstack
 .gstack/
 .env*
+
+# Worktrees créés par Claude Code : outillage local, pas du projet.
+.claude/worktrees/
