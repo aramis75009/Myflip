@@ -117,6 +117,34 @@ SDK Resend, expéditeur `onboarding@resend.dev`. Requiert `RESEND_API_KEY` dans 
 - `/api/chat` — chatbot IA
 - `/api/webhooks/trello` — intégration Trello
 
+### API Hermes — `/api/hermes/*`
+
+Petite API **hors session**, consommée par l'agent de sourcing Hermes qui tourne
+sur un serveur tiers. Authentification par jeton porteur (`Authorization: Bearer`),
+comparé en temps constant à `HERMES_API_TOKEN` ; le compte visé est
+`HERMES_USER_EMAIL`, **jamais choisi par l'appelant** — sinon le jeton serait une
+clé passe-partout sur toute la base. Sans ces deux variables : **503**, jamais un
+accès libre.
+
+- `GET  /api/hermes` — contrôle de configuration : compte visé, volumes, statuts autorisés, liste des routes
+- `GET  /api/hermes/commandes` — commandes récentes + décompte par statut (filtres `fournisseur`, `depuis`, pagination)
+- `POST /api/hermes/commandes` — crée commande + lots + articles, renvoie les SKU générés
+- `GET  /api/hermes/commandes/{id}` — la commande, ses lots, ses articles et leur statut
+- `GET  /api/hermes/stock` — stock filtré (`statut`, `sku`, `q`, `commandeId`, `marque`, `categorie`, `lot`, pagination)
+- `POST /api/hermes/stock/statut` — change le statut d'articles désignés par `skus` ou `commandeId`
+
+⚠️ **Surface d'écriture volontairement close : deux actions, pas une de plus.**
+Aucune route de suppression, aucune modification de champ arbitraire, et « Vendu »
+est refusé (il exige un prix — ça passe par la validation comptable). Ne pas
+élargir sans demande explicite : c'est la contrepartie d'un jeton qui vit sur une
+machine hors du périmètre.
+
+⚠️ **Le code métier n'est PAS dupliqué.** Ces routes appellent `creerCommande`
+(`lib/commandes.ts`) et `changerStatutArticles` (`lib/stock.ts`), les mêmes
+fonctions que le formulaire « Nouvelle commande » et que la barre d'action groupée
+du Stock. Toute évolution de la génération des SKU ou du prorata des frais de port
+se fait là, une seule fois.
+
 ---
 
 ## 🧩 Composants clés
@@ -302,6 +330,8 @@ TRELLO_API_KEY          # clé de l'APPLICATION MyFlip (trello.com/power-ups/adm
 TRELLO_API_SECRET       # « OAuth Secret » : signe l'OAuth et valide les webhooks
 RESEND_API_KEY
 DATABASE_URL            # Neon PostgreSQL (dans .env, géré par Vercel/Prisma)
+HERMES_API_TOKEN        # API Hermes : jeton porteur. Absente = /api/hermes/* répond 503
+HERMES_USER_EMAIL       # API Hermes : compte MyFlip sur lequel l'agent écrit
 ```
 
 ⚠️ **`ENCRYPTION_KEY` perdue = tous les secrets de `UserSettings` illisibles.** La
