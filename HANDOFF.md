@@ -119,60 +119,66 @@ Rien côté agent. Les trois points restants demandent tous un navigateur ou une
 décision d'Aramis : relever le DOM de `vinted.fr/items/new` (R3), trancher R12,
 et appliquer les deux migrations Prisma en production avant toute fusion.
 
-## Revue finale — LANCÉE, RÉSULTATS NON RÉCUPÉRÉS
+## Revue finale — Lane A RENDUE, Lane B JAMAIS FAITE
 
-Deux relecteurs Opus ont été dispatchés le 04/09 sur `main..worktree-extension-vinted`
-(base `ed917d6`, head `52dad5e`), un par lane. **La session s'est arrêtée avant
-qu'ils rendent : leurs conclusions n'existent nulle part.** Elles sont à
-refaire.
+**Lane A (MyFlip) : rapport rendu**, dans
+`docs/audits/2026-09-04-revue-finale-lane-a.md`. Verdict : *fusionnable avec
+corrections*. Un constat critique (C1), sept importants, une quinzaine de
+mineurs, et l'infrastructure jugée saine.
 
-Recette exacte, pour les relancer :
+**C1 — le prix n'est jamais enregistré.** `deriveVente()` renvoie
+`prixVente: null` pour tout statut différent de `Vendu`, et
+`app/api/articles/[id]/route.ts:117` écrit cette valeur sans condition.
+`enregistrer()` n'envoie que « Brouillon » ou « En vente ». Vérifié
+indépendamment ; `deriveVente` n'a aucun test. Troisième panne silencieuse de
+la branche, passée à travers six filets parce que le design affirme le
+contraire (spec ligne 66). **La correction demande une décision** : le
+comportement préexiste sur `main`, la branche donne juste un second sens à la
+colonne — voir le rapport.
+
+**Lane B (le dossier `extension-vinted/`) n'a jamais été relue.** Son
+relecteur a été interrompu alors qu'il vérifiait empiriquement le timing de
+`pairing.js`. Recette de relance :
 
 1. Lire `~/.claude/plugins/cache/claude-plugins-official/superpowers/6.3.0/skills/requesting-code-review/code-reviewer.md`
-   (le `scripts/review-package` cité par la passation du 19/08 **n'existe plus**
-   dans cette version du skill — construire le contexte à la main).
-2. Dispatcher **deux** subagents `general-purpose` sur le modèle le plus
-   capable, en parallèle, en lecture seule :
-   - **Lane A** — chemins `app lib prisma components vitest.config.ts`
-     (1224 l., 22 fichiers). Points chauds : les deux migrations écrites à la
-     main face à l'invariant « ne jamais dropper `photosPretes` » ; le
-     cloisonnement par `userId` sur `/api/prix` ; l'invariant de
-     `_publierVinted.ts` (événement et onglet SEULEMENT si le PATCH a réussi,
-     et le piège `f.id` vs `f.article.id`) ; la valeur de retour de
-     `enregistrer()` dans le cas à un seul id.
-   - **Lane B** — chemin `extension-vinted` (1156 l., 8 fichiers). Points
-     chauds : `pairing.js`, déjà réécrit deux fois (FIFO naïve → appariement
-     par rang → ordre causal) et seule pièce testée — vérifier si les 5 tests
-     couvrent les vrais modes de panne ou le chemin heureux ; le cycle de vie
-     event page MV3 (`reconcile()` est async et appelable en concurrence
-     depuis `tabs.onCreated` ET `onMessage`) ; l'attente de plusieurs minutes
-     dans `init()` de `content-vinted.js` ; les fuites d'object URL.
-3. Leur donner `docs/audits/2026-09-03-etat-chantier-vinted.md` à lire
-   d'abord, en listant ce qui est déjà connu (R1-R12) — sinon ils
-   redécouvrent l'audit à plein tarif. Exiger une section **« ce que l'audit a
-   manqué »** : c'est la seule qui apporte quelque chose.
-4. Leur dire que **deux défauts à panne silencieuse ont déjà traversé toutes
-   les revues précédentes de cette branche**. Un relecteur à qui on annonce
-   du code propre trouve moins.
+   (le `scripts/review-package` cité par la passation du 19/08 **n'existe
+   plus** dans cette version du skill — construire le contexte à la main).
+2. Dispatcher un subagent `general-purpose` sur le modèle le plus capable, en
+   lecture seule, chemin `extension-vinted` (1156 l., 8 fichiers), base
+   `ed917d6` head `52dad5e`. Points chauds : `pairing.js`, déjà réécrit deux
+   fois et seule pièce testée — les 5 tests couvrent-ils les vrais modes de
+   panne ou le chemin heureux ; le cycle de vie event page MV3 (`reconcile()`
+   est async et appelable en concurrence depuis `tabs.onCreated` ET
+   `onMessage`) ; l'attente de plusieurs minutes dans `init()` de
+   `content-vinted.js` ; les fuites d'object URL.
+3. Lui donner les deux audits à lire d'abord en listant ce qui est déjà connu,
+   et exiger une section **« ce que l'audit a manqué »** — sinon il redécouvre
+   l'existant à plein tarif.
+4. Lui dire que **trois défauts à panne silencieuse ont déjà traversé toutes
+   les revues précédentes de cette branche**. Un relecteur à qui on annonce du
+   code propre trouve moins.
 
 ## Next — la prochaine action
 
 **Ne pas fusionner `worktree-extension-vinted` avant ces quatre points.**
 
-1. **Relancer la revue finale** (recette ci-dessus). C'est le point que la
-   passation du 19/08 nommait déjà comme prochaine action et qui n'a toujours
-   pas abouti.
-2. **Relever le DOM réel de `vinted.fr/items/new`** (R3) : les sélecteurs
+1. **Trancher la sémantique de `prixVente` (C1) et ajouter un test sur
+   `deriveVente`.** Bloquant : sans ça le prix d'annonce n'existe pas en base.
+2. **Corriger I1, I2, I3** — les trois pannes silencieuses restantes de Lane A,
+   dont I2 : après restauration de session, « Publier » produit une annonce
+   Vinted **sans aucune photo** et ne le signale pas.
+3. **Faire relire Lane B** (recette ci-dessus).
+4. **Relever le DOM réel de `vinted.fr/items/new`** (R3) : les sélecteurs
    `[data-testid="title--input"]`, `input[name="title"]`,
    `[data-testid="price-input--input"]`, `input[type="file"]` sont des
    hypothèses, personne n'a jamais ouvert la page. Demande un navigateur, donc
    revient à Aramis.
-3. **Trancher R12** : `window.open()` s'exécute après un `await` réseau et perd
+5. **Trancher R12** : `window.open()` s'exécute après un `await` réseau et perd
    l'activation utilisateur (~5 s chez Firefox). Marche sur connexion rapide,
    popup bloqué sur une lente. Deux issues possibles — ouvrir l'onglet au clic
    puis le fermer si le PATCH échoue, ou naviguer un onglet déjà ouvert. Choix
    de conception, pas une ligne à changer.
-4. **Appliquer les migrations `PrixReference` et `delai_vinted` en
+6. **Appliquer les migrations `PrixReference` et `delai_vinted` en
    production**, `vercel.json` ne le fait pas (voir Decisions).
 
 ### Commandes de reprise
