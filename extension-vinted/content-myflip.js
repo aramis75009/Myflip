@@ -127,16 +127,51 @@ function patchHistoriquePage() {
 function ecouterPublicationVinted() {
   window.addEventListener("myflip:publier-vinted", async (e) => {
     const { articleId, titre, description, prix, photos } = e.detail;
-    // photos: Blob[] — le structured clone de runtime.sendMessage gère les
-    // Blob nativement sur Firefox (vérifié en Task 10 spike ; ce projet est
-    // Firefox-only, pas de fallback ArrayBuffer/base64 nécessaire).
+
+    // Les photos ne partent PAS en Blob. Elles traversent deux frontières
+    // successives avant d'atteindre l'onglet Vinted :
+    //
+    //   page MyFlip ──[CustomEvent.detail]──▶ content script ──[sendMessage]──▶ worker
+    //                    Xray Firefox                          sérialisation
+    //
+    // Aucune des deux n'a jamais été vérifiée sur ce projet (le spike qui
+    // devait le faire — Task 10 du plan — n'a pas de commit ; un commentaire
+    // affirmait ici son résultat sans qu'il existe). Un `Blob` qui survit à
+    // l'une peut arriver vide après l'autre, et l'échec serait SILENCIEUX :
+    // l'entrée partirait en file avec des photos creuses, et le remplissage
+    // renverrait "succes-partiel" sans jamais dire pourquoi.
+    //
+    // `ArrayBuffer` est structured-cloneable sans réserve partout (messaging
+    // ET IndexedDB), donc on convertit ici, au plus près de la source. Le
+    // `Blob` est reconstruit à l'arrivée par content-vinted.js.
+    let photosTransportables;
+    try {
+      photosTransportables = await Promise.all(
+        (photos ?? []).map(async (blob) => ({
+          type: blob.type || "image/jpeg",
+          buffer: await blob.arrayBuffer(),
+        })),
+      );
+    } catch (err) {
+      // Ce catch est le détecteur de la frontière Xray : si `detail` n'a pas
+      // traversé proprement, `blob.arrayBuffer` est absent ou lève ici. On
+      // n'envoie RIEN plutôt qu'une entrée à moitié valide — un onglet
+      // Vinted sans entrée appariée reste neutre (content-vinted.js), là où
+      // une entrée aux photos creuses ferait croire au succès.
+      console.error(
+        "[myflip-vinted] photos illisibles depuis le content script — rien mis en file",
+        err,
+      );
+      return;
+    }
+
     await browser.runtime.sendMessage({
       type: "myflip:mise-en-file",
       entryId: articleId,
       titre,
       description,
       prix,
-      photos,
+      photos: photosTransportables,
     });
   });
 }

@@ -6,10 +6,8 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "myflip-vinted@aramis.local",
-      "strict_min_version": "115.0"
-    },
-    "gecko_android": {
-      "strict_min_version": null
+      "strict_min_version": "140.0",
+      "data_collection_permissions": { "required": ["none"] }
     }
   },
   "permissions": ["storage", "tabs"],
@@ -19,6 +17,7 @@
     "https://www.vinted.fr/items/new*"
   ],
   "background": {
+    "scripts": ["background.js"],
     "service_worker": "background.js",
     "type": "module"
   },

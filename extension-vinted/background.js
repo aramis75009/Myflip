@@ -68,6 +68,10 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
       titre: msg.titre,
       description: msg.description,
       prix: msg.prix,
+      // `{ type, buffer }[]`, pas des Blob : content-myflip.js convertit à la
+      // source pour que les photos traversent sans ambiguïté le messaging ET
+      // IndexedDB. Ce worker les stocke tels quels, content-vinted.js
+      // reconstruit les Blob à l'arrivée.
       photos: msg.photos,
       openerTabId: sender.tab.id,
       ts: Date.now(),

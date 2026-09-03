@@ -17,8 +17,14 @@
 //                                         ABSOLU, déjà calculé et persisté
 //                                         par background.js. Ce script le LIT
 //                                         seulement — jamais recalculé ici.
-// `entry` : { entryId, titre, description, prix, photos: Blob[], openerTabId,
-// ts, tabId, cibleMs }.
+// `entry` : { entryId, titre, description, prix, photos, openerTabId, ts,
+// tabId, cibleMs }.
+//
+// `entry.photos` est un tableau de `{ type, buffer }` — PAS de `Blob`. La
+// conversion a lieu dans content-myflip.js, au plus près de la page : voir
+// le commentaire de `ecouterPublicationVinted()` sur les deux frontières que
+// les photos doivent traverser. Ici on reconstruit le `Blob` au moment de
+// s'en servir, via `versBlob()`.
 //
 // Ce script ne définit ni import ni export : comme content-myflip.js, il
 // n'est PAS déclaré "type: module" dans manifest.json content_scripts, donc
@@ -120,52 +126,93 @@ init();
 // Badge (Shadow DOM) + bannières
 // ---------------------------------------------------------------------------
 
+/**
+ * Badge construit noeud par noeud, PAS via innerHTML.
+ *
+ * `web-ext lint` remonte `UNSAFE_VAR_ASSIGNMENT` sur toute affectation
+ * d'innerHTML portant une valeur dynamique — c'est un avertissement que la
+ * revue AMO regarde. Le titre était bien échappé à la main, mais échapper
+ * soi-même est exactement ce que `textContent` rend inutile : plus de
+ * fonction d'échappement à maintenir, plus de valeur interpolée dans une
+ * chaîne de balisage, plus d'avertissement.
+ */
 function creerBadge(entry) {
   const host = document.createElement("div");
   host.style.cssText = "position:fixed;bottom:16px;right:16px;z-index:2147483647;";
   const shadow = host.attachShadow({ mode: "closed" });
 
-  const titre = escapeHtml(String(entry.titre || "").slice(0, 40));
-  const vignette = creerVignette(entry.photos);
-
-  shadow.innerHTML = `
-    <style>
-      .badge { display:flex; align-items:center; gap:8px; background:#fff;
-        border:1px solid #ddd; border-radius:12px; padding:8px 12px;
-        font: 13px system-ui, sans-serif; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
-      .vignette { width:28px; height:28px; border-radius:6px; object-fit:cover;
-        flex-shrink:0; background:#eee; display:block; }
-      .repere { width:8px; height:8px; border-radius:50%; background:#0f5132; flex-shrink:0; }
-      .titre { max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    </style>
-    <div class="badge">
-      ${vignette.url ? `<img class="vignette" src="${vignette.url}" alt="">` : `<span class="repere"></span>`}
-      <span class="titre">${titre}</span>
-      <span class="compte-a-rebours">…</span>
-    </div>
+  const style = document.createElement("style");
+  style.textContent = `
+    .badge { display:flex; align-items:center; gap:8px; background:#fff;
+      border:1px solid #ddd; border-radius:12px; padding:8px 12px;
+      font: 13px system-ui, sans-serif; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+    .vignette { width:28px; height:28px; border-radius:6px; object-fit:cover;
+      flex-shrink:0; background:#eee; display:block; }
+    .repere { width:8px; height:8px; border-radius:50%; background:#0f5132; flex-shrink:0; }
+    .titre { max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   `;
+
+  const badge = document.createElement("div");
+  badge.className = "badge";
+
+  const urlVignette = creerUrlVignette(entry.photos);
+  if (urlVignette) {
+    const img = document.createElement("img");
+    img.className = "vignette";
+    img.src = urlVignette;
+    img.alt = "";
+    badge.appendChild(img);
+  } else {
+    const repere = document.createElement("span");
+    repere.className = "repere";
+    badge.appendChild(repere);
+  }
+
+  const titre = document.createElement("span");
+  titre.className = "titre";
+  titre.textContent = String(entry.titre || "").slice(0, 40);
+  badge.appendChild(titre);
+
+  const compteARebours = document.createElement("span");
+  compteARebours.className = "compte-a-rebours";
+  compteARebours.textContent = "…";
+  badge.appendChild(compteARebours);
+
+  shadow.append(style, badge);
   document.documentElement.appendChild(host);
-  return { host, shadow, urlVignette: vignette.url };
+  return { host, shadow, urlVignette };
+}
+
+/**
+ * `{ type, buffer }` → `Blob`. Renvoie `null` sur une entrée malformée
+ * plutôt que de lever : l'appelant décide quoi en faire.
+ */
+function versBlob(photo) {
+  if (!photo || !photo.buffer) return null;
+  try {
+    return new Blob([photo.buffer], { type: photo.type || "image/jpeg" });
+  } catch (err) {
+    console.error("[myflip-vinted] photo illisible", err);
+    return null;
+  }
 }
 
 /**
  * Miniature de la première photo via URL.createObjectURL — best-effort :
- * sur tout échec (pas de photos, API absente, Blob invalide) on retombe sur
- * le repère coloré, jamais d'exception qui empêcherait l'affichage du badge.
+ * sur tout échec (pas de photos, API absente, buffer invalide) on retombe
+ * sur le repère coloré, jamais d'exception qui empêcherait l'affichage du
+ * badge.
  */
-function creerVignette(photos) {
+function creerUrlVignette(photos) {
   try {
-    if (Array.isArray(photos) && photos[0] && typeof URL.createObjectURL === "function") {
-      return { url: URL.createObjectURL(photos[0]) };
-    }
+    if (!Array.isArray(photos) || !photos[0]) return null;
+    if (typeof URL.createObjectURL !== "function") return null;
+    const blob = versBlob(photos[0]);
+    return blob ? URL.createObjectURL(blob) : null;
   } catch {
     // best-effort, cf. commentaire ci-dessus
+    return null;
   }
-  return { url: null };
-}
-
-function escapeHtml(s) {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }
 
 function demarrerCompteARebours(badge, cibleMs) {
@@ -250,28 +297,73 @@ function devraitRemplirChamp(valeurActuelle) {
   return !valeurActuelle || valeurActuelle.trim() === "";
 }
 
+/**
+ * Écrit une valeur dans un champ en passant par le setter NATIF du prototype,
+ * pas par `el.value = …`.
+ *
+ * Vinted est une application React, et React installe un « value tracker »
+ * sur chaque champ contrôlé : il retient la dernière valeur qu'il a lui-même
+ * écrite pour décider si un événement `input` correspond à un vrai
+ * changement. Une affectation directe `el.value = …` passe sous ce tracker —
+ * le DOM change, mais React croit que la valeur n'a pas bougé, ignore
+ * l'événement synthétique, et remet sa propre valeur (vide) au premier
+ * re-render.
+ *
+ * Le symptôme est le pire possible : le champ se remplit visuellement, donc
+ * `remplirFormulaire()` renvoie "succes", donc l'entrée est CONSOMMÉE et
+ * supprimée de la file — pendant que le formulaire réel est resté vide.
+ *
+ * Appeler le setter du prototype met à jour le tracker en même temps que la
+ * valeur, ce qui rend l'événement `input` qui suit indiscernable d'une vraie
+ * frappe. Repli sur l'affectation directe si le descripteur est introuvable
+ * (champ non standard) : mieux vaut tenter que ne rien écrire.
+ */
+function ecrireValeur(el, valeur) {
+  const proto =
+    el instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : HTMLInputElement.prototype;
+  const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+  if (setter) setter.call(el, valeur);
+  else el.value = valeur;
+}
+
 // Ne jamais écraser un champ déjà rempli à la main.
 function remplirChamp(el, valeur) {
   if (!devraitRemplirChamp(el.value)) return;
   el.focus();
-  el.value = valeur;
+  ecrireValeur(el, valeur);
   el.dispatchEvent(new Event("input", { bubbles: true }));
   el.dispatchEvent(new Event("change", { bubbles: true }));
   el.blur();
 }
 
-function injecterPhotos(photoBlobs) {
+function injecterPhotos(photos) {
   // Un tableau vide/absent n'est pas un succès silencieux : sans photo
   // réelle à transférer, l'input file ne doit pas être touché, et l'appelant
   // doit savoir que les photos restent à faire à la main.
-  if (!Array.isArray(photoBlobs) || photoBlobs.length === 0) return false;
+  if (!Array.isArray(photos) || photos.length === 0) return false;
   const inputFichier = document.querySelector('input[type="file"]');
   if (!inputFichier) return false;
   try {
+    // Reconstruction des Blob depuis les { type, buffer } transportés — cf.
+    // l'en-tête de ce fichier. Une seule photo illisible ne doit pas faire
+    // perdre les autres, mais une liste entièrement vide après filtrage est
+    // un échec : sans quoi on toucherait l'input pour n'y mettre rien.
+    const fichiers = photos
+      .map((p, i) => {
+        const blob = versBlob(p);
+        return blob
+          ? new File([blob], `photo-${String(i + 1).padStart(2, "0")}.jpg`, {
+              type: blob.type,
+            })
+          : null;
+      })
+      .filter(Boolean);
+    if (fichiers.length === 0) return false;
+
     const dt = new DataTransfer();
-    for (const blob of photoBlobs) {
-      dt.items.add(new File([blob], "photo.jpg", { type: blob.type || "image/jpeg" }));
-    }
+    for (const fichier of fichiers) dt.items.add(fichier);
     inputFichier.files = dt.files;
     inputFichier.dispatchEvent(new Event("change", { bubbles: true }));
     return true;
