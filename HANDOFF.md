@@ -119,23 +119,78 @@ Rien côté agent. Les trois points restants demandent tous un navigateur ou une
 décision d'Aramis : relever le DOM de `vinted.fr/items/new` (R3), trancher R12,
 et appliquer les deux migrations Prisma en production avant toute fusion.
 
+## Revue finale — LANCÉE, RÉSULTATS NON RÉCUPÉRÉS
+
+Deux relecteurs Opus ont été dispatchés le 04/09 sur `main..worktree-extension-vinted`
+(base `ed917d6`, head `52dad5e`), un par lane. **La session s'est arrêtée avant
+qu'ils rendent : leurs conclusions n'existent nulle part.** Elles sont à
+refaire.
+
+Recette exacte, pour les relancer :
+
+1. Lire `~/.claude/plugins/cache/claude-plugins-official/superpowers/6.3.0/skills/requesting-code-review/code-reviewer.md`
+   (le `scripts/review-package` cité par la passation du 19/08 **n'existe plus**
+   dans cette version du skill — construire le contexte à la main).
+2. Dispatcher **deux** subagents `general-purpose` sur le modèle le plus
+   capable, en parallèle, en lecture seule :
+   - **Lane A** — chemins `app lib prisma components vitest.config.ts`
+     (1224 l., 22 fichiers). Points chauds : les deux migrations écrites à la
+     main face à l'invariant « ne jamais dropper `photosPretes` » ; le
+     cloisonnement par `userId` sur `/api/prix` ; l'invariant de
+     `_publierVinted.ts` (événement et onglet SEULEMENT si le PATCH a réussi,
+     et le piège `f.id` vs `f.article.id`) ; la valeur de retour de
+     `enregistrer()` dans le cas à un seul id.
+   - **Lane B** — chemin `extension-vinted` (1156 l., 8 fichiers). Points
+     chauds : `pairing.js`, déjà réécrit deux fois (FIFO naïve → appariement
+     par rang → ordre causal) et seule pièce testée — vérifier si les 5 tests
+     couvrent les vrais modes de panne ou le chemin heureux ; le cycle de vie
+     event page MV3 (`reconcile()` est async et appelable en concurrence
+     depuis `tabs.onCreated` ET `onMessage`) ; l'attente de plusieurs minutes
+     dans `init()` de `content-vinted.js` ; les fuites d'object URL.
+3. Leur donner `docs/audits/2026-09-03-etat-chantier-vinted.md` à lire
+   d'abord, en listant ce qui est déjà connu (R1-R12) — sinon ils
+   redécouvrent l'audit à plein tarif. Exiger une section **« ce que l'audit a
+   manqué »** : c'est la seule qui apporte quelque chose.
+4. Leur dire que **deux défauts à panne silencieuse ont déjà traversé toutes
+   les revues précédentes de cette branche**. Un relecteur à qui on annonce
+   du code propre trouve moins.
+
 ## Next — la prochaine action
 
-Dans l'ordre du §5 de l'audit :
+**Ne pas fusionner `worktree-extension-vinted` avant ces quatre points.**
 
-1. Relever le DOM réel de `vinted.fr/items/new` — c'est le seul vrai inconnu
-   qui reste sur le remplissage.
-2. Charger l'extension via `about:debugging` et vérifier que `background.js`
-   démarre maintenant que le manifest est corrigé.
-3. Trancher R12.
-4. Appliquer les migrations `PrixReference` et `delai_vinted` en production,
-   puis fusionner `worktree-extension-vinted`.
+1. **Relancer la revue finale** (recette ci-dessus). C'est le point que la
+   passation du 19/08 nommait déjà comme prochaine action et qui n'a toujours
+   pas abouti.
+2. **Relever le DOM réel de `vinted.fr/items/new`** (R3) : les sélecteurs
+   `[data-testid="title--input"]`, `input[name="title"]`,
+   `[data-testid="price-input--input"]`, `input[type="file"]` sont des
+   hypothèses, personne n'a jamais ouvert la page. Demande un navigateur, donc
+   revient à Aramis.
+3. **Trancher R12** : `window.open()` s'exécute après un `await` réseau et perd
+   l'activation utilisateur (~5 s chez Firefox). Marche sur connexion rapide,
+   popup bloqué sur une lente. Deux issues possibles — ouvrir l'onglet au clic
+   puis le fermer si le PATCH échoue, ou naviguer un onglet déjà ouvert. Choix
+   de conception, pas une ligne à changer.
+4. **Appliquer les migrations `PrixReference` et `delai_vinted` en
+   production**, `vercel.json` ne le fait pas (voir Decisions).
 
-**Note** : la passation du 19/08 signalait qu'une **revue finale toute-branche**
-(`superpowers:requesting-code-review`) n'avait jamais été lancée. Elle ne l'est
-toujours pas. Les deux défauts à panne silencieuse corrigés aujourd'hui sont
-exactement le genre de chose qu'elle aurait attrapée — la lancer avant de
-fusionner reste une bonne idée.
+### Commandes de reprise
+
+```bash
+cd "SAAS perso my flip"
+git fetch origin
+git log --oneline main..worktree-extension-vinted     # 23 commits
+git diff main..worktree-extension-vinted --stat        # 5091 insertions
+
+cd .claude/worktrees/extension-vinted
+npx vitest run                                         # 145/145 attendus
+npx tsc --noEmit                                       # propre attendu
+cd extension-vinted && npx web-ext lint --self-hosted  # 0 erreur, 2 warnings voulus
+```
+
+État git au moment de cette passation : `main` propre et poussée (`ed917d6`),
+branche poussée (`52dad5e`), rien en attente, `git status` vide.
 
 ---
 
