@@ -9,182 +9,133 @@ Le mode d'emploi complet est dans [`AGENTS.md`](AGENTS.md), section
 
 ---
 
-# Passation — 2026-08-18 · Extension Vinted, design en cours
+# Passation — 2026-09-03 · Audit du chantier Vinted, correctifs, rangement de `main`
 
 | | |
 |---|---|
-| **Agent** | Claude Code (Sonnet 5) + Aramis |
-| **Branche** | main |
-| **Commits** | aucun — session 100% design/discussion, aucun code touché |
+| **Agent** | Claude Code (Opus 5) + Aramis |
+| **Branches** | `main` (rangement + audit), `worktree-extension-vinted` (correctifs) |
+| **Commits** | `main` : `4f76dc7`, `7f24cd5`, `6545684`, `cd8e9dc`, merge `3f414aa` · branche : `51505fb` |
 
 ## Goal — l'objectif
 
-Concevoir une extension Firefox qui pré-remplit un brouillon Vinted à partir
-d'une annonce générée dans MyFlip (`/mise-en-vente`), pour supprimer le
-copier-coller manuel sur ~150 articles — sans risquer un ban Vinted.
+Aramis a demandé un audit de `/mise-en-vente` et de « ce qui a été commencé »
+sur l'extension, pour alimenter une IA qui concevrait ensuite l'architecture
+de l'intégration Vinted.
+
+**La prémisse était périmée de trois semaines.** La conception existait déjà
+(design 902 l. + plan 1795 l., passés par `/autoplan`), et l'extension était
+implémentée à ~90 % — mais tout vivait sur `worktree-extension-vinted`, une
+branche **poussée nulle part**, avec les documents de design non commités sur
+`main`. Depuis `main`, le chantier était invisible.
+
+L'objectif est donc devenu : dire l'état réel, sauver ce qui n'était pas
+sauvé, refermer ce qui pouvait l'être, ranger le reste.
 
 ## Current state — ce qui a été fait
 
-Brainstorming architectural complet (skill `superpowers:brainstorming`,
-chemin « architectural »). Le design a été discuté, affiné et globalement
-validé au fil de l'eau avec Aramis. **Rien n'a encore été écrit en fichier
-spec**, et le design n'a pas eu de validation finale formelle — la session
-s'est arrêtée juste avant, sur la présentation d'un schéma récapitulatif.
+**Audit** : `docs/audits/2026-09-03-etat-chantier-vinted.md`, sur `main`.
+Cartographie de `/mise-en-vente` (génération, statuts, champs, écarts avec un
+formulaire Vinted), état réel de l'extension, et douze risques dont chacun
+porte sa mention `CORRIGÉ` ou `OUVERT`.
 
-Un artifact HTML (diagramme SVG en 7 étapes du workflow) a été préparé mais
-**jamais vu par Aramis** : la publication a échoué à répétition à cause d'une
-panne du classificateur de sécurité côté Anthropic (« claude-sonnet-5
-temporarily unavailable », affectant aussi `WebFetch` — panne large, pas
-propre à l'outil Artifact). Le fichier existe en local (probablement
-nettoyé depuis, c'est un dossier scratchpad de session) :
-`.../scratchpad/trajet-annonce.html` — à refaire si besoin plutôt qu'à
-chercher à le récupérer.
+**Correctifs** (commit `51505fb` sur la branche). `web-ext lint` renvoyait
+**2 erreurs bloquantes** : `web-ext sign` n'aurait jamais produit de `.xpi`
+installable, l'extension était inutilisable à 100 %.
 
-Aucune ligne de code de l'extension ou de MyFlip n'a été écrite. Aucun fichier
-du repo n'a été modifié par cette session.
+- `background` ne déclarait que `service_worker`, la forme Chrome de MV3.
+  Firefox l'ignore et ne chargeait donc **aucun** script d'arrière-plan :
+  pas de file, pas d'appariement, et `content-vinted.js` traitait le worker
+  injoignable en « état neutre » silencieux. Le manifest déclare maintenant
+  `scripts` (utilisée par Firefox) **et** `service_worker` (gardée pour un
+  portage Chrome ultérieur).
+- `gecko_android.strict_min_version` valait `null` là où le schéma exige une
+  chaîne. Android étant hors scope, la clé est retirée.
+- `data_collection_permissions` ajoutée (Mozilla l'exige désormais), ce qui
+  monte le plancher à Firefox 140.
+- Les photos ne circulent plus en `Blob` mais en `{ type, buffer }`.
+- Le remplissage des champs passe par le setter natif du prototype.
+- Le badge se construit noeud par noeud, plus d'`innerHTML`.
+
+**Rangement de `main`** : `AGENTS.md`, `HANDOFF.md`, `docs/handoffs/` et la
+mise à jour de `TODOS.md` étaient non suivis. `.gitignore` ignore désormais
+`.env*` et `.claude/worktrees/`. `git status` est propre.
 
 ## Decisions — choix critiques ou irréversibles
 
-- **Firefox uniquement.** C'est le navigateur qu'utilise Aramis pour Vinted —
-  pas de portage Chrome prévu pour la V1.
+- **`worktree-extension-vinted` est poussée sur `origin`, mais PAS fusionnée.**
+  Deux raisons : `vercel.json` lance `prisma generate`, **pas**
+  `migrate deploy`, donc fusionner déploierait du code interrogeant une table
+  `PrixReference` absente de la production ; et le bouton « Publier » change de
+  nature (d'un `<a target="_blank">` à un `<button>` qui PATCH puis
+  `window.open()`) sans avoir jamais tourné dans un navigateur.
 
-- **Portée volontairement réduite pour limiter le risque de ban** : l'extension
-  ne remplit QUE des champs texte/nombre — titre, description, prix, photos.
-  Marque, catégorie, taille, état restent toujours saisis à la main dans
-  l'UI Vinted. Raison donnée par Aramis lui-même : ce sont des menus à
-  recherche/autocomplete, plus fragiles à automatiser et plus proches d'un
-  pattern détectable — pour gagner peu de temps vu le petit nombre de champs.
+- **Les photos passent en `ArrayBuffer`, décision de fond.** Le spike qui
+  devait valider le transport des `Blob` (Task 10 du plan) n'a jamais été fait,
+  alors qu'un commentaire de `content-myflip.js` affirmait son résultat. Plutôt
+  que de documenter l'inconnu, il est supprimé : `ArrayBuffer` est
+  structured-cloneable sans réserve à travers le messaging et IndexedDB.
 
-- **L'extension ne clique jamais sur « Enregistrer en brouillon »** côté
-  Vinted. Toujours un geste humain final. Conséquence directe : pas de
-  garantie que les champs obligatoires (catégorie…) soient tous remplis par
-  l'extension, ce n'est pas un problème puisque c'est Aramis qui termine et
-  valide.
+- **Deux copies périmées supprimées de `main`.** Les fichiers non suivis
+  `docs/superpowers/{plans,specs}/2026-08-18-extension-vinted*.md` doublonnaient
+  des fichiers commités sur la branche. Celle du plan était la **périmée** :
+  elle portait encore l'appariement par rang que `10691f9` a remplacé par
+  l'ordre causal. Les committer aurait figé un bug déjà corrigé et garanti un
+  conflit add/add. Elles reviendront avec la fusion de la branche.
 
-- **Rythme « semi-auto, un onglet à la fois »**, choisi explicitement contre
-  un mode « automatique en rafale » (ouverture/remplissage en chaîne sans
-  intervention). Raison : un enchaînement programmatique de N créations de
-  brouillon est le genre de pattern qu'un site anti-fraude repère ; le clic
-  utilisateur reste le seul déclencheur d'ouverture d'onglet.
+- **L'URL du remote `origin` est corrigée** en
+  `https://github.com/aramis75009/Myflip.git`. Elle pointait sur
+  `compta-polos.git` ; GitHub redirigeait, donc git marchait, mais `gh` et les
+  URL de PR échouaient. Le remote `alex` n'a pas été touché.
 
-- **Délai aléatoire volontaire avant remplissage automatique** sur chaque
-  nouvel onglet Vinted, autre garde-fou anti-ban. **La fourchette (min/max en
-  minutes) est réglée PAR ARAMIS lui-même**, pas de valeur imposée par défaut
-  — exemple donné : 6 et 7 minutes. Un concurrent ferait déjà ça via une
-  extension similaire (nom donné oralement, pas fiable retranscrit : « Le
-  Trocathlon » ? « Clemz » ? « Vlim » ? — à reconfirmer avec Aramis, il a
-  proposé de montrer une capture d'écran mais ne l'a pas encore fait).
-
-- **Prix suggéré via un nouveau tableau de référence marque × catégorie**
-  (nouveau modèle Prisma à créer, nommé `PrixReference` dans la discussion),
-  plutôt qu'un calcul dynamique par coefficient. Réutilise EXACTEMENT la même
-  mécanique de correspondance que `PromptTemplate` / `pickPrompt` dans
-  `lib/promptSelect.ts`, déjà en place dans le repo. Exemples concrets donnés
-  par Aramis : Pull/Polo Tommy Hilfiger → 22 €, Pull Ralph Lauren → 24 €.
-  Prix affiché et modifiable à l'étape QCM de `/mise-en-vente`, avant la
-  génération de l'annonce.
-
-- **Un seul clic fait deux choses** : cliquer « Publier sur Vinted » doit à la
-  fois (a) enregistrer l'article en statut *Brouillon* dans MyFlip (réutilise
-  le PATCH `/api/articles/[id]` et le bouton « Brouillon » déjà existants) et
-  (b) empiler l'annonce dans la file d'attente de l'extension. Si
-  l'enregistrement MyFlip échoue, **ne pas** empiler dans la file — éviter un
-  brouillon Vinted désynchronisé du stock MyFlip.
-
-- **Pas d'API serveur dédiée côté MyFlip pour l'extension, pas d'OAuth, pas de
-  token.** L'extension ne parle jamais au backend MyFlip : seulement aux deux
-  pages ouvertes dans le navigateur (MyFlip authentifié via sa session
-  NextAuth, Vinted via sa propre session). Raison technique impérative : les
-  photos ne vivent QUE en mémoire du navigateur pendant la session
-  `/mise-en-vente` (`Blob`, jamais uploadées sur un serveur — cf.
-  `app/mise-en-vente/_reducer.ts`, type `Photo`, commentaire « le JPEG déposé
-  sur Vinted » jamais dégradé). Elles doivent donc être transmises pendant que
-  l'onglet MyFlip est encore ouvert, extension → onglet Vinted.
-
-- **Mécanisme retenu : file d'attente (FIFO), pas un simple « dernier élément
-  écrase le précédent ».** Supporte le cas où Aramis enchaîne plusieurs clics
-  « Publier sur Vinted » avant d'aller remplir les onglets un par un (« faire
-  10 articles vite, puis aller sur Vinted »).
+- **R12 laissé ouvert volontairement.** `window.open()` s'exécute après un
+  `await` réseau et perd donc l'activation utilisateur (~5 s chez Firefox) :
+  l'onglet s'ouvre sur une connexion rapide et le popup est bloqué sur une
+  lente. Les issues (ouvrir puis fermer si échec, ou naviguer un onglet déjà
+  ouvert) sont des choix de conception qui reviennent à Aramis.
 
 ## Changed — fichiers et composants
 
-Aucun. Session de discussion pure ; aucun fichier du repo modifié.
+Sur `worktree-extension-vinted` (`51505fb`) : `extension-vinted/manifest.json`,
+`content-myflip.js`, `content-vinted.js`, `background.js`, `README.md`.
 
-**Note sans lien avec cette session** : `git status` montre `.gitignore`
-modifié et non commité (ajout de `.env*`), présent avant le début de cette
-conversation. À vérifier/committer séparément — ne pas l'attribuer à ce
-brainstorming.
-
-## Architecture envisagée (pas encore figée en spec)
-
-- **Côté MyFlip** (`app/mise-en-vente/`) :
-  - `_reducer.ts` : ajouter un champ prix à `Qcm` (actuellement marque,
-    categorie, taille, etat, matiere, matiere2, details — pas de prix).
-  - `page.tsx` fonction `enregistrer()` (~ligne 349) : PATCH actuel envoie
-    `titreAnnonce`, `descriptionAnnonce`, `motsClesAnnonce`, `statut` — à
-    étendre avec `prixVente`.
-  - `_components/ExportAnnonces.tsx` bouton « Publier sur Vinted » (~ligne
-    204, actuellement un simple lien `<a href="https://www.vinted.fr/items/new">`
-    en `target="_blank"`) : à transformer pour déclencher l'enregistrement +
-    l'événement de mise en file, avant/en plus d'ouvrir l'onglet.
-  - Nouveau : modèle Prisma `PrixReference` (marque, categorie, prix,
-    estDefaut) + fonction `pickPrix()` calquée sur `pickPrompt()`
-    (`lib/promptSelect.ts`).
-  - Nouveau : deux champs numériques sur `UserSettings` (délai min/max en
-    minutes), éditables dans `/compte`.
-
-- **Extension Firefox** (nouveau, hors du dépôt Next.js — dossier séparé,
-  emplacement pas encore décidé) :
-  1. Content script sur le domaine MyFlip (`/mise-en-vente`) : écoute
-     l'événement du clic « Publier », récupère titre/description/prix/photos
-     (Blobs).
-  2. Background script (page persistante) : file d'attente en **IndexedDB**
-     (les Blobs ne tiennent pas dans `storage.local`), tire un délai aléatoire
-     par entrée dans la fourchette réglée par Aramis.
-  3. Content script sur `vinted.fr/items/new*` : consomme la file, affiche un
-     badge de compte à rebours si le délai n'est pas écoulé, remplit
-     titre/description/prix via de vrais événements `input`/`change`, injecte
-     les photos dans l'input fichier via `DataTransfer`. Vérifie qu'un champ
-     n'est pas déjà rempli à la main avant d'écrire dessus (ne jamais écraser
-     une saisie en cours). Ne clique jamais sur « Enregistrer ».
-
-Permissions extension limitées à MyFlip + `vinted.fr/items/new*`. Sans
-extension installée, le bouton garde son comportement actuel (lien simple) —
-aucune dépendance dure.
-
-Points **non tranchés**, à valider avec Aramis dès la reprise :
-- Est-ce qu'un même délai aléatoire s'applique à *chaque* onglet Vinted, ou
-  seulement un délai global entre deux ouvertures ? (la discussion penchait
-  vers « un tirage indépendant par entrée en file », à reconfirmer).
-- Emplacement du dépôt/dossier de l'extension (repo séparé vs sous-dossier de
-  MyFlip).
-- Manifest V2 vs V3 pour Firefox — pas discuté.
-- Nom et détails exacts du concurrent cité (« Le Trocathlon »/« Clemz »/
-  « Vlim » — transcription incertaine) et capture d'écran promise par Aramis.
+Sur `main` : `docs/audits/2026-09-03-etat-chantier-vinted.md` (nouveau),
+`AGENTS.md`, `HANDOFF.md`, `docs/handoffs/*`, `TODOS.md`, `.gitignore`.
 
 ## Validations — passants / échoués / non lancés
 
 | Commande | Résultat |
 |---|---|
-| — | ⏭️ **non lancé** — aucun code produit cette session, rien à valider. |
+| `npx vitest run` | ✅ **145/145** (14 fichiers) |
+| `npx tsc --noEmit` | ✅ propre |
+| `npx web-ext lint --self-hosted` | ✅ **0 erreur** (contre 2 avant), 2 avertissements voulus et documentés |
+| `npm run build` | ⏭️ **non lancé** — un `next dev` tournait (celui du projet `brief`), invariant `AGENTS.md` |
+| Chargement dans Firefox réel | ⏭️ **non fait** — demande un navigateur |
+| Vérification sur `vinted.fr` | ⏭️ **non fait** — revient à Aramis |
 
 ## Blockers — ce qui bloque
 
-Rien côté conception. Côté outillage : panne intermittente du classificateur
-de sécurité Anthropic sur plusieurs jours, qui a empêché de publier le schéma
-récapitulatif (artifact) pendant cette session — sans lien avec le projet
-MyFlip lui-même. Aramis relance sa session avec
-`--dangerously-skip-permissions` pour contourner ça immédiatement.
+Rien côté agent. Les trois points restants demandent tous un navigateur ou une
+décision d'Aramis : relever le DOM de `vinted.fr/items/new` (R3), trancher R12,
+et appliquer les deux migrations Prisma en production avant toute fusion.
 
 ## Next — la prochaine action
 
-Reprendre le brainstorming architectural là où il s'est arrêté : représenter
-(ou faire valider en mots si le rendu visuel échoue encore) le schéma en 7
-étapes du workflow, obtenir l'approbation finale d'Aramis sur le design
-complet, PUIS écrire le spec file
-(`docs/superpowers/specs/2026-08-18-extension-vinted-design.md`), PUIS
-invoquer le skill `writing-plans`. Ne pas commencer à coder avant cette
-approbation explicite (gate du skill `superpowers:brainstorming`).
+Dans l'ordre du §5 de l'audit :
+
+1. Relever le DOM réel de `vinted.fr/items/new` — c'est le seul vrai inconnu
+   qui reste sur le remplissage.
+2. Charger l'extension via `about:debugging` et vérifier que `background.js`
+   démarre maintenant que le manifest est corrigé.
+3. Trancher R12.
+4. Appliquer les migrations `PrixReference` et `delai_vinted` en production,
+   puis fusionner `worktree-extension-vinted`.
+
+**Note** : la passation du 19/08 signalait qu'une **revue finale toute-branche**
+(`superpowers:requesting-code-review`) n'avait jamais été lancée. Elle ne l'est
+toujours pas. Les deux défauts à panne silencieuse corrigés aujourd'hui sont
+exactement le genre de chose qu'elle aurait attrapée — la lancer avant de
+fusionner reste une bonne idée.
 
 ---
 
@@ -192,4 +143,6 @@ approbation explicite (gate du skill `superpowers:brainstorming`).
 
 | Date | Sujet | Agent | Fiche |
 |---|---|---|---|
-| 2026-08-18 | Extension Vinted, design en cours | Claude Code (Sonnet 5) | *(pas encore archivée — première passation du projet)* |
+| 2026-09-03 | Audit du chantier Vinted, correctifs, rangement de `main` | Claude Code (Opus 5) | *(passation courante)* |
+| 2026-08-19 | Extension Vinted — 16 tâches implémentées, revue finale restante | Claude Code (Sonnet 5) | [fiche](docs/handoffs/2026-08-19-extension-vinted-implementation.md) |
+| 2026-08-18 | Extension Vinted, design en cours | Claude Code (Sonnet 5) | [fiche](docs/handoffs/2026-08-18-extension-vinted-design.md) |
