@@ -46,3 +46,4 @@ scripts/init-user.mjs
 
 # État local gstack
 .gstack/
+.env*

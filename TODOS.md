@@ -91,6 +91,14 @@ textes en une session reste un gain mesurable — mais c'est là que se trouve l
 
 **Effort.** Piste 1 : humain ~2 h / CC ~10 min. Pistes 2-3 : L à XL.
 
+**Mise à jour du 18/08/2026.** Piste 2 a un design validé (revue `/autoplan`,
+CEO + Eng + Design) : `docs/superpowers/specs/2026-08-18-extension-vinted-design.md`.
+Piste 3 (API Vinted) a été vérifiée puis écartée — l'API « Pro Integrations »
+existe réellement mais est allowlistée entreprise/logiciel, pas accessible à
+un vendeur Pro individuel (détail dans le spec). Piste 1 (copier-tout) reste
+non tentée et a été auto-approuvée comme ajout quasi gratuit au même spec —
+voir la Decision Audit Trail du fichier.
+
 ---
 
 ## Écarté — ne pas y revenir
@@ -179,5 +187,56 @@ compte curieux, la facture Gemini du déploiement est le seul garde-fou.
 message explicite. Choisir entre un plafond simple et une distinction « clé
 personnelle / clé du déploiement » — un compte qui paie sa propre clé n'a aucune
 raison d'être limité.
+
+---
+
+## P2 · Bascule « test » sur l'extension Vinted avant de lui faire confiance
+
+**Quoi.** Un réglage dans `/compte` qui fait tourner l'extension en mode
+observation (elle affiche ce qu'elle *aurait* rempli, sans toucher au DOM
+Vinted) le temps qu'Aramis valide son comportement sur les premiers articles.
+
+**Pourquoi.** Candidat d'expansion identifié en revue CEO du 18/08/2026
+(scan d'expansion, mode SELECTIVE EXPANSION) : la première utilisation réelle
+d'une automatisation DOM sur un compte Vinted vivant a plus de valeur à être
+observée qu'à être fiable dès le premier essai.
+
+**Contexte.** Différé du design `docs/superpowers/specs/2026-08-18-extension-vinted-design.md` —
+pas nécessaire au fonctionnement de l'extension, mais réduit le risque perçu
+du premier essai.
+
+**Effort.** Humain ~1-2 h / Claude Code ~20 min.
+
+---
+
+## P3 · Généraliser l'extension Vinted à Vestiaire Collective
+
+**Quoi.** Réutiliser le même squelette (file d'attente, protocole de message)
+pour pré-remplir aussi `vestiairecollective.com/sell/` (lien déjà présent
+dans `ExportAnnonces.tsx`).
+
+**Pourquoi.** Candidat d'expansion (revue CEO du 18/08/2026, potentiel
+plateforme 0D) — pertinent seulement si le volume Vestiaire Collective
+justifie un jour le même traitement que Vinted.
+
+**Contexte.** Le design de l'extension Vinted garde volontairement le format
+de file/message générique pour ne pas fermer cette porte, sans l'implémenter.
+
+**Effort.** Humain ~1 semaine / Claude Code ~1 j.
+
+---
+
+## P3 · Panneau de file d'attente et notification dans l'extension Vinted
+
+**Quoi.** Deux améliorations UI de confort sur l'extension : un mini-panneau
+listant les onglets Vinted en attente de remplissage (au-delà du compte à
+rebours par onglet), et une notification sonore/visuelle quand un délai se
+termine.
+
+**Pourquoi.** Candidats d'expansion (revue CEO du 18/08/2026, scan de
+délice) — utiles surtout dans les sessions à plusieurs articles (5-10 clics
+« Publier » avant d'aller remplir les onglets), pas nécessaires à la V1.
+
+**Effort.** Humain ~2-3 h / Claude Code ~30 min chacun.
 
 **Effort.** Humain ~1 j / Claude Code ~30 min.
