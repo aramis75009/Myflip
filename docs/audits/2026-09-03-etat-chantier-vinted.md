@@ -2,7 +2,8 @@
 
 **Date** : 2026-09-03
 **Périmètre** : l'onglet « Mise en vente » et l'extension navigateur. Rien d'autre.
-**Nature** : lecture seule. Aucun code modifié.
+**Nature** : audit de lecture, suivi des corrections qu'il a rendues évidentes
+(commit `51505fb`). Chaque risque de la §3 porte son état, `CORRIGÉ` ou `OUVERT`.
 
 ---
 
@@ -26,18 +27,21 @@ Les deux documents `docs/superpowers/` sont **non commités** sur `main`
 (`git status` les montre en `??`) alors qu'ils sont **commités** sur la branche
 worktree (commit `491664b`). C'est pour ça qu'ils passent inaperçus.
 
-### Risque n°1, avant tout le reste
+### Ce qui a été corrigé le jour même de l'audit
 
-```
-$ git ls-remote --heads origin | grep worktree
-(rien)
-```
+Trois choses relevées ici ont été traitées dans la foulée (commit `51505fb`) :
 
-La branche `worktree-extension-vinted` **n'est poussée sur aucun remote**. Elle
-existe uniquement dans `.claude/worktrees/extension-vinted/` sur ce Mac. Un
-disque perdu = trois semaines de conception et d'implémentation perdues.
+- **La branche est sauvegardée.** `worktree-extension-vinted` est poussée sur
+  `origin`. Elle n'existait que sur ce Mac.
+- **L'extension peut désormais être signée.** `web-ext lint` renvoyait
+  **2 erreurs bloquantes** — `web-ext sign` n'aurait produit aucun `.xpi`
+  installable. 0 erreur aujourd'hui.
+- **Deux défauts à panne silencieuse sont réparés** : le transport des photos
+  et le remplissage des champs React.
 
-C'est l'action la plus urgente de tout ce document, et elle prend dix secondes.
+Le détail est en §3, chaque risque portant sa mention `CORRIGÉ` ou `OUVERT`.
+Ce qui reste ouvert est ce qui demande un navigateur ou une décision, pas du
+code.
 
 ---
 
@@ -368,17 +372,25 @@ changement de code.
 
 ### 2.4 Ce qui n'est pas vérifié
 
-Rien de tout ce qui suit n'est du code mort. C'est du code **écrit mais jamais
-exécuté contre le monde réel** :
+Rien de ce qui suit n'est du code mort. C'est du code **écrit mais jamais
+exécuté contre le monde réel**.
 
-- Les sélecteurs Vinted (`[data-testid="title--input"]`, etc.) sont des
-  hypothèses. Le commentaire du fichier le dit lui-même.
-- Le transport des `Blob` (deux frontières successives, voir R1/R5/R6).
-- Le comportement du manifest sous Firefox (voir R2).
-- Le remplissage d'un champ React (voir R4).
+Trois des quatre points de cette liste ont été refermés depuis (§3) :
+le manifest (R2), le transport des photos (R1/R6) et le remplissage d'un champ
+React (R4) sont corrigés, et `web-ext lint` passe de 2 erreurs à 0.
+
+Reste ouvert, et ne se lève qu'avec un navigateur :
+
+- **les sélecteurs Vinted** (R3), qui demandent un relevé du DOM réel ;
+- **le cas nominal du passage des photos** (R5), dont seul l'échec est
+  désormais garanti bruyant ;
+- **l'ouverture de l'onglet après un `await`** (R12), trouvée après la
+  première version de cet audit.
 
 Aucun test end-to-end n'a été fait. L'extension n'a jamais été signée ni
-installée : `web-ext-artifacts/` n'existe pas.
+installée : `web-ext-artifacts/` n'existe pas. La différence, c'est qu'elle
+*peut* désormais l'être — avec les deux erreurs de manifest, `web-ext sign`
+échouait.
 
 ### 2.5 Cible technique : Firefox, avec une incohérence
 
@@ -396,15 +408,15 @@ installée : `web-ext-artifacts/` n'existe pas.
   via un `<script>` injecté) est un problème spécifiquement Firefox, résolu de
   façon spécifiquement Firefox.
 
-**Ce qui ne va pas dans ce sens** : le manifest déclare
+**Ce qui n'allait pas dans ce sens** : le manifest ne déclarait que
+`background.service_worker`, la forme **Chrome** de MV3. Firefox implémente MV3
+avec des *event pages* et attend `background.scripts`. Corrigé — le manifest
+déclare maintenant les deux, `scripts` pour Firefox et `service_worker` gardée
+pour un futur portage Chrome. Voir R2.
 
-```json
-"background": { "service_worker": "background.js", "type": "module" }
-```
-
-`background.service_worker` est la forme **Chrome** de MV3. Firefox implémente
-MV3 avec des *event pages* et attend `"background": { "scripts": ["background.js"] }`
-(avec `"type": "module"` pour les modules ES). Voir R2.
+Plancher relevé à **Firefox 140** au passage : c'est ce qu'exige
+`data_collection_permissions`, désormais réclamée par Mozilla pour toute
+nouvelle extension.
 
 ### 2.6 Contraintes déjà posées
 
@@ -432,144 +444,192 @@ MV3 avec des *event pages* et attend `"background": { "scripts": ["background.js
 
 ## 3. Inconnus et risques techniques
 
-Repérés, pas résolus. Classés par ce qu'ils coûtent s'ils se réalisent.
+Chaque risque porte son état. `CORRIGÉ` veut dire qu'un commit le referme et
+qu'une commande le prouve. `OUVERT` veut dire qu'il demande un navigateur, un
+relevé, ou une décision — pas du code.
 
-### R1 — La Task 10 n'a jamais été faite, mais son résultat est affirmé dans le code
+### R1 — CORRIGÉ · La Task 10 n'a jamais été faite, mais son résultat était affirmé dans le code
 
-`content-myflip.js` porte ce commentaire :
+`content-myflip.js` portait ce commentaire :
 
 > `// photos: Blob[] — le structured clone de runtime.sendMessage gère les`
 > `// Blob nativement sur Firefox (vérifié en Task 10 spike ; ce projet est`
 > `// Firefox-only, pas de fallback ArrayBuffer/base64 nécessaire).`
 
-Or la Task 10 du plan est le spike qui devait précisément établir ce fait, et
-elle porte la consigne « à faire AVANT d'écrire les Tasks 12-15 ». Aucun commit
-ne lui correspond. Ses trois étapes sont non cochées — mais aucune case du plan
-ne l'est, donc l'absence de coche ne prouve rien ; l'absence de commit, si.
+La Task 10 du plan est précisément le spike qui devait établir ce fait, avec la
+consigne « à faire AVANT d'écrire les Tasks 12-15 ». Aucun commit ne lui
+correspond. Le code affirmait donc une vérification dont il n'existait aucune
+trace.
 
-Le code affirme donc une vérification dont il n'existe aucune trace. Si le
-`Blob` ne survit pas au `sendMessage`, tout le chemin photos tombe, et la
-correction (conversion `ArrayBuffer` aux deux bouts) touche `content-myflip.js`,
-`background.js` et `content-vinted.js`.
+**Corrigé en supprimant la question plutôt qu'en la documentant.** Les photos
+ne circulent plus en `Blob` : `content-myflip.js` les convertit en
+`{ type, buffer }` dès la réception, et `content-vinted.js` reconstruit le
+`Blob` au moment de s'en servir. `ArrayBuffer` est structured-cloneable sans
+réserve à travers le messaging *et* IndexedDB — il n'y a plus rien à vérifier.
 
-### R2 — `background.service_worker` sous Firefox
+### R2 — CORRIGÉ · `background.service_worker` sous Firefox
 
-Le manifest déclare la forme Chrome de MV3. Firefox utilise des event pages.
-Si Firefox ignore la clé `service_worker`, `background.js` ne se charge jamais :
-aucune entrée n'est mise en file, aucun appariement n'a lieu, et
-`content-vinted.js` reçoit une erreur sur son `sendMessage` — qu'il traite en
-« état neutre » silencieux (`return` sans bannière). **Panne totale et
-silencieuse.**
+Confirmé par le linter de Mozilla, ce n'était pas une hypothèse :
 
-À vérifier en premier, en chargeant l'extension via `about:debugging`. Coût de
-la correction si c'est bien le cas : une clé du manifest.
+```
+BACKGROUND_SERVICE_WORKER_NOFALLBACK
+Unsupported "/background/service_worker" manifest property used without
+"/background/scripts" property as Firefox-compatible fallback.
+```
 
-### R3 — Les sélecteurs Vinted sont des hypothèses
+Firefox ignore `service_worker` et implémente MV3 avec des event pages. Le
+manifest ne déclarant que la forme Chrome, **aucun script d'arrière-plan ne se
+chargeait** : pas de file, pas d'appariement, et `content-vinted.js` traitait
+le worker injoignable en « état neutre » silencieux. Panne totale, sans le
+moindre signe.
+
+Le manifest déclare maintenant `background.scripts` (la forme utilisée par
+Firefox) **et** `background.service_worker` (gardée pour qu'un portage Chrome
+ne demande pas de retoucher le manifest).
+
+**Deuxième erreur trouvée au passage, absente de la première version de cet
+audit** : `gecko_android.strict_min_version` valait `null` là où le schéma
+exige une chaîne. Android étant hors scope, la clé a été retirée.
+
+Conséquence des deux : `web-ext lint` renvoyait **2 erreurs**, donc
+`web-ext sign` n'aurait jamais produit de `.xpi` installable. L'extension
+était inutilisable à 100 %, pas « probablement fragile ».
+
+### R3 — OUVERT · Les sélecteurs Vinted sont des hypothèses
 
 Personne n'a inspecté `vinted.fr/items/new`. Les sélecteurs
 (`[data-testid="title--input"]`, `input[name="title"]`,
 `[data-testid="price-input--input"]`, `input[type="file"]`) sont plausibles mais
 non relevés.
 
-Cas dégradé prévu (bannière « l'extension a besoin d'une mise à jour »), donc
-pas de panne silencieuse ici — mais tant que le DOM n'est pas relevé, la
-probabilité que ça marche du premier coup est faible. Le `input[type="file"]`
-est particulièrement exposé : `querySelector` prend le **premier** de la page,
-sans garantie que ce soit celui des photos.
+Le cas dégradé est prévu (bannière « l'extension a besoin d'une mise à jour »),
+donc pas de panne silencieuse — mais tant que le DOM n'est pas relevé, la
+probabilité que ça marche du premier coup est faible. `input[type="file"]` est
+le plus exposé : `querySelector` prend le **premier** de la page, sans garantie
+que ce soit celui des photos.
 
-### R4 — Écrire `el.value` sur un champ React
+**Ne se lève qu'avec un navigateur ouvert sur le formulaire réel.**
 
-`remplirChamp()` fait :
+### R4 — CORRIGÉ · Écrire `el.value` sur un champ React
+
+`remplirChamp()` faisait :
 
 ```js
 el.value = valeur;
 el.dispatchEvent(new Event("input", { bubbles: true }));
 ```
 
-Vinted est une application React. React installe un *value tracker* sur les
-inputs contrôlés : une affectation directe de `.value` modifie le DOM sans que
-React s'en aperçoive, et l'événement `input` synthétique est alors ignoré parce
-que la valeur suivie n'a pas « changé ». Résultat courant : le champ se remplit
-visuellement puis se vide au premier re-render, ou l'état React reste vide et
-la soumission part sans le champ.
+Vinted est une application React, et React installe un *value tracker* sur
+chaque champ contrôlé : il retient la dernière valeur qu'il a écrite pour
+décider si un `input` correspond à un vrai changement. Une affectation directe
+passe sous ce tracker — React croit que rien n'a bougé, ignore l'événement, et
+remet sa propre valeur au premier re-render.
 
-Le contournement standard passe par le setter natif du prototype
-(`Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set`).
-Il n'est pas utilisé ici. À vérifier sur le vrai formulaire.
+C'était le risque le plus vicieux du lot, parce que son symptôme ressemble à un
+succès : le champ se remplit visuellement, `remplirFormulaire()` renvoie
+`"succes"`, et l'entrée est **consommée puis supprimée de la file** pendant que
+le formulaire réel est resté vide.
 
-C'est le risque le plus insidieux du lot : il produit un remplissage qui a
-l'air de marcher, et `remplirFormulaire()` renvoie `"succes"` — donc l'entrée
-est consommée et supprimée de la file.
+L'écriture passe maintenant par le setter natif du prototype
+(`ecrireValeur()`), qui met à jour le tracker en même temps que la valeur.
 
-### R5 — Le `Blob` à travers la frontière page ↔ content script
+### R5 — CORRIGÉ (en partie) · Le `Blob` à travers la frontière page ↔ content script
 
 `_publierVinted.ts` construit le `CustomEvent` dans le contexte de la **page**,
 avec des `Blob` dans `detail`. `content-myflip.js` l'écoute depuis le **monde
-isolé** du content script. Firefox applique la Xray vision à cette frontière.
+isolé** du content script, et Firefox applique la Xray vision à cette frontière.
+Le fichier connaissait le problème — il le résout explicitement pour
+`history.pushState` — mais ne le traitait pas pour `e.detail`.
 
-Le fichier connaît le problème — il l'a résolu explicitement pour
-`history.pushState` — mais ne le traite pas pour `e.detail`. La lecture d'un
-objet simple à travers un Xray fonctionne en général ; les `Blob` imbriqués
-sont moins certains. Jamais testé.
+Cette frontière existe toujours : elle est structurelle, et la lever demanderait
+de changer la façon dont la page communique avec l'extension. Ce qui a changé,
+c'est qu'**elle ne peut plus échouer en silence**. La conversion en
+`ArrayBuffer` a lieu dans un `try/catch` : si `detail` n'a pas traversé
+proprement, `blob.arrayBuffer` est absent ou lève, l'erreur part en console, et
+**rien n'est mis en file**. Un onglet Vinted sans entrée appariée reste neutre,
+là où une entrée aux photos creuses aurait fait croire au succès.
 
-C'est une frontière **distincte** de celle du R1. Il y en a deux à valider, pas
-une :
+Reste à confirmer en usage réel que le cas nominal passe.
+
+### R6 — CORRIGÉ · Le `Blob` à travers `runtime.sendMessage`
+
+L'objet du spike jamais fait. Sans objet désormais : ce sont des `ArrayBuffer`
+qui transitent. La question du **volume** reste, elle — voir R10.
+
+### R7 — CORRIGÉ · 22 commits sur un seul disque
+
+`worktree-extension-vinted` est poussée sur `origin`.
 
 ```
-page MyFlip ──[CustomEvent.detail]──▶ content script ──[sendMessage]──▶ worker
-                    R5                                      R1/R6
+$ git ls-remote --heads origin | grep worktree
+70f3b05…  refs/heads/worktree-extension-vinted
 ```
 
-### R6 — Le `Blob` à travers `runtime.sendMessage`
+### R8 — OUVERT · Le délai anti-ban transite par le DOM de `/compte`
 
-L'objet du spike jamais fait. Le passage `content script → service worker` est
-sérialisé ; selon les versions et les chemins inter-processus, un `Blob` peut
-arriver en objet vide. Jusqu'à 20 photos pleine résolution transitent par ce
-canal, ce qui ajoute une question de volume que rien n'a mesurée.
-
-### R7 — 22 commits sur un seul disque
-
-Déjà dit en tête. `worktree-extension-vinted` n'est poussée nulle part, et le
-worktree vit sous `.claude/worktrees/` — un dossier qu'un nettoyage d'outillage
-peut raisonnablement supprimer.
-
-### R8 — Le délai anti-ban transite par le DOM de `/compte`
-
-Trois conséquences, toutes documentées dans le code mais aucune visible pour
+Trois conséquences, documentées dans le code mais invisibles pour
 l'utilisateur :
 
 - si `/compte` n'a jamais été visité depuis l'installation, aucun délai n'est
   en `storage.local` : le remplissage est bloqué et une bannière s'affiche —
-  comportement correct, mais l'utilisateur ne devinera pas pourquoi ;
-- si la fourchette est modifiée depuis un autre appareil, le storage local reste
-  périmé jusqu'à la prochaine visite de `/compte` ;
+  comportement correct, mais on ne devine pas pourquoi ;
+- si la fourchette est modifiée depuis un autre appareil, le storage local
+  reste périmé jusqu'à la prochaine visite de `/compte` ;
 - la copie dépend de deux `MutationObserver` (apparition des champs, transition
-  `disabled → activé`) avec un timeout de 20 s. Un chargement lent au-delà de
-  20 s laisse le storage inchangé, en silence.
+  `disabled → activé`) avec un timeout de 20 s. Un chargement plus lent laisse
+  le storage inchangé, en silence.
 
-### R9 — « succès partiel » ne consomme pas l'entrée
+C'est le prix de l'invariant « pas d'API dédiée à l'extension ». Le lever
+demanderait de revenir sur cette décision de design, pas de corriger un bug.
+
+### R9 — OUVERT · « succès partiel » ne consomme pas l'entrée
 
 Quand le texte est rempli mais pas les photos, `content-vinted.js` n'envoie pas
-`vinted:entree-consommee`. L'entrée reste en file, avec son `tabId`, jusqu'à la
-purge TTL de 30 min. Un rechargement retente (et n'écrase pas le texte grâce au
-garde-fou). Comportement volontaire et documenté, mais il faut le savoir :
-l'article n'est pas « fait » du point de vue de l'extension.
+`vinted:entree-consommee`. L'entrée reste en file avec son `tabId` jusqu'à la
+purge TTL de 30 min. Un rechargement retente sans écraser le texte déjà en
+place. Comportement volontaire et documenté — mais il faut savoir que l'article
+n'est pas « fait » du point de vue de l'extension.
 
-### R10 — Le poids du message
+### R10 — OUVERT · Le poids du message
 
-Jusqu'à 20 `Blob` pleine résolution par article, multipliés par le nombre
-d'articles en file. Rien n'a mesuré ce que ça coûte en mémoire du service
-worker ni en taille de base IndexedDB. Aucun plafond n'est posé côté extension.
+Jusqu'à 20 photos pleine résolution par article, multipliées par le nombre
+d'articles en file. Rien n'a mesuré ce que ça coûte en mémoire du worker ni en
+taille de base IndexedDB, et aucun plafond n'est posé côté extension. Le
+passage en `ArrayBuffer` ne change pas le volume, seulement sa fiabilité.
 
-### R11 — Le référentiel de prix est un modèle neuf, non éprouvé
+### R11 — OUVERT · Le référentiel de prix est un modèle neuf, non éprouvé
 
-`PrixReference` (marque, catégorie, prix, estDefaut) et `pickPrix()` sont un
-calque exact de `PromptTemplate` / `pickPrompt()`. La logique est testée
-(6 tests) mais la table est vide tant qu'elle n'est pas peuplée à la main dans
-`/parametres` : sans entrée, `pickPrix()` renvoie `null` et le champ prix du
-QCM reste vide, donc le prix envoyé à Vinted est la chaîne vide.
+`PrixReference` et `pickPrix()` sont un calque exact de `PromptTemplate` /
+`pickPrompt()`. La logique est testée (6 tests) mais la table est vide tant
+qu'elle n'est pas peuplée à la main dans `/parametres` : sans entrée,
+`pickPrix()` renvoie `null`, le champ prix du QCM reste vide, et le prix envoyé
+à Vinted est la chaîne vide.
 
----
+### R12 — OUVERT · `window.open()` après un `await` réseau
+
+Trouvé en relisant `_publierVinted.ts` après la première version de cet audit.
+
+```js
+const succes = await enregistrerUn(f.id, "Brouillon");
+if (!succes) return false;
+emettreEvenement(detailPublicationVinted(f));
+ouvrirOnglet();          // window.open, APRÈS un aller-retour réseau
+```
+
+L'ouverture d'onglet est délibérément gatée sur le succès du PATCH, et c'est la
+bonne décision : elle corrige un vrai bug d'appariement. Mais elle a un coût
+que ni le design ni le plan ne relèvent — **l'activation utilisateur ne survit
+pas indéfiniment à un `await`**. Firefox accorde une activation transitoire
+d'environ 5 secondes ; au-delà, `window.open()` est traité comme un popup non
+sollicité et bloqué.
+
+Concrètement : ça marche sur une connexion rapide, et ça cesse de marcher quand
+le PATCH traîne. Le pire profil de bug — intermittent, dépendant du réseau,
+irreproductible sur la machine du développeur.
+
+Non corrigé volontairement : les issues possibles (ouvrir l'onglet au clic puis
+le fermer si le PATCH échoue, ou naviguer un onglet déjà ouvert) sont des choix
+de conception qui appartiennent à Aramis, pas une ligne à changer.
 
 ## 4. Ce que l'existant fait pour le mode hybride
 
@@ -599,28 +659,54 @@ Non demandé de le concevoir. Relevé de ce qui aide et de ce qui gêne.
 - **Le mode auto ferait cliquer un bouton dont les sélecteurs ne sont pas
   connus** (R3). Tant que le DOM Vinted n'est pas relevé, un auto-publish n'a
   pas de cible.
-- **R4 est bloquant pour l'auto-publish.** En mode hybride manuel, un champ mal
-  rempli se voit et se corrige. En auto-publish, il part tel quel.
+- **R12 est bloquant pour l'auto-publish.** Un onglet qui ne s'ouvre pas parce
+  que le popup a été bloqué se rattrape à la main ; en auto-publish, il n'y a
+  personne pour le rattraper.
+- **R4 l'était aussi, il ne l'est plus.** Le remplissage passe désormais par le
+  setter natif : un champ mal rempli ne peut plus se faire passer pour un
+  succès. C'est précisément la garantie dont un auto-publish a besoin.
 
 ---
 
 ## 5. Ce qui reste avant de pouvoir s'en servir
 
-Par ordre, tel que l'audit le voit :
+Les quatre premiers points de la version initiale de cet audit sont faits. Ce
+qui reste demande un navigateur, une décision, ou une base de données — rien
+qui s'écrive depuis un éditeur.
 
-1. **Pousser `worktree-extension-vinted` sur `origin`.** Dix secondes. (R7)
-2. **Faire la Task 10** — le spike `Blob`, aux deux frontières (R1, R5, R6).
-3. **Charger l'extension dans Firefox via `about:debugging`** et regarder si
-   `background.js` démarre (R2).
-4. **Relever le DOM réel de `vinted.fr/items/new`** : sélecteurs des trois
-   champs, de l'input fichier, et vérifier le comportement React d'un
-   remplissage programmatique (R3, R4).
-5. Signer l'extension (`web-ext sign`) et l'installer pour de vrai.
-6. Un passage bout-en-bout sur un article réel.
-7. Décider quoi faire de la branche : merge dans `main`, ou rebase d'abord
-   (elle est 2 commits derrière).
+| # | Action | État |
+|---|---|---|
+| 1 | Sauvegarder la branche sur `origin` | ✅ fait |
+| 2 | Rendre l'extension signable (`web-ext lint` à 0 erreur) | ✅ fait |
+| 3 | Fiabiliser le transport des photos et le remplissage React | ✅ fait |
+| 4 | **Relever le DOM réel de `vinted.fr/items/new`** | ⬜ R3 |
+| 5 | **Charger l'extension dans Firefox** (`about:debugging`) et vérifier que `background.js` démarre | ⬜ |
+| 6 | **Trancher R12** — comment ouvrir l'onglet sans perdre l'activation utilisateur | ⬜ décision |
+| 7 | Signer (`web-ext sign`) et installer le `.xpi` | ⬜ |
+| 8 | Un passage bout-en-bout sur un article réel | ⬜ |
+| 9 | Peupler `PrixReference` dans `/parametres` | ⬜ R11 |
 
-Rien de tout cela n'est de la conception. Tout est de la vérification.
+### Avant de fusionner dans `main`
+
+La branche `worktree-extension-vinted` **n'est pas fusionnée**, volontairement.
+Deux raisons, aucune n'étant « le code est mauvais » :
+
+**Les migrations ne s'appliquent pas toutes seules.** `vercel.json` lance
+`npx prisma generate && next build`, **pas** `prisma migrate deploy`. Fusionner
+déploierait donc du code qui interroge une table `PrixReference` absente de la
+base de production. La dégradation est contenue — React Query renvoie `[]`, la
+page `/parametres` s'affiche vide et `/mise-en-vente` ne pré-remplit pas le
+prix, rien ne plante — mais `/api/prix` répondrait 500 tant que la migration
+n'est pas passée.
+
+**Le bouton « Publier » change de nature sur une page qui marche.** Il passe
+d'un `<a target="_blank">` à un `<button>` qui enchaîne PATCH puis
+`window.open()`. C'est R12, et ça n'a jamais été vu tourner dans un navigateur.
+Tout MyFlip étant derrière l'authentification, cette vérification-là revient à
+Aramis.
+
+L'ordre sûr est donc : appliquer les deux migrations sur la base de production,
+vérifier le bouton dans un navigateur, puis fusionner.
 
 ---
 
@@ -636,6 +722,10 @@ git diff main...worktree-extension-vinted --stat
 # La branche est-elle sauvegardée ?
 git ls-remote --heads origin | grep worktree
 
-# Les tests
+# Les tests (145 attendus, tous verts)
 cd .claude/worktrees/extension-vinted && npx vitest run
+npx tsc --noEmit
+
+# L'extension est-elle signable ? (0 erreur attendue, 2 avertissements voulus)
+cd extension-vinted && npx web-ext lint --self-hosted
 ```
