@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getUserId, unauthorized } from "@/lib/apiAuth";
-import { STATUT_VENDU, STATUTS } from "@/lib/calc";
+import { changerStatutArticles } from "@/lib/stock";
 
 export const dynamic = "force-dynamic";
 
 type Body = { ids?: string[]; statut?: string };
 
 // PATCH /api/articles/bulk — change le statut d'un ensemble d'articles.
+//
+// La logique vit dans `lib/stock.ts` : elle est partagée avec l'API Hermes
+// (POST /api/hermes/stock/statut), qui désigne les mêmes articles par SKU.
 export async function PATCH(req: NextRequest) {
   const userId = await getUserId();
   if (!userId) return unauthorized();
@@ -15,43 +17,13 @@ export async function PATCH(req: NextRequest) {
   try {
     const { ids, statut } = (await req.json()) as Body;
 
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return NextResponse.json(
-        { error: "Aucun article sélectionné." },
-        { status: 400 },
-      );
-    }
-    const nouveau = String(statut ?? "").trim();
-    if (!STATUTS.includes(nouveau as never)) {
-      return NextResponse.json({ error: "Statut invalide." }, { status: 400 });
-    }
-    if (nouveau === STATUT_VENDU) {
-      return NextResponse.json(
-        {
-          error:
-            "Pour marquer des articles comme vendus, utilise la validation (prix requis).",
-        },
-        { status: 400 },
-      );
-    }
+    const res = await changerStatutArticles(userId, { ids }, statut ?? "");
+    if (!res.ok)
+      return NextResponse.json({ error: res.error }, { status: res.status });
 
-    // Champs de vente remis à null (règle centrale si on quitte « Vendu »).
-    // Le `userId` dans le where fait le tri en une seule requête : les ids qui
-    // ne sont pas à cet utilisateur sont simplement ignorés, et `res.count`
-    // reflète ce qui a réellement été modifié.
-    const res = await prisma.article.updateMany({
-      where: { id: { in: ids }, userId },
-      data: {
-        statut: nouveau,
-        prixVente: null,
-        dateVente: null,
-        margeBrute: null,
-        margeNette: null,
-        coefficient: null,
-      },
-    });
-
-    return NextResponse.json({ count: res.count, statut: nouveau });
+    // Les SKU ne sont pas renvoyés ici : l'UI recharge le stock. Sur une
+    // sélection de plusieurs centaines de lignes, ce serait du poids pour rien.
+    return NextResponse.json({ count: res.count, statut: res.statut });
   } catch (err) {
     console.error("PATCH /api/articles/bulk", err);
     return NextResponse.json(
