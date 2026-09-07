@@ -1,66 +1,37 @@
 // extension-vinted/background.js
-import {
-  deleteEntry,
-  deletePendingEvent,
-  getAllEntries,
-  getAllPendingEvents,
-  saveEntry,
-  savePendingEvent,
-} from "./db.js";
-import { pairEvents } from "./pairing.js";
+//
+// Ordonnanceur de la file de publication Vinted. Un seul article en vol à la
+// fois, un onglet créé par l'extension elle-même, et une alarme pour tenir
+// les délais anti-ban à travers la mort du worker.
+//
+// Ce que ce fichier N'A PLUS : l'appariement onglet↔article par openerTabId.
+// L'extension crée ses onglets, donc elle connaît leur tabId — pairing.js et
+// le store "pendingEvents" ont disparu avec ce besoin.
+//
+// Toute la logique de décision vit dans file.js, en fonctions pures testées.
+// Ici il ne reste que du branchement d'API browser.*, volontairement.
 
-// UserSettings.delaiVintedMinMinutes/MaxMinutes (Task 9) ne sont PAS exposés
-// à l'extension via une API MyFlip (invariant : pas d'API dédiée, pas
-// d'OAuth). L'extension les lit directement dans son propre
-// browser.storage.local, où le content script MyFlip les aura copiés depuis
-// le DOM de /compte au dernier chargement de cette page — donc "réglé" veut
-// dire "Aramis a visité /compte au moins une fois après son dernier
-// changement". Documenté dans le README utilisateur de l'extension (hors
-// scope de ce plan de code).
+import { deleteEntry, getAllEntries, saveEntry } from "./db.js";
+import { entreesPerimees, prochaineAction, tirerDelaiMs } from "./file.js";
+
+const ALARME = "myflip-vinted-suite";
+const TTL_MS = 60 * 60_000;
+const URL_FORMULAIRE = "https://www.vinted.fr/items/new";
+
+// Les bornes de délai ne sont pas lisibles par API (invariant de design : pas
+// d'API MyFlip dédiée à l'extension). content-myflip.js les copie depuis le
+// DOM de /compte vers storage.local. « Réglé » veut donc dire « Aramis a
+// visité /compte après son dernier changement ».
 async function lireDelaiRegle() {
   const { delaiMin, delaiMax } = await browser.storage.local.get(["delaiMin", "delaiMax"]);
   if (delaiMin == null || delaiMax == null) return null;
   return { delaiMin, delaiMax };
 }
 
-// Au-delà de ce délai, un événement tabs.onCreated ou une entrée en file
-// encore non appariés sont purgés plutôt que laissés en attente
-// indéfiniment. Sans ça, un orphelin ancien (onglet fermé avant sa mise en
-// file, écriture persistée mais jamais consommée, etc.) peut être volé plus
-// tard par un événement/message sans rapport pour le même openerTabId —
-// pairEvents() apparie par ts croissant, sans notion d'expiration propre.
-// 30 minutes est largement supérieur à toute plage de délai anti-ban
-// réaliste (donc jamais confondu avec un cibleMs légitime en attente).
-const TTL_MS = 30 * 60_000;
-
-// Cache mémoire des événements tabs.onCreated non encore appariés.
-// IndexedDB (store "pendingEvents", voir db.js) fait foi : ce tableau est
-// reconstruit depuis IndexedDB à chaque reconcile(), y compris au réveil
-// d'un service worker qui démarre avec ce tableau vide.
-const pendingEvents = []; // { tabId, openerTabId, ts }
-
-browser.tabs.onCreated.addListener(async (tab) => {
-  if (tab.openerTabId == null) return;
-  const event = { tabId: tab.id, openerTabId: tab.openerTabId, ts: Date.now() };
-  // Persisté AVANT toute logique d'appariement. Si le service worker est tué
-  // pendant reconcile() (lecture + écriture(s) IndexedDB, potentiellement
-  // plusieurs paires), cet événement doit déjà être durablement enregistré :
-  // sinon il ne vivait qu'en mémoire et disparaissait avec le worker,
-  // laissant l'entrée en file qu'il devait apparier orpheline pour toujours
-  // — prête à être volée par le prochain tabs.onCreated du même
-  // openerTabId. La fonction est async et son promise n'est pas ignorée
-  // (contrairement à une fonction sync + reconcile() en fire-and-forget) :
-  // le runtime a un signal de travail en cours pendant toute la durée de
-  // l'opération, pas seulement le tick synchrone.
-  await savePendingEvent(event);
-  pendingEvents.push(event);
-  await reconcile();
-});
-
 browser.runtime.onMessage.addListener(async (msg, sender) => {
   if (msg.type === "myflip:mise-en-file") {
     if (!sender.tab) {
-      console.warn("[myflip-vinted] myflip:mise-en-file reçu sans onglet expéditeur, ignoré");
+      console.warn("[myflip-vinted] mise-en-file sans onglet expéditeur, ignorée");
       return;
     }
     await saveEntry({
@@ -70,95 +41,142 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
       prix: msg.prix,
       // `{ type, buffer }[]`, pas des Blob : content-myflip.js convertit à la
       // source pour que les photos traversent sans ambiguïté le messaging ET
-      // IndexedDB. Ce worker les stocke tels quels, content-vinted.js
-      // reconstruit les Blob à l'arrivée.
+      // IndexedDB.
       photos: msg.photos,
-      openerTabId: sender.tab.id,
+      // Identifiants numériques Vinted, ou undefined si la fiche n'a pas de
+      // mapping. Consommé tel quel par content-vinted.js : aucune traduction
+      // de ce côté-ci de la frontière.
+      vinted: msg.vinted,
+      etat: "en-attente",
       ts: Date.now(),
-      tabId: null,
       cibleMs: null,
+      tabId: null,
     });
-    await reconcile();
+    await avancer();
     return;
   }
+
   if (msg.type === "vinted:qui-suis-je") {
     if (!sender.tab) return { entry: null };
     const entries = await getAllEntries();
-    const mine = entries.find((e) => e.tabId === sender.tab.id);
-    if (!mine) return { entry: null };
-    if (mine.cibleMs == null) {
-      const delai = await lireDelaiRegle();
-      if (!delai) return { entry: mine, delaiNonRegle: true };
-      const minutes = delai.delaiMin + Math.random() * (delai.delaiMax - delai.delaiMin);
-      mine.cibleMs = Date.now() + minutes * 60_000;
-      await saveEntry(mine);
-    }
-    return { entry: mine };
+    const mienne = entries.find((e) => e.tabId === sender.tab.id);
+    return { entry: mienne ?? null };
   }
-  if (msg.type === "vinted:entree-consommee") {
-    await deleteEntry(msg.entryId);
+
+  if (msg.type === "vinted:resultat") {
+    const entries = await getAllEntries();
+    const entree = entries.find((e) => e.entryId === msg.entryId);
+    if (!entree) return;
+
+    if (msg.statut === "succes") {
+      // Le clic « Sauvegarder le brouillon » redirige vers /member/<id> : la
+      // confirmation arrive par tabs.onUpdated (plus bas), pas ici. Ce
+      // message dit seulement que le clic est parti.
+      return;
+    }
+    // Échec de remplissage : l'onglet reste OUVERT avec sa bannière, pour que
+    // l'article puisse être terminé à la main, et la chaîne s'arrête.
+    entree.etat = "echouee";
+    await saveEntry(entree);
+    console.warn(`[myflip-vinted] chaîne suspendue sur ${entree.entryId} : ${msg.statut}`);
+    return;
   }
 });
 
-async function reconcile() {
-  // Recharge les événements tabs.onCreated persistés : un service worker
-  // fraîchement réveillé démarre avec pendingEvents vide en mémoire, mais
-  // IndexedDB peut porter des événements laissés par une instance précédente
-  // tuée avant la fin de son propre reconcile(). Fusion par tabId pour ne
-  // pas dupliquer un événement déjà présent en mémoire (ex. juste poussé par
-  // le listener tabs.onCreated dans ce même appel).
-  const persisted = await getAllPendingEvents();
-  for (const ev of persisted) {
-    if (!pendingEvents.some((e) => e.tabId === ev.tabId)) {
-      pendingEvents.push(ev);
-    }
-  }
-
+// Succès : la page a quitté /items/new pour le profil vendeur. C'est le seul
+// signal fiable — le toast de confirmation est emporté par la redirection
+// avant d'être observable (cf. audit 2026-09-08 §6).
+browser.tabs.onUpdated.addListener(async (tabId, infos) => {
+  if (!infos.url) return;
   const entries = await getAllEntries();
-  const unpaired = entries.filter((e) => e.tabId == null);
-  const messages = unpaired.map((e) => ({
-    entryId: e.entryId,
-    openerTabId: e.openerTabId,
-    ts: e.ts,
-  }));
+  const entree = entries.find((e) => e.tabId === tabId && e.etat === "en-cours");
+  if (!entree) return;
+  if (!infos.url.includes("/member/")) return;
 
-  const { pairs, unmatchedEvents, unmatchedMessages } = pairEvents(pendingEvents, messages);
+  await deleteEntry(entree.entryId);
+  await browser.tabs.remove(tabId).catch(() => {
+    // L'onglet a pu être fermé à la main entre-temps : ce n'est pas un échec.
+  });
+  await avancer();
+});
 
-  for (const { tabId, entryId } of pairs) {
-    const entry = entries.find((e) => e.entryId === entryId);
-    entry.tabId = tabId;
-    await saveEntry(entry);
-    const idx = pendingEvents.findIndex((e) => e.tabId === tabId);
-    if (idx >= 0) pendingEvents.splice(idx, 1);
-    await deletePendingEvent(tabId);
+// Un onglet en cours fermé à la main, sans redirection : le travail n'a pas
+// abouti. On suspend plutôt que de passer au suivant — l'onglet a été fermé
+// pour une raison, et elle vaut probablement pour les articles suivants.
+browser.tabs.onRemoved.addListener(async (tabId) => {
+  const entries = await getAllEntries();
+  const entree = entries.find((e) => e.tabId === tabId && e.etat === "en-cours");
+  if (!entree) return;
+  entree.etat = "echouee";
+  await saveEntry(entree);
+});
+
+browser.alarms.onAlarm.addListener((alarme) => {
+  if (alarme.name === ALARME) void avancer();
+});
+
+/**
+ * Fait avancer la file d'un cran. Idempotente : elle peut être rappelée à
+ * tout moment (message entrant, alarme, réveil du worker) et ne fera rien de
+ * plus que ce que l'état en base justifie.
+ */
+async function avancer() {
+  const entries = await getAllEntries();
+
+  for (const entryId of entreesPerimees(entries, Date.now(), TTL_MS)) {
+    console.warn(`[myflip-vinted] purge de l'entrée périmée ${entryId}`);
+    await deleteEntry(entryId);
   }
 
-  await purgeStale(unmatchedEvents, unmatchedMessages);
+  const action = prochaineAction(await getAllEntries(), Date.now());
+
+  if (action.type === "planifier") {
+    const delai = await lireDelaiRegle();
+    if (!delai) {
+      // Sans fourchette réglée, on n'invente pas de délai : un délai implicite
+      // de zéro annulerait le garde-fou anti-ban. La bannière de
+      // content-vinted.js ne peut rien dire ici (aucun onglet ouvert), donc
+      // la console est le seul canal — documenté dans le README.
+      console.warn("[myflip-vinted] délai anti-ban non réglé : ouvre /compte une fois.");
+      return;
+    }
+    const entrees = await getAllEntries();
+    const entree = entrees.find((e) => e.entryId === action.entryId);
+    entree.cibleMs = Date.now() + tirerDelaiMs(delai.delaiMin, delai.delaiMax, Math.random);
+    await saveEntry(entree);
+    return void avancer();
+  }
+
+  if (action.type === "attendre") {
+    // `when` en epoch absolu, pas `delayInMinutes` : le worker peut mourir
+    // entre-temps, et une échéance absolue survit là où un délai relatif
+    // repartirait de zéro au réveil.
+    browser.alarms.create(ALARME, { when: Date.now() + action.dansMs });
+    return;
+  }
+
+  if (action.type === "ouvrir") {
+    const onglet = await browser.tabs.create({ url: URL_FORMULAIRE, active: false });
+    const entrees = await getAllEntries();
+    const entree = entrees.find((e) => e.entryId === action.entryId);
+    entree.tabId = onglet.id;
+    entree.etat = "en-cours";
+    await saveEntry(entree);
+  }
+  // "occupe", "suspendu", "rien" : il n'y a rien à faire. La reprise viendra
+  // d'un tabs.onUpdated, d'un tabs.onRemoved, ou d'une nouvelle mise en file.
 }
 
-async function purgeStale(unmatchedEvents, unmatchedMessages) {
-  const now = Date.now();
-  for (const ev of unmatchedEvents) {
-    if (now - ev.ts <= TTL_MS) continue;
-    console.warn(
-      `[myflip-vinted] purge tabs.onCreated orphelin (tabId=${ev.tabId}, openerTabId=${ev.openerTabId}, âge=${Math.round((now - ev.ts) / 1000)}s)`,
-    );
-    await deletePendingEvent(ev.tabId);
-    const idx = pendingEvents.findIndex((e) => e.tabId === ev.tabId);
-    if (idx >= 0) pendingEvents.splice(idx, 1);
+// Au réveil du worker (MV3 : il peut être tué à tout moment), la file est en
+// base et se relit. Une entrée « en-cours » dont l'onglet a disparu pendant
+// le sommeil est rattrapée ici plutôt que de bloquer la chaîne à jamais.
+(async function reprendre() {
+  const entries = await getAllEntries();
+  for (const e of entries.filter((x) => x.etat === "en-cours")) {
+    const vivant = await browser.tabs.get(e.tabId).catch(() => null);
+    if (vivant) continue;
+    e.etat = "echouee";
+    await saveEntry(e);
   }
-  for (const msg of unmatchedMessages) {
-    if (now - msg.ts <= TTL_MS) continue;
-    console.warn(
-      `[myflip-vinted] purge entrée en file orpheline (entryId=${msg.entryId}, openerTabId=${msg.openerTabId}, âge=${Math.round((now - msg.ts) / 1000)}s)`,
-    );
-    await deleteEntry(msg.entryId);
-  }
-}
-
-// Au réveil du service worker (Manifest V3 : peut être tué à tout moment),
-// reconcile() recharge à la fois les entrées IndexedDB (tabId déjà posé =
-// rien à refaire pour elles) et les événements tabs.onCreated persistés
-// qu'une instance précédente n'a pas eu le temps d'apparier avant d'être
-// tuée.
-reconcile();
+  await avancer();
+})();
