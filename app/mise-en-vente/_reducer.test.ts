@@ -289,3 +289,20 @@ describe("sélecteurs", () => {
     expect(dejaAnnonces([avec, sans])).toEqual(["PRL1"]);
   });
 });
+
+describe("qcm/couleurs", () => {
+  it("accepte un tableau d'ids de couleur", () => {
+    const depart = etatInitial("f1");
+    const apres = reducerMev(depart, {
+      type: "qcm",
+      id: "f1",
+      champ: "couleurs",
+      valeur: [1, 3],
+    });
+    expect(apres.fiches[0].qcm.couleurs).toEqual([1, 3]);
+  });
+
+  it("part d'un tableau vide", () => {
+    expect(etatInitial("f1").fiches[0].qcm.couleurs).toEqual([]);
+  });
+});

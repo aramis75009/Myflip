@@ -84,6 +84,8 @@ export type Qcm = {
   matiere2: string;
   details: string;
   prix: string;
+  /** Ids de couleur Vinted, 0 à 2. Vinted plafonne la sélection à 2. */
+  couleurs: number[];
 };
 
 export type Photo = {
@@ -165,7 +167,7 @@ export type ActionMev =
     }
   | { type: "photo/selection"; id: string; photoId: string }
   | { type: "photo/liberer-base" }
-  | { type: "qcm"; id: string; champ: keyof Qcm; valeur: string | boolean }
+  | { type: "qcm"; id: string; champ: keyof Qcm; valeur: string | boolean | number[] }
   | { type: "prompt"; id: string; promptId: string | null }
   | { type: "generation/debut"; id: string }
   | { type: "generation/ok"; id: string; resultat: GenerateResult }
@@ -193,6 +195,7 @@ const QCM_VIDE: Qcm = {
   matiere2: "",
   details: "",
   prix: "",
+  couleurs: [],
 };
 
 export function ficheVide(id: string): ArticleEnCours {
