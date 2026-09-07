@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { detailPublicationVinted, publierVinted } from "./_publierVinted";
+import {
+  detailPublicationVinted,
+  publierVinted,
+  type DetailPublicationVinted,
+} from "./_publierVinted";
 import { ficheVide, type ArticleEnCours } from "./_reducer";
 import type { ArticleDTO } from "@/lib/types";
 
@@ -52,17 +56,11 @@ describe("publierVinted — invariant critique : PATCH gate l'onglet", () => {
   // décale l'appariement de tous les onglets suivants ouverts dans la même
   // session. Ce test est celui qui matérialise ce risque — cf. brief Tâche 8.
 
-  it("n'émet pas l'événement et n'ouvre pas d'onglet si l'enregistrement échoue", async () => {
+  it("n'émet pas l'événement si l'enregistrement échoue", async () => {
     const enregistrerUn = vi.fn().mockResolvedValue(false);
     const emettreEvenement = vi.fn();
-    const ouvrirOnglet = vi.fn();
 
-    const resultat = await publierVinted(
-      ficheDeTest(),
-      enregistrerUn,
-      emettreEvenement,
-      ouvrirOnglet,
-    );
+    const resultat = await publierVinted(ficheDeTest(), enregistrerUn, emettreEvenement);
 
     // f.id ("f0"), PAS f.article.id ("art_PRL1") : c'est l'id CLIENT que
     // `enregistrer()` (page.tsx) résout via `fiches.find((x) => x.id === id)`.
@@ -70,29 +68,17 @@ describe("publierVinted — invariant critique : PATCH gate l'onglet", () => {
     // deviendrait alors structurellement impossible en prod (bug déjà vécu).
     expect(enregistrerUn).toHaveBeenCalledWith("f0", "Brouillon");
     expect(emettreEvenement).not.toHaveBeenCalled();
-    expect(ouvrirOnglet).not.toHaveBeenCalled();
     expect(resultat).toBe(false);
   });
 
-  it("émet l'événement puis ouvre l'onglet seulement après un enregistrement réussi", async () => {
+  it("émet l'événement seulement après un enregistrement réussi", async () => {
     const enregistrerUn = vi.fn().mockResolvedValue(true);
-    const appels: string[] = [];
-    const emettreEvenement = vi.fn(() => appels.push("evenement"));
-    const ouvrirOnglet = vi.fn(() => appels.push("onglet"));
+    const emettreEvenement = vi.fn();
 
-    const resultat = await publierVinted(
-      ficheDeTest(),
-      enregistrerUn,
-      emettreEvenement,
-      ouvrirOnglet,
-    );
+    const resultat = await publierVinted(ficheDeTest(), enregistrerUn, emettreEvenement);
 
     expect(enregistrerUn).toHaveBeenCalledWith("f0", "Brouillon");
     expect(emettreEvenement).toHaveBeenCalledTimes(1);
-    expect(ouvrirOnglet).toHaveBeenCalledTimes(1);
-    // L'événement précède l'ouverture : l'extension doit pouvoir capter le
-    // detail avant que l'onglet Vinted n'existe.
-    expect(appels).toEqual(["evenement", "onglet"]);
     expect(resultat).toBe(true);
   });
 
@@ -104,7 +90,7 @@ describe("publierVinted — invariant critique : PATCH gate l'onglet", () => {
     expect(f.id).not.toBe(f.article!.id);
 
     const enregistrerUn = vi.fn().mockResolvedValue(true);
-    await publierVinted(f, enregistrerUn, vi.fn(), vi.fn());
+    await publierVinted(f, enregistrerUn, vi.fn());
 
     expect(enregistrerUn).toHaveBeenCalledWith(f.id, "Brouillon");
     expect(enregistrerUn).not.toHaveBeenCalledWith(f.article!.id, "Brouillon");
@@ -113,20 +99,37 @@ describe("publierVinted — invariant critique : PATCH gate l'onglet", () => {
   it("ne tente même pas l'enregistrement si la fiche n'a pas d'article", async () => {
     const enregistrerUn = vi.fn().mockResolvedValue(true);
     const emettreEvenement = vi.fn();
-    const ouvrirOnglet = vi.fn();
     const sansArticle: ArticleEnCours = { ...ficheDeTest(), article: null };
 
-    const resultat = await publierVinted(
-      sansArticle,
-      enregistrerUn,
-      emettreEvenement,
-      ouvrirOnglet,
-    );
+    const resultat = await publierVinted(sansArticle, enregistrerUn, emettreEvenement);
 
     expect(enregistrerUn).not.toHaveBeenCalled();
     expect(emettreEvenement).not.toHaveBeenCalled();
-    expect(ouvrirOnglet).not.toHaveBeenCalled();
     expect(resultat).toBe(false);
+  });
+});
+
+describe("publierVinted — sans ouverture d'onglet", () => {
+  it("émet l'événement quand le PATCH réussit, et rien d'autre", async () => {
+    const emis: DetailPublicationVinted[] = [];
+    const ok = await publierVinted(
+      ficheAvec({ marque: "Nike", categorie: "Sac à dos", etat: "Très bon état" }),
+      async () => true,
+      (d) => emis.push(d),
+    );
+    expect(ok).toBe(true);
+    expect(emis).toHaveLength(1);
+  });
+
+  it("n'émet rien quand le PATCH échoue", async () => {
+    const emis: DetailPublicationVinted[] = [];
+    const ok = await publierVinted(
+      ficheAvec({ marque: "Nike", categorie: "Sac à dos", etat: "Très bon état" }),
+      async () => false,
+      (d) => emis.push(d),
+    );
+    expect(ok).toBe(false);
+    expect(emis).toHaveLength(0);
   });
 });
 

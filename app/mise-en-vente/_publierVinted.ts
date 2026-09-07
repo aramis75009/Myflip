@@ -1,5 +1,6 @@
-// Publication vers Vinted : le PATCH d'abord, l'onglet ensuite — et l'onglet
-// SEULEMENT si le PATCH a réussi.
+// Publication vers Vinted : le PATCH d'abord, l'événement ensuite — et
+// l'événement SEULEMENT si le PATCH a réussi. L'ouverture de l'onglet n'a plus
+// lieu ici : c'est l'extension qui crée le sien à réception de l'événement.
 //
 // Pourquoi un module à part plutôt qu'un bloc direct dans page.tsx : l'ancien
 // <a target="_blank"> ouvrait l'onglet Vinted AU CLIC, avant que le PATCH
@@ -7,13 +8,14 @@
 // `tabs.onCreated` orphelin côté extension (Tâche 14) — qui apparie chaque
 // onglet ouvert à un article mis en file par ORDRE DE CRÉATION. Un onglet en
 // trop décale l'appariement de tous les onglets suivants ouverts dans la même
-// session (bug identifié en revue Eng).
+// session (bug identifié en revue Eng). Faire créer l'onglet par l'extension
+// elle-même, à réception de l'événement, supprime le problème à la racine.
 //
-// Cette fonction matérialise le garde-fou. `enregistrerUn`, `emettreEvenement`
-// et `ouvrirOnglet` sont INJECTÉS par l'appelant plutôt qu'appelés en dur
-// (`window.dispatchEvent`, `window.open`) : ce fichier reste une fonction pure
-// — sans React, sans DOM — donc testable par Vitest en environnement `node`
-// (cf. vitest.config.ts). page.tsx branche les effets réels.
+// Cette fonction matérialise le garde-fou. `enregistrerUn` et
+// `emettreEvenement` sont INJECTÉS par l'appelant plutôt qu'appelés en dur
+// (`window.dispatchEvent`) : ce fichier reste une fonction pure — sans React,
+// sans DOM — donc testable par Vitest en environnement `node` (cf.
+// vitest.config.ts). page.tsx branche les effets réels.
 
 import type { ArticleEnCours } from "./_reducer";
 import { pickVintedMapping } from "@/lib/vintedMapping";
@@ -100,31 +102,39 @@ export function detailPublicationVinted(f: ArticleEnCours): DetailPublicationVin
 /**
  * Orchestre la publication Vinted d'une fiche.
  *
- * INVARIANT CRITIQUE : `emettreEvenement` et `ouvrirOnglet` ne sont appelés
- * QUE si `enregistrerUn` a résolu à `true`. Ne JAMAIS relâcher cette garde,
- * même partiellement (ex. ouvrir l'onglet avant l'événement, ou l'inverse,
- * sans vérifier `succes`) : c'est exactement le bug que ce module corrige.
+ * INVARIANT CRITIQUE : `emettreEvenement` n'est appelé QUE si `enregistrerUn`
+ * a résolu à `true`. Ne jamais relâcher cette garde.
  *
- * Renvoie `true` si la publication est allée jusqu'au bout (enregistrement +
- * événement + onglet), `false` sinon — utile pour les appelants qui veulent
- * réagir à un échec (ex. ne pas fermer un panneau).
+ * ⚠️ Cette fonction n'ouvre PLUS d'onglet. C'est l'extension qui crée le sien
+ * (`browser.tabs.create`), pour deux raisons : un `window.open()` placé après
+ * un `await` réseau perd l'activation utilisateur (~5 s chez Firefox) et se
+ * fait bloquer comme popup dès que le PATCH traîne ; et un onglet ouvert par
+ * l'extension n'a plus besoin d'être apparié à son article après coup.
+ * page.tsx garde un repli manuel pour le cas « extension non installée ».
  */
 export async function publierVinted(
   f: ArticleEnCours,
   enregistrerUn: (id: string, statut: string) => Promise<boolean>,
   emettreEvenement: (detail: DetailPublicationVinted) => void,
-  ouvrirOnglet: () => void,
 ): Promise<boolean> {
   if (!f.article) return false;
-  // ⚠️ `f.id` — l'identité CLIENT de la fiche (cf. _reducer.ts), PAS
-  // `f.article.id`. `enregistrer()` (page.tsx) résout ses ids via
-  // `etatRef.current.fiches.find((x) => x.id === id)` : lui passer
-  // `f.article.id` ne matche jamais aucune fiche, la boucle `continue`
-  // silencieusement, aucun PATCH ne part, et `enregistrer()` renvoie
-  // toujours `false` — la publication devient structurellement impossible.
+  // ⚠️ `f.id` — l'identité CLIENT de la fiche, PAS `f.article.id` : c'est ce
+  // que `enregistrer()` (page.tsx) sait résoudre.
   const succes = await enregistrerUn(f.id, "Brouillon");
   if (!succes) return false;
   emettreEvenement(detailPublicationVinted(f));
-  ouvrirOnglet();
   return true;
+}
+
+/**
+ * L'extension est-elle installée ?
+ *
+ * `content-myflip.js` pose `data-myflip-vinted="1"` sur `<html>` à
+ * l'injection. C'est le seul canal disponible : il n'existe aucune API MyFlip
+ * que l'extension pourrait appeler, par choix de design. Sans marqueur, la
+ * page ouvre l'onglet Vinted elle-même — le comportement d'avant ce chantier.
+ */
+export function extensionPresente(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.documentElement.dataset.myflipVinted === "1";
 }

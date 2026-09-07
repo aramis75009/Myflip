@@ -33,7 +33,10 @@ import FileGeneration from "./_components/FileGeneration";
 import RailArticles from "./_components/RailArticles";
 import { descripteurBarre } from "./_barreAction";
 import { ecrire, effacer, lire } from "./_persistance";
-import { publierVinted as orchestrerPublicationVinted } from "./_publierVinted";
+import {
+  extensionPresente,
+  publierVinted as orchestrerPublicationVinted,
+} from "./_publierVinted";
 import {
   etatInitial,
   fichePrete,
@@ -396,17 +399,24 @@ export default function MiseEnVentePage() {
   }
 
   // ── Publier sur Vinted ──────────────────────────────────────────────────
-  // Le PATCH avant tout, l'onglet ensuite — et seulement si le PATCH a
+  // Le PATCH avant tout, l'événement ensuite — et seulement si le PATCH a
   // réussi. L'orchestration (garde succès/échec) est une fonction PURE dans
-  // _publierVinted.ts, testée sans DOM ; ici on ne branche que les vrais
-  // effets de bord (événement DOM, ouverture d'onglet).
-  function publierVinted(f: ArticleEnCours) {
-    return orchestrerPublicationVinted(
+  // _publierVinted.ts, testée sans DOM ; ici on ne branche que le vrai effet
+  // de bord (événement DOM). C'est l'extension qui ouvre l'onglet Vinted en
+  // réaction à l'événement — plus la page.
+  async function publierVinted(f: ArticleEnCours) {
+    const ok = await orchestrerPublicationVinted(
       f,
       (id, statut) => enregistrer([id], statut),
       (detail) => window.dispatchEvent(new CustomEvent("myflip:publier-vinted", { detail })),
-      () => window.open("https://www.vinted.fr/items/new", "_blank", "noopener,noreferrer"),
     );
+    // Sans extension, personne n'ouvrira l'onglet : on le fait, comme avant.
+    // Le popup peut être bloqué (on sort d'un await) — c'est le prix du repli,
+    // et il ne concerne que le cas « extension non installée ».
+    if (ok && !extensionPresente()) {
+      window.open("https://www.vinted.fr/items/new", "_blank", "noopener,noreferrer");
+    }
+    return ok;
   }
 
   // ── Barre d'action ──────────────────────────────────────────────────────
