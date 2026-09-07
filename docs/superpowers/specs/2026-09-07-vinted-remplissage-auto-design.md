@@ -377,18 +377,24 @@ commune (Vinted a changé son DOM).
 
 ---
 
-## 6. Une décision produit reste ouverte : 157 ou 246 ?
+## 6. La catégorie retenue : 157, Femmes > Sacs
 
-Le relevé du 2026-09-08 a travaillé sur **`category_id = 246`** — « Sacs à dos » sous
-**Hommes > Accessoires > Sacs et sacoches** — alors que les deux relevés précédents
-documentaient **`157`**, « Sacs à dos » sous **Femmes > Sacs**.
+Le relevé du 2026-09-08 a travaillé sur `category_id = 246` — « Sacs à dos » sous
+**Hommes > Accessoires > Sacs et sacoches**. C'était une erreur de navigation, pas un
+choix : **la catégorie visée est `157`, « Sacs à dos » sous Femmes > Sacs**
+(décision d'Aramis, 2026-09-08).
 
-Les deux feuilles portent le même libellé, ont les mêmes champs et la même mécanique.
-Seul l'id change. Ce n'est donc pas un bug d'audit : c'est un choix de rayon, et il
-appartient à Aramis. `MAPPINGS_VINTED` porte une seule valeur ; la changer est une
-ligne.
+Conséquence directe sur le remplissage : la recherche « Sacs à dos » renvoie
+**plusieurs feuilles** portant le même libellé (157 Femmes, 246 Hommes, et l'équivalent
+Enfants). Cliquer `#catalog-search-157-result` désambiguïse par l'id, mais un id qui
+changerait chez Vinted ferait ranger les sacs dans le mauvais rayon **sans aucune
+erreur visible**. On vérifie donc, avant de cliquer « Fait », que le fil d'Ariane de la
+ligne choisie (`.web_ui__Cell__body`) vaut bien `Femmes > Sacs` ; sinon
+`echec-selecteurs`, et rien n'est validé.
 
-**Tant que ce n'est pas tranché, le mapping n'est pas écrit.**
+Réserve honnête : `246` est la seule des deux feuilles dont on ait vérifié en écriture
+qu'elle accepte un brouillon. `157` a les mêmes champs et la même mécanique d'après
+l'audit, mais n'a jamais reçu de brouillon de test.
 
 ## 7. Tests
 
