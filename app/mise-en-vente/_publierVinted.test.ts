@@ -38,6 +38,13 @@ function ficheDeTest(): ArticleEnCours {
   };
 }
 
+/** `ficheDeTest()` avec un QCM surchargé — les tests Vinted ne se
+ *  distinguent que par marque, catégorie, état, matières et couleurs. */
+function ficheAvec(qcm: Partial<ArticleEnCours["qcm"]>): ArticleEnCours {
+  const base = ficheDeTest();
+  return { ...base, qcm: { ...base.qcm, ...qcm } };
+}
+
 describe("publierVinted — invariant critique : PATCH gate l'onglet", () => {
   // L'extension (Tâche 14) apparie chaque onglet Vinted ouvert à un article
   // mis en file, DANS L'ORDRE DE CRÉATION des onglets. Un onglet ouvert sans
@@ -133,5 +140,55 @@ describe("detailPublicationVinted", () => {
       prix: "25",
       photos: [{ id: "p1" }],
     });
+  });
+});
+
+describe("detailPublicationVinted — champs Vinted", () => {
+  it("porte les identifiants numériques pour un sac à dos Nike", () => {
+    const f = ficheAvec({
+      marque: "Nike",
+      categorie: "Sac à dos",
+      etat: "Très bon état",
+      matiere: "Polyester",
+      matiere2: "Nylon",
+      couleurs: [1, 3],
+    });
+    const detail = detailPublicationVinted(f);
+    expect(detail.vinted).toEqual({
+      categoryId: 157,
+      rechercheCategorie: "Sacs à dos",
+      filAriane: "Femmes > Sacs",
+      brandId: 53,
+      conditionId: 2,
+      packageType: 1,
+      unisex: true,
+      colorIds: [1, 3],
+      materialIds: [45, 52],
+    });
+  });
+
+  it("n'a pas de bloc vinted quand aucun mapping ne correspond", () => {
+    const f = ficheAvec({ marque: "Ralph Lauren", categorie: "Polo", etat: "Bon état" });
+    expect(detailPublicationVinted(f).vinted).toBeUndefined();
+  });
+
+  it("n'a pas de bloc vinted si l'état n'a pas d'équivalent Vinted", () => {
+    const f = ficheAvec({ marque: "Nike", categorie: "Sac à dos", etat: "" });
+    expect(detailPublicationVinted(f).vinted).toBeUndefined();
+  });
+
+  it("plafonne les couleurs à 2 et les matériaux à 2", () => {
+    const f = ficheAvec({
+      marque: "Nike",
+      categorie: "Sac à dos",
+      etat: "Bon état",
+      matiere: "Coton",
+      matiere2: "Coton piqué",
+      couleurs: [1, 3, 12],
+    });
+    const v = detailPublicationVinted(f).vinted!;
+    expect(v.colorIds).toEqual([1, 3]);
+    expect(v.materialIds).toEqual([44]);
+    expect(v.conditionId).toBe(3);
   });
 });
