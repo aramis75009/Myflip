@@ -89,10 +89,15 @@ Décision d'Aramis du 2026-09-07 : on garde 2.
 
 Recopie des relevés d'audit, sans logique :
 
-- `COULEURS_VINTED` : 29 entrées `{ id, libelle, hex }`.
-- `MATERIAUX_VINTED` : 55 entrées `{ id, libelle }`.
+- `COULEURS_VINTED` : 29 entrées `{ id, libelle, hex }` — elles alimentent les
+  pastilles de l'écran, donc elles servent.
 - `ETAT_VERS_CONDITION_ID` : les 5 libellés MyFlip → id Vinted.
 - `MATIERE_VERS_MATERIAL_ID` : les 10 suggestions MyFlip → id Vinted.
+
+Pas de liste des 55 matériaux Vinted : aucun écran ne la montre, puisque la matière
+se saisit avec les 10 suggestions MyFlip. Elle reste consultable dans
+`docs/audits/2026-09-07-vinted-form-mapping-nike-backpack.md` §3 le jour où une
+catégorie en aura besoin.
 
 ### 4.3 `lib/vintedMapping.ts` (neuf, pur)
 
@@ -104,7 +109,8 @@ export type MappingVinted = {
   brandId: number;         // 53
   packageType: 1 | 2 | 3;  // 1 = Petit
   unisex: boolean;         // true
-  materiauxDefaut: number[]; // [45, 52] — Polyester, Nylon
+  materiauxDefaut: string[]; // ["Polyester", "Nylon"] — libellés MyFlip,
+                             // puisqu'ils pré-remplissent les pastilles du QCM
   /** false ⇒ la catégorie Vinted n'a pas de champ taille. */
   aUneTaille: boolean;
   /** Texte à taper dans la recherche de catégorie Vinted. */
@@ -175,6 +181,7 @@ correspond :
 vinted?: {
   categoryId: number;
   rechercheCategorie: string;
+  filAriane: string;
   brandId: number;
   conditionId: number;
   packageType: 1 | 2 | 3;
@@ -405,11 +412,10 @@ Vitest, environnement `node`, sur tout ce qui est pur :
 | `pickVintedMapping` | correspondance exacte, casse, espaces, absence de mapping |
 | `ETAT_VERS_CONDITION_ID` | les 5 libellés de `ETATS` ont tous un id |
 | `MATIERE_VERS_MATERIAL_ID` | les 10 suggestions ont un id ; Coton/Coton piqué dédupliquent |
-| `COULEURS_VINTED` | 29 entrées, ids uniques |
+| `COULEURS_VINTED` | 29 entrées, ids uniques, hex non vide sauf Multicolore |
 | `detailPublicationVinted` | `vinted` présent avec mapping, absent sans ; plafonds 2/2 tenus |
 | ordonnanceur | file vide, une entrée, entrée `en-cours` dont l'onglet a disparu, ordre FIFO |
-| tirage de délai | bornes respectées, min = max, générateur injecté |
-| découpe d'une frappe | une chaîne → la séquence de caractères attendue, chaîne vide, accents |
+| tirage de délai | bornes respectées, min = max, fourchette inversée, générateur injecté |
 
 Ce qui **ne** se teste **pas** ici : le remplissage du DOM Vinted réel. Il n'y a pas
 de fixture honnête pour une page qu'on ne contrôle pas ; un faux DOM écrit à la main
