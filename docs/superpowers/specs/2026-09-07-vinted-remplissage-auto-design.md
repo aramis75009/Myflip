@@ -4,9 +4,12 @@
 **Branche** : `worktree-extension-vinted`
 **Prédécesseur** : `2026-08-18-extension-vinted-design.md` (l'extension qui remplit
 titre/description/prix/photos). Ce document en étend le périmètre, il ne le remplace pas.
-**Sources externes** : `vinted_form_mapping.md` et
-`vinted_form_mapping_complement_nike_backpack.md` — relevé du DOM et des API de
-`vinted.fr/items/new` fait le 2026-09-07 en lecture seule sur un compte de test.
+**Sources** : trois relevés de `vinted.fr/items/new`, désormais dans le dépôt —
+`docs/audits/2026-09-07-vinted-form-mapping.md` (cartographie générale),
+`…-nike-backpack.md` (ids du scope Nike), et
+`docs/audits/2026-09-08-vinted-mecanique-panneaux.md` (mécanique des panneaux, et
+le piège du prix — §5.4 ci-dessous). Les deux premiers en lecture seule ; le
+troisième a créé un vrai brouillon sur le compte de test.
 
 ---
 
@@ -250,46 +253,74 @@ donc testable sans navigateur, comme `pairing.js` l'était.
 
 ### 5.3 L'ordre de remplissage n'est pas négociable
 
-D'après `vinted_form_mapping.md` §3, **marque, état, couleur, matériau, unisexe et
-format de colis n'existent dans le DOM qu'après le choix d'une catégorie feuille.**
-L'ordre est donc imposé :
+D'après `2026-09-07-vinted-form-mapping.md` §3, **marque, état, couleur, matériau,
+unisexe et format de colis n'existent dans le DOM qu'après validation d'une catégorie
+feuille.** L'ordre est donc imposé :
 
-1. **Catégorie** — ouvrir le panneau, taper `rechercheCategorie`, cliquer le résultat.
-2. Attendre l'apparition du champ Marque (`MutationObserver`, plafond 10 s).
-3. Marque → `brand-radio-53`.
-4. État → `condition-radio-<id>`.
-5. Couleur → `color-checkbox-<id>` ×1-2.
-6. Matériau → `material-checkbox-<id>` ×0-2.
-7. Unisexe → checkbox `#unisex`.
-8. Colis → `package_type_selector_1`.
-9. Titre, description, prix (code existant, setter natif).
-10. Photos → `[data-testid="add-photos-input"]`, `DataTransfer`.
-11. Pause, puis clic `upload-form-save-draft-button`.
-
-Les listes déroulantes se remplissent **en cliquant l'option pendant que le panneau
-est ouvert** — jamais par `input.value = …`. C'est le complément d'audit §5 :
-les `input[type=radio]` sont démontés du DOM à la fermeture du panneau, et le champ
-visible ne porte que le libellé.
-
-**Attention au comportement FIFO** (complément §5) : au-delà de la limite de
-sélection, Vinted décoche silencieusement la plus ancienne option au lieu de refuser
-le clic. Une couleur de trop ne produit pas d'erreur, elle en évince une autre. On
-ne coche donc jamais plus que la limite, on ne s'en remet pas au refus de Vinted.
-
-### 5.4 Sélecteurs à confirmer
-
-Ces six points ne sont pas dans les audits et sont demandés à Aramis. Tant qu'ils ne
-sont pas connus, ils sont codés défensivement, avec repli sur la bannière « mise à
-jour nécessaire » :
-
-| # | Inconnue | Impact si faux |
+| # | Geste | Sélecteur |
 |---|---|---|
-| 1 | Le champ de recherche et la ligne de résultat **dans le panneau catégorie** | **Bloquant** : sans catégorie, aucun autre champ n'existe |
-| 2 | Cliquer le champ visible suffit-il à ouvrir un panneau ? | Bloquant par champ |
-| 3 | Comment refermer un panneau multi-sélection (bouton « Terminé » ?) | Le panneau reste ouvert et masque la suite |
-| 4 | `add-photos-input` est-il bien le premier `input[type=file]` ? | Photos déposées sur le mauvais input |
-| 5 | `upload-form-save-draft-button` est-il `disabled` tant que le formulaire est incomplet ? | Perte d'une vérification gratuite |
-| 6 | La page reste-t-elle sur `/items/new` après le clic brouillon ? | Les deux cas sont codés ; sans l'info, on garde les deux |
+| 1 | Ouvrir le panneau catégorie | clic sur `[data-testid="catalog-select-dropdown-input"]` |
+| 2 | Chercher | écrire `rechercheCategorie` dans `#catalog-search-input` |
+| 3 | Choisir | clic sur `#catalog-search-<categoryId>-result` — **le conteneur, pas le `-radio`** |
+| 4 | Valider | clic sur `[data-testid="input-dropdown-save-button"]` |
+| 5 | Attendre l'apparition de la marque | `MutationObserver`, plafond 10 s |
+| 6 | Marque | ouvrir, `brand-radio-53`, « Fait » |
+| 7 | État | ouvrir, `condition-radio-<id>`, « Fait » |
+| 8 | Couleur | ouvrir, `color-checkbox-<id>` ×1-2, « Fait » |
+| 9 | Matériau | ouvrir, `material-checkbox-<id>` ×0-2, « Fait » |
+| 10 | Unisexe | checkbox `#unisex` |
+| 11 | Colis | `package_type_selector_1` |
+| 12 | Titre, description, prix | frappe simulée (§5.5) |
+| 13 | Photos | `[data-testid="add-photos-input"]`, `DataTransfer` |
+| 14 | Brouillon | pause, puis `[data-testid="upload-form-save-draft-button"]` |
+
+Trois règles que le relevé du 2026-09-08 rend non négociables :
+
+**Tous les panneaux se ferment par « Fait ».** `input-dropdown-save-button` est le
+même pour les cinq. Ni `Échap`, ni un clic à l'extérieur, ni la sélection elle-même
+ne ferment quoi que ce soit — et le bouton **X** (`<champ>-select-dropdown-close-button`)
+ferme *en annulant la sélection*. **Ne jamais le cliquer.** C'est le piège le plus
+facile à tomber dedans : il ressemble à « fermer », il veut dire « annuler ».
+
+**On clique le conteneur, pas l'input.** Les `input[type=radio|checkbox]` sont
+`aria-hidden="true"` et `tabindex="-1"` ; un `.click()` dessus marche par
+intermittence. La cible est le `<div role="radio">` / `role="checkbox"` parent.
+
+**On ne coche jamais plus que la limite.** Au-delà, Vinted décoche silencieusement
+la plus ancienne sélection au lieu de refuser le clic (FIFO, complément Nike §5).
+Une couleur de trop n'échoue pas : elle en évince une autre.
+
+### 5.4 Le piège du prix — le vrai risque de ce chantier
+
+Le relevé du 2026-09-08 a créé un brouillon complet et l'a relu par l'API. Tout est
+correct **sauf le prix** : `15` saisi, `« 15,00 € »` affiché dans le champ, et
+`price.amount = "0.0"` dans le brouillon enregistré.
+
+Le champ prix a donc une logique de commit que ni `input.value = …` ni un `Event
+("input")` synthétique ne déclenchent. Le titre, lui, est passé — c'est ce qui rend
+la panne vicieuse : elle ne touche qu'un champ sur trois, et l'écran ment.
+
+Trois parades, cumulées :
+
+1. **Frappe caractère par caractère** avec `keydown` / `keypress` / `input` / `keyup`
+   réels, plutôt qu'une écriture en bloc — c'est déjà la mesure anti-bot de §5.5, elle
+   sert deux fois.
+2. **`blur` explicite** après la saisie du prix, pour déclencher un éventuel commit
+   sur perte de focus.
+3. **Vérification par relecture** : après la frappe et le `blur`, relire
+   `input.value`. *Insuffisant à lui seul* — le relevé montre que l'affichage était
+   juste alors que l'état ne l'était pas — mais il attrape le cas où la frappe n'a
+   rien écrit du tout.
+
+**Aucune de ces parades ne prouve que le prix est commité.** Le seul juge est le
+brouillon relu après coup. D'où la consigne opératoire : **au premier passage réel,
+Aramis ouvre le brouillon créé et vérifie le prix**. Si `0,00 €`, c'est là qu'il faut
+creuser, et nulle part ailleurs.
+
+`ecrireValeur()` (setter natif du prototype), déjà dans `content-vinted.js`, est
+conservé pour titre et description : c'est la parade documentée au *value tracker* de
+React. Le relevé, lui, utilisait la méthode naïve — il ne dit donc pas si le setter
+natif aurait suffi pour le prix. On ne parie pas dessus.
 
 ### 5.5 Les délais
 
@@ -301,32 +332,65 @@ Consigne d'Aramis : « le plus sûr possible, la lenteur n'est pas un problème 
 | Frappe d'un caractère | 25–70 ms |
 | Entre deux champs | 400–1800 ms |
 | Après l'ouverture d'un panneau | 500–1200 ms |
+| Avant le clic « Fait » | 300–900 ms |
 | Avant le clic « Sauvegarder le brouillon » | 4–10 s |
 
-Titre et description sont tapés **caractère par caractère**, pas écrits d'un bloc :
-un `<textarea>` de 600 signes rempli en 40 ms est le signal de robot le plus lisible
-qui existe. Coût : environ 30 s par description. Assumé.
+Titre, description et prix sont tapés **caractère par caractère**. Coût : environ
+30 s pour une description de 600 signes. Assumé — et pour le prix, c'est aussi la
+parade n° 1 de §5.4.
 
 Le tirage est une fonction pure `(min, max, alea) → ms`, testée avec un générateur
 injecté.
 
-### 5.6 États de sortie
+### 5.6 Détecter le succès
 
-`remplirFormulaire()` garde son contrat à trois valeurs, enrichi :
+Le clic sur « Sauvegarder le brouillon » déclenche
+`POST /api/v2/item_upload/drafts` puis **redirige vers `/member/<id>`**. La page
+`/items/new` disparaît, et avec elle le content script. Il n'y a pas de toast
+exploitable.
+
+Le succès se lit donc **depuis `background.js`**, par `tabs.onUpdated` sur l'onglet
+qu'il a lui-même créé : une URL qui quitte `/items/new` pour `/member/` vaut
+confirmation. Pas d'interception réseau, pas d'injection dans le monde de la page —
+`tabs.onUpdated` suffit et ne coûte aucune permission de plus.
+
+**Le bouton brouillon n'est jamais `disabled`**, même sur un formulaire vide : il ne
+donne aucune information sur la complétion. L'extension vérifie elle-même que chaque
+champ a bien pris avant de cliquer, et n'a droit à aucun raccourci.
+
+### 5.7 États de sortie
 
 | Statut | Sens | Suite |
 |---|---|---|
-| `echec-selecteurs` | rien trouvé, rien touché | bannière, entrée gardée en file, onglet **laissé ouvert** |
-| `succes-partiel` | texte rempli, un champ Vinted manquant ou photos absentes | bannière, entrée gardée, onglet laissé ouvert, **pas de clic brouillon** |
-| `succes` | tout rempli, brouillon sauvegardé | entrée consommée, onglet fermé |
+| `echec-selecteurs` | un sélecteur introuvable, rien de commité | bannière, entrée gardée en file, onglet **laissé ouvert**, **pas de clic brouillon** |
+| `succes-partiel` | un champ Vinted n'a pas pris, ou les photos manquent | idem : bannière, entrée gardée, onglet laissé ouvert, **pas de clic brouillon** |
+| `succes` | tout rempli et vérifié, brouillon sauvegardé, redirection vue | entrée consommée, onglet fermé |
 
 **Le clic brouillon n'a lieu que sur un remplissage complet.** Un brouillon à moitié
 rempli sauvegardé automatiquement serait pire qu'un onglet laissé ouvert : il faut
-aller le rechercher dans Vinted pour le corriger.
+aller le rechercher dans les brouillons Vinted pour le corriger, sans savoir ce qui
+manque.
+
+Un échec **suspend la chaîne** au lieu de passer à l'article suivant. Cinq brouillons
+ratés à la suite coûtent plus cher qu'un seul, et la cause est presque toujours
+commune (Vinted a changé son DOM).
 
 ---
 
-## 6. Tests
+## 6. Une décision produit reste ouverte : 157 ou 246 ?
+
+Le relevé du 2026-09-08 a travaillé sur **`category_id = 246`** — « Sacs à dos » sous
+**Hommes > Accessoires > Sacs et sacoches** — alors que les deux relevés précédents
+documentaient **`157`**, « Sacs à dos » sous **Femmes > Sacs**.
+
+Les deux feuilles portent le même libellé, ont les mêmes champs et la même mécanique.
+Seul l'id change. Ce n'est donc pas un bug d'audit : c'est un choix de rayon, et il
+appartient à Aramis. `MAPPINGS_VINTED` porte une seule valeur ; la changer est une
+ligne.
+
+**Tant que ce n'est pas tranché, le mapping n'est pas écrit.**
+
+## 7. Tests
 
 Vitest, environnement `node`, sur tout ce qui est pur :
 
@@ -339,6 +403,7 @@ Vitest, environnement `node`, sur tout ce qui est pur :
 | `detailPublicationVinted` | `vinted` présent avec mapping, absent sans ; plafonds 2/2 tenus |
 | ordonnanceur | file vide, une entrée, entrée `en-cours` dont l'onglet a disparu, ordre FIFO |
 | tirage de délai | bornes respectées, min = max, générateur injecté |
+| découpe d'une frappe | une chaîne → la séquence de caractères attendue, chaîne vide, accents |
 
 Ce qui **ne** se teste **pas** ici : le remplissage du DOM Vinted réel. Il n'y a pas
 de fixture honnête pour une page qu'on ne contrôle pas ; un faux DOM écrit à la main
@@ -347,7 +412,7 @@ Firefox d'Aramis, avec un article, en regardant le brouillon produit.
 
 ---
 
-## 7. Hors périmètre
+## 8. Hors périmètre
 
 - **Le clic « Ajouter »** (publication réelle). Le sélecteur est connu
   (`upload-form-save-button`) ; le geste ne l'est pas.
@@ -362,12 +427,14 @@ Firefox d'Aramis, avec un article, en regardant le brouillon produit.
 
 ---
 
-## 8. Ce qui reste à la charge d'Aramis
+## 9. Ce qui reste à la charge d'Aramis
 
-1. Fournir les six inconnues de §5.4.
+1. **Trancher 157 ou 246** (§5bis) — sans quoi le mapping ne peut pas être écrit.
 2. Appliquer les migrations `PrixReference` et `delai_vinted` sur la base de
    production avant toute fusion dans `main`.
 3. Peupler `PrixReference` dans `/parametres`, sans quoi le prix part vide.
 4. Installer l'extension (`npx web-ext sign --channel=unlisted`) et faire le premier
    passage réel — tout MyFlip étant derrière l'authentification, aucun agent ne peut
    le faire à sa place.
+5. **Au premier passage, ouvrir le brouillon créé et vérifier le prix** (§5.4). C'est
+   le seul point du formulaire dont on sait qu'il a déjà échoué en silence.
