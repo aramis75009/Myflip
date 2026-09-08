@@ -9,9 +9,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FileText, Plus, RotateCcw, RotateCw, Upload, X, ZoomIn } from "lucide-react";
-import { usePrixReferences } from "@/lib/hooks";
 import { ETATS, MATIERES_SUGGESTIONS, TAILLES } from "@/lib/listingOptions";
-import { pickPrix } from "@/lib/pickPrix";
+import { pickPrompt } from "@/lib/promptSelect";
 import type { PromptTemplateDTO } from "@/lib/types";
 import { COULEURS_VINTED } from "@/lib/vintedReferentiels";
 import { pickVintedMapping } from "@/lib/vintedMapping";
@@ -131,25 +130,36 @@ export default function FicheArticle({
     [qcm.marque, qcm.categorie],
   );
 
-  // Prix suggéré — pré-rempli depuis les prix de référence dès que marque et
-  // catégorie sont connues (détectées au lookup SKU, ou changées à la main).
+  // Le prompt retenu pour CETTE fiche. Se résout comme côté serveur
+  // (app/api/listings/generate/route.ts) : le choix manuel s'il existe, sinon
+  // la cascade marque + catégorie de pickPrompt(). C'est ce prompt qui porte
+  // désormais le prix de référence — la table PrixReference a disparu, et avec
+  // elle la seconde cascade qui la lisait, calque littéral de celle-ci.
+  const promptRetenu = useMemo(
+    () =>
+      prompts.find((p) => p.id === fiche.promptId) ??
+      pickPrompt(prompts, qcm.marque || null, qcm.categorie || null),
+    [prompts, fiche.promptId, qcm.marque, qcm.categorie],
+  );
+
+  // Prix suggéré.
   //
   // Ce composant n'existe QUE quand `fiche.article` est résolu (page.tsx ne le
   // monte pas avant) : cet effet ne peut donc jamais tourner sur une fiche pas
   // encore rattachée à un article, et ne verrouille jamais un prix par défaut
   // avant que marque/catégorie soient réellement connues.
   //
-  // Invariant : ne JAMAIS écraser un `qcm.prix` non vide, qu'il vienne d'une
-  // saisie manuelle ou d'un pré-remplissage précédent — une fois posé, le champ
-  // devient la source de vérité et cesse d'être suivi.
-  const { data: prixRefs = [] } = usePrixReferences();
+  // Invariant INCHANGÉ : ne JAMAIS écraser un `qcm.prix` non vide, qu'il vienne
+  // d'une saisie manuelle ou d'un pré-remplissage précédent — une fois posé, le
+  // champ devient la source de vérité et cesse d'être suivi.
   const onQcmRef = useRef(onQcm);
   onQcmRef.current = onQcm;
   useEffect(() => {
     if (qcm.prix !== "") return;
-    const match = pickPrix(prixRefs, qcm.marque || null, qcm.categorie || null);
-    if (match) onQcmRef.current("prix", String(match.prix));
-  }, [qcm.marque, qcm.categorie, qcm.prix, prixRefs]);
+    const prix = promptRetenu?.prixReference;
+    if (prix == null) return;
+    onQcmRef.current("prix", String(prix));
+  }, [promptRetenu, qcm.prix]);
 
   // Une catégorie Vinted sans champ taille (les sacs, par exemple) : la carte
   // Taille est masquée, mais `fichePrete()` l'exige toujours. On pose

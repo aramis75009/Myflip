@@ -80,9 +80,6 @@ type Body = Partial<
   objectifMensuel?: number | null;
   onboardingEtape?: number;
   onboardingTermine?: boolean;
-  // Extension Vinted (18/08/2026) : fourchette de délai anti-ban.
-  delaiVintedMinMinutes?: number | null;
-  delaiVintedMaxMinutes?: number | null;
 };
 
 /**
@@ -125,8 +122,6 @@ export async function GET() {
       objectifMensuel: s?.objectifMensuel ?? null,
       onboardingEtape: s?.onboardingEtape ?? 1,
       onboardingTermine: s?.onboardingTermine ?? false,
-      delaiVintedMinMinutes: s?.delaiVintedMinMinutes ?? null,
-      delaiVintedMaxMinutes: s?.delaiVintedMaxMinutes ?? null,
       // D'où vient la valeur réellement utilisée : du compte, ou de
       // l'application. C'est ce qui permet d'afficher « tu utilises la clé de
       // l'app » plutôt que de laisser croire que rien n'est configuré.
@@ -195,59 +190,6 @@ export async function PUT(req: NextRequest) {
       const n = Number(body.objectifMensuel);
       data.objectifMensuel =
         body.objectifMensuel == null || !Number.isFinite(n) || n < 0 ? null : n;
-    }
-
-    // Extension Vinted : fourchette de délai anti-ban avant remplissage
-    // automatique. Chaque borne, indépendamment, doit être un entier positif
-    // ou nul ; si les deux sont présentes et non nulles, le minimum doit être
-    // strictement inférieur au maximum — sinon la fourchette ne veut rien dire.
-    if ("delaiVintedMinMinutes" in body || "delaiVintedMaxMinutes" in body) {
-      const minPresent = "delaiVintedMinMinutes" in body;
-      const maxPresent = "delaiVintedMaxMinutes" in body;
-      const min = body.delaiVintedMinMinutes;
-      const max = body.delaiVintedMaxMinutes;
-      const minN = min == null ? null : Number(min);
-      const maxN = max == null ? null : Number(max);
-      const invalide = (n: number | null) =>
-        n != null && (!Number.isInteger(n) || n < 0);
-      if (invalide(minN) || invalide(maxN)) {
-        return NextResponse.json(
-          { error: "Délai invalide : un entier positif, ou vide." },
-          { status: 400 },
-        );
-      }
-
-      // Une mise à jour PARTIELLE (une seule borne dans le corps) doit être
-      // comparée à la valeur DÉJÀ EN BASE pour l'autre borne, pas seulement
-      // aux champs présents dans la requête. Sans ça, un appelant qui n'envoie
-      // que `delaiVintedMinMinutes` pourrait faire passer le minimum au-dessus
-      // d'un maximum déjà enregistré, sans jamais déclencher ce contrôle —
-      // aucun caller actuel ne fait d'update partiel (l'UI envoie toujours les
-      // deux bornes), mais la route reste exposée telle quelle à un futur
-      // appelant qui le ferait.
-      let effectiveMin = minN;
-      let effectiveMax = maxN;
-      if (!minPresent || !maxPresent) {
-        const existant = await prisma.userSettings.findUnique({
-          where: { userId },
-          select: { delaiVintedMinMinutes: true, delaiVintedMaxMinutes: true },
-        });
-        if (!minPresent) effectiveMin = existant?.delaiVintedMinMinutes ?? null;
-        if (!maxPresent) effectiveMax = existant?.delaiVintedMaxMinutes ?? null;
-      }
-
-      if (
-        effectiveMin != null &&
-        effectiveMax != null &&
-        effectiveMin >= effectiveMax
-      ) {
-        return NextResponse.json(
-          { error: "Le délai minimum doit être inférieur au maximum." },
-          { status: 400 },
-        );
-      }
-      if (minPresent) data.delaiVintedMinMinutes = minN;
-      if (maxPresent) data.delaiVintedMaxMinutes = maxN;
     }
 
     if (Object.keys(data).length === 0) {

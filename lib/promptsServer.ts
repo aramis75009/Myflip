@@ -12,6 +12,7 @@ export function toPromptDTO(p: PromptTemplate): PromptTemplateDTO {
     categorie: p.categorie,
     contenu: p.contenu,
     estDefaut: p.estDefaut,
+    prixReference: p.prixReference,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
   };

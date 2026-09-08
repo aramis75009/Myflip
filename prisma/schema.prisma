@@ -35,7 +35,6 @@ model User {
   commandes Commande[]
   lots      Lot[]
   prompts   PromptTemplate[]
-  prixReferences PrixReference[]
   settings  UserSettings?
 }
 
@@ -113,12 +112,6 @@ model UserSettings {
   // reprendre depuis un autre appareil.
   onboardingEtape   Int     @default(1)
   onboardingTermine Boolean @default(false)
-
-  // Extension Vinted (18/08/2026) : fourchette de délai anti-ban avant
-  // remplissage automatique. Nullable, PAS de défaut — Aramis choisit sa
-  // propre fourchette ; un délai implicite de 0 annulerait le garde-fou.
-  delaiVintedMinMinutes Int?
-  delaiVintedMaxMinutes Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -258,6 +251,11 @@ model PromptTemplate {
   categorie String? // critère de correspondance ; null = toutes les catégories
   contenu   String   @db.Text // prompt avec placeholders {marque} {categorie} {taille} {etat} {matiere} {sku}
   estDefaut Boolean  @default(false) // prompt de repli si aucune correspondance
+  // Prix pré-rempli dans le QCM de mise en vente ; null = ce prompt n'en porte
+  // pas. `Float?` et non `Decimal` : c'est la forme qu'avait PrixReference.prix,
+  // et la valeur ne sert qu'à remplir un <input> — elle n'entre dans aucun
+  // calcul monétaire.
+  prixReference Float?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -266,24 +264,6 @@ model PromptTemplate {
 
   // `estDefaut` est un singleton PAR UTILISATEUR, pas global : l'index composite
   // évite un scan de toute la table pour retrouver le défaut d'un compte.
-  @@index([userId])
-  @@index([userId, estDefaut])
-  @@index([marque])
-  @@index([categorie])
-}
-
-model PrixReference {
-  id        String   @id @default(cuid())
-  marque    String? // critère de correspondance ; null = toutes les marques
-  categorie String? // critère de correspondance ; null = toutes les catégories
-  prix      Float
-  estDefaut Boolean  @default(false) // prix de repli si aucune correspondance
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   @@index([userId])
   @@index([userId, estDefaut])
   @@index([marque])

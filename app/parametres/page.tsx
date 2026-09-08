@@ -4,21 +4,16 @@ import { useEffect, useState } from "react";
 import { Plus, Check, SquarePen, Trash2, Target } from "lucide-react";
 import { toast } from "sonner";
 import {
-  PrixInput,
   PromptInput,
-  useCreatePrix,
   useCreatePrompt,
-  useDeletePrix,
   useDeletePrompt,
   useObjectifMensuel,
-  usePrixReferences,
   usePrompts,
   useReglages,
   useSetObjectif,
-  useUpdatePrix,
   useUpdatePrompt,
 } from "@/lib/hooks";
-import type { PrixReferenceDTO, PromptTemplateDTO } from "@/lib/types";
+import type { PromptTemplateDTO } from "@/lib/types";
 import { euros } from "@/lib/calc";
 import { libelleModele } from "@/lib/modelesIA";
 import { useIdentite } from "@/lib/useIdentite";
@@ -85,23 +80,6 @@ const emptyForm = (): FormState => ({
   marque: TOUTES,
   categorie: TOUTES,
   contenu: "",
-  estDefaut: false,
-});
-
-// Formulaire des prix de référence (Extension Vinted). `prix` reste une
-// chaîne le temps de la saisie — même parti que l'objectif mensuel plus bas —
-// et ne devient un nombre qu'à la soumission.
-type PrixFormState = {
-  marque: string;
-  categorie: string;
-  prix: string;
-  estDefaut: boolean;
-};
-
-const emptyPrixForm = (): PrixFormState => ({
-  marque: TOUTES,
-  categorie: TOUTES,
-  prix: "",
   estDefaut: false,
 });
 
@@ -198,69 +176,6 @@ export default function PromptsPage() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  // Prix de référence (Extension Vinted) — même schéma d'état que les
-  // prompts ci-dessus (open/editId/form/error), en plus compact : pas de
-  // panneau maître-détail, juste une liste avec modale d'édition.
-  const { data: prixRefs = [], isLoading: prixEnCours } = usePrixReferences();
-  const creerPrix = useCreatePrix();
-  const modifierPrix = useUpdatePrix();
-  const supprimerPrix = useDeletePrix();
-  const [prixOpen, setPrixOpen] = useState(false);
-  const [prixEditId, setPrixEditId] = useState<string | null>(null);
-  const [prixForm, setPrixForm] = useState<PrixFormState>(emptyPrixForm);
-  const [prixError, setPrixError] = useState<string | null>(null);
-
-  function openNewPrix() {
-    setPrixEditId(null);
-    setPrixForm(emptyPrixForm());
-    setPrixError(null);
-    setPrixOpen(true);
-  }
-
-  function openEditPrix(p: PrixReferenceDTO) {
-    setPrixEditId(p.id);
-    setPrixForm({
-      marque: p.marque ?? TOUTES,
-      categorie: p.categorie ?? TOUTES,
-      prix: String(p.prix),
-      estDefaut: p.estDefaut,
-    });
-    setPrixError(null);
-    setPrixOpen(true);
-  }
-
-  async function submitPrix() {
-    const prixValue = Number(prixForm.prix);
-    if (!Number.isFinite(prixValue) || prixValue <= 0) {
-      return setPrixError("Le prix doit être un nombre positif.");
-    }
-    const input: PrixInput = {
-      marque: prixForm.marque === TOUTES ? null : prixForm.marque,
-      categorie: prixForm.categorie === TOUTES ? null : prixForm.categorie,
-      prix: prixValue,
-      estDefaut: prixForm.estDefaut,
-    };
-    try {
-      if (prixEditId) await modifierPrix.mutateAsync({ id: prixEditId, input });
-      else await creerPrix.mutateAsync(input);
-      setPrixOpen(false);
-    } catch (e) {
-      setPrixError((e as Error).message);
-    }
-  }
-
-  // Le serveur garantit qu'un seul prix reste `estDefaut` à la fois (cf.
-  // POST/PATCH /api/prix, transaction updateMany) : l'UI n'a rien à
-  // décocher elle-même, l'invalidation de la query suffit à refléter l'état.
-  function supprimerUnPrix(p: PrixReferenceDTO) {
-    const label = `${p.marque ?? "Toutes marques"} · ${p.categorie ?? "Toutes catégories"}`;
-    if (confirm(`Supprimer le prix de référence « ${label} » ?`)) {
-      supprimerPrix.mutate(p.id);
-    }
-  }
-
-  const prixPending = creerPrix.isPending || modifierPrix.isPending;
 
   function openNew() {
     setEditId(null);
@@ -482,79 +397,6 @@ export default function PromptsPage() {
         </Module>
       </section>
 
-      {/* Prix de référence (Extension Vinted) — suggéré automatiquement dans
-          le QCM de mise en vente, par marque et catégorie. Une entité bien
-          plus simple que les prompts (pas de contenu long à relire) : une
-          liste compacte suffit, pas besoin du panneau maître-détail. */}
-      <Module className="p-[16px]">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <CardTitle className="mb-[3px]">Prix de référence</CardTitle>
-            <p className="font-mono text-[10.5px] text-[var(--faint)]">
-              Suggéré dans le QCM de mise en vente, par marque et catégorie.
-            </p>
-          </div>
-          <button
-            onClick={openNewPrix}
-            aria-label="Nouveau prix de référence"
-            className="flex h-11 w-11 flex-none items-center justify-center rounded-[14px] bg-[var(--acc)] text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)]"
-          >
-            <Plus className="h-4 w-4" strokeWidth={2.4} />
-          </button>
-        </div>
-
-        {prixEnCours && <Loader size="sm" />}
-
-        {!prixEnCours && prixRefs.length === 0 && (
-          <p className="py-6 text-center font-mono text-[11px] text-[var(--faint)]">
-            Aucun prix de référence.
-          </p>
-        )}
-
-        {!prixEnCours && prixRefs.length > 0 && (
-          <div className="flex flex-col gap-2">
-            {prixRefs.map((p) => (
-              <div
-                key={p.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-[16px] border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-3"
-              >
-                <span className="flex flex-wrap items-center gap-2">
-                  <span className={chipCls}>{p.marque ?? "Toutes marques"}</span>
-                  <span className={chipCls}>
-                    {p.categorie ?? "Toutes catégories"}
-                  </span>
-                  {p.estDefaut && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--acc)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--acc-ink)]">
-                      <Check className="h-3 w-3" strokeWidth={2.6} />
-                      Défaut
-                    </span>
-                  )}
-                </span>
-                <span className="flex items-center gap-2.5">
-                  <span className="font-mono text-[14px] font-semibold text-[var(--ink)]">
-                    {euros(p.prix)}
-                  </span>
-                  <button
-                    onClick={() => openEditPrix(p)}
-                    aria-label="Modifier"
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--ink2)] transition-colors hover:border-[var(--border-strong)]"
-                  >
-                    <SquarePen className="h-3.5 w-3.5" strokeWidth={2} />
-                  </button>
-                  <button
-                    onClick={() => supprimerUnPrix(p)}
-                    aria-label="Supprimer"
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--faint)] transition-colors hover:border-[var(--neg)] hover:text-[var(--neg)]"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-                  </button>
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </Module>
-
       <Modal
         open={open}
         onClose={() => !pending && setOpen(false)}
@@ -658,106 +500,6 @@ export default function PromptsPage() {
               className="min-h-[44px] rounded-full bg-[var(--acc)] px-5 text-[12.5px] font-semibold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)] disabled:opacity-60"
             >
               {pending ? "Enregistrement…" : "Enregistrer"}
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
-        open={prixOpen}
-        onClose={() => !prixPending && setPrixOpen(false)}
-        title={
-          prixEditId
-            ? "Modifier le prix de référence"
-            : "Nouveau prix de référence"
-        }
-      >
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Marque</label>
-              <input
-                value={prixForm.marque}
-                onChange={(e) =>
-                  setPrixForm({ ...prixForm, marque: e.target.value })
-                }
-                list="prix-marques-list"
-                placeholder="Ex : Lacoste"
-                className={inputCls}
-              />
-              <datalist id="prix-marques-list">
-                {MARQUES_LIST.map((m) => (
-                  <option key={m} value={m} />
-                ))}
-              </datalist>
-            </div>
-            <div>
-              <label className={labelCls}>Catégorie</label>
-              <input
-                value={prixForm.categorie}
-                onChange={(e) =>
-                  setPrixForm({ ...prixForm, categorie: e.target.value })
-                }
-                list="prix-categories-list"
-                placeholder="Ex : Short"
-                className={inputCls}
-              />
-              <datalist id="prix-categories-list">
-                {CATEGORIES_LIST.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-            </div>
-          </div>
-
-          <div>
-            <label className={labelCls}>Prix (€)</label>
-            <input
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="0.5"
-              value={prixForm.prix}
-              onChange={(e) =>
-                setPrixForm({ ...prixForm, prix: e.target.value })
-              }
-              placeholder="0"
-              className={inputCls}
-            />
-          </div>
-
-          <label className="flex cursor-pointer items-center gap-2.5 text-[14px] text-[var(--ink)]">
-            <input
-              type="checkbox"
-              checked={prixForm.estDefaut}
-              onChange={(e) =>
-                setPrixForm({ ...prixForm, estDefaut: e.target.checked })
-              }
-              className="h-4 w-4 cursor-pointer accent-[var(--acc)]"
-            />
-            Définir comme prix par défaut
-          </label>
-
-          {prixError && (
-            <p className="font-mono text-[12px] text-[var(--neg)]">
-              {prixError}
-            </p>
-          )}
-
-          <div className="flex justify-end gap-3 pt-1">
-            <button
-              onClick={() => setPrixOpen(false)}
-              disabled={prixPending}
-              className="min-h-[44px] rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-4 text-[12.5px] font-medium text-[var(--ink2)] transition-colors hover:border-[var(--border-strong)] disabled:opacity-50"
-            >
-              Annuler
-            </button>
-            <button
-              onClick={submitPrix}
-              disabled={prixPending}
-              className="min-h-[44px] rounded-full bg-[var(--acc)] px-5 text-[12.5px] font-semibold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)] disabled:opacity-60"
-            >
-              {prixPending ? "Enregistrement…" : "Enregistrer"}
             </button>
           </div>
         </div>
