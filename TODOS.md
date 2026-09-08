@@ -99,6 +99,11 @@ un vendeur Pro individuel (détail dans le spec). Piste 1 (copier-tout) reste
 non tentée et a été auto-approuvée comme ajout quasi gratuit au même spec —
 voir la Decision Audit Trail du fichier.
 
+**Mise à jour du 08/09/2026.** Piste 2 est faite : l'extension remplit
+désormais tout le formulaire Vinted dans l'ordre imposé et va jusqu'au clic
+« Sauvegarder le brouillon » (jamais « Ajouter »). Détail des décisions :
+`docs/superpowers/specs/2026-09-07-vinted-remplissage-auto-design.md`.
+
 ---
 
 ## Écarté — ne pas y revenir
@@ -229,9 +234,10 @@ de file/message générique pour ne pas fermer cette porte, sans l'implémenter.
 ## P3 · Panneau de file d'attente et notification dans l'extension Vinted
 
 **Quoi.** Deux améliorations UI de confort sur l'extension : un mini-panneau
-listant les onglets Vinted en attente de remplissage (au-delà du compte à
-rebours par onglet), et une notification sonore/visuelle quand un délai se
-termine.
+listant les articles encore en file (le délai s'écoule avant l'ouverture de
+chaque onglet, pas dans un onglet déjà ouvert — rien n'en montre la
+progression aujourd'hui), et une notification sonore/visuelle quand un délai
+se termine.
 
 **Pourquoi.** Candidats d'expansion (revue CEO du 18/08/2026, scan de
 délice) — utiles surtout dans les sessions à plusieurs articles (5-10 clics
@@ -240,3 +246,11 @@ délice) — utiles surtout dans les sessions à plusieurs articles (5-10 clics
 **Effort.** Humain ~2-3 h / Claude Code ~30 min chacun.
 
 **Effort.** Humain ~1 j / Claude Code ~30 min.
+
+---
+
+- [ ] Vinted : première publication réelle en brouillon — vérifier le prix du
+      brouillon créé (cf. extension-vinted/README.md).
+- [ ] Vinted : décider si l'on passe un jour au clic « Ajouter » (publication
+      réelle). Hors périmètre tant que le brouillon n'a pas tourné plusieurs
+      fois sans surprise.
