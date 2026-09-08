@@ -197,7 +197,7 @@ async function validerPanneau() {
  * Choisit la catégorie par recherche, puis VÉRIFIE le fil d'Ariane.
  *
  * La vérification n'est pas du zèle : « Sacs à dos » existe sous Femmes
- * (157), sous Hommes (246) et sous Enfants. Si l'id changeait chez Vinted, un
+ * (246), sous Femmes (157) et sous Enfants. Si l'id changeait chez Vinted, un
  * clic au mauvais endroit rangerait tous les articles dans le mauvais rayon
  * sans produire la moindre erreur. On préfère échouer bruyamment.
  */

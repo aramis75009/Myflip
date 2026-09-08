@@ -158,9 +158,9 @@ describe("detailPublicationVinted — champs Vinted", () => {
     });
     const detail = detailPublicationVinted(f);
     expect(detail.vinted).toEqual({
-      categoryId: 157,
+      categoryId: 246,
       rechercheCategorie: "Sacs à dos",
-      filAriane: "Femmes > Sacs",
+      filAriane: "Hommes > Accessoires > Sacs et sacoches",
       brandId: 53,
       conditionId: 2,
       packageType: 1,

@@ -105,7 +105,7 @@ catégorie en aura besoin.
 export type MappingVinted = {
   marque: string;          // libellé MyFlip
   categorie: string;       // libellé MyFlip
-  categoryId: number;      // 157
+  categoryId: number;      // 246
   brandId: number;         // 53
   packageType: 1 | 2 | 3;  // 1 = Petit
   unisex: boolean;         // true
@@ -384,24 +384,27 @@ commune (Vinted a changé son DOM).
 
 ---
 
-## 6. La catégorie retenue : 157, Femmes > Sacs
+## 6. La catégorie retenue : 246, Hommes > Accessoires > Sacs et sacoches
 
-Le relevé du 2026-09-08 a travaillé sur `category_id = 246` — « Sacs à dos » sous
-**Hommes > Accessoires > Sacs et sacoches**. C'était une erreur de navigation, pas un
-choix : **la catégorie visée est `157`, « Sacs à dos » sous Femmes > Sacs**
-(décision d'Aramis, 2026-09-08).
+> **Corrigé le 2026-09-09.** Cette section disait l'inverse : elle retenait `157`
+> (Femmes) et qualifiait `246` d'erreur de navigation. C'est `157` qui était
+> l'erreur — elle vient de ce que le relevé automatique avait remonté la branche
+> Femmes. Les sacs à dos vendus sont des sacs **homme** (Aramis, 2026-09-09).
+
+**La catégorie visée est `246`, « Sacs à dos » sous Hommes > Accessoires > Sacs et
+sacoches.**
 
 Conséquence directe sur le remplissage : la recherche « Sacs à dos » renvoie
-**plusieurs feuilles** portant le même libellé (157 Femmes, 246 Hommes, et l'équivalent
-Enfants). Cliquer `#catalog-search-157-result` désambiguïse par l'id, mais un id qui
+**plusieurs feuilles** portant le même libellé (246 Hommes, 157 Femmes, et l'équivalent
+Enfants). Cliquer `#catalog-search-246-result` désambiguïse par l'id, mais un id qui
 changerait chez Vinted ferait ranger les sacs dans le mauvais rayon **sans aucune
 erreur visible**. On vérifie donc, avant de cliquer « Fait », que le fil d'Ariane de la
-ligne choisie (`.web_ui__Cell__body`) vaut bien `Femmes > Sacs` ; sinon
-`echec-selecteurs`, et rien n'est validé.
+ligne choisie (`.web_ui__Cell__body`) vaut bien `Hommes > Accessoires > Sacs et
+sacoches` ; sinon `echec-selecteurs`, et rien n'est validé.
 
-Réserve honnête : `246` est la seule des deux feuilles dont on ait vérifié en écriture
-qu'elle accepte un brouillon. `157` a les mêmes champs et la même mécanique d'après
-l'audit, mais n'a jamais reçu de brouillon de test.
+Bonne nouvelle de ce changement : `246` est la seule des deux feuilles dont on ait
+vérifié **en écriture** qu'elle accepte un brouillon (relevé du 2026-09-08). C'est
+donc la mieux étayée des deux, pas la moins.
 
 ## 7. Tests
 
@@ -441,7 +444,7 @@ Firefox d'Aramis, avec un article, en regardant le brouillon produit.
 
 ## 9. Ce qui reste à la charge d'Aramis
 
-1. **Trancher 157 ou 246** (§5bis) — sans quoi le mapping ne peut pas être écrit.
+1. ~~Trancher 157 ou 246~~ — tranché le 2026-09-09 : **246**, rayon Hommes (cf. §6).
 2. Appliquer les migrations `PrixReference` et `delai_vinted` sur la base de
    production avant toute fusion dans `main`.
 3. Peupler `PrixReference` dans `/parametres`, sans quoi le prix part vide.

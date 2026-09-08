@@ -11,7 +11,7 @@ export type MappingVinted = {
   /** Libellé MyFlip, tel qu'affiché en pastille. */
   marque: string;
   categorie: string;
-  /** Feuille de l'arbre Vinted. 157 = Femmes > Sacs > Sacs à dos. */
+  /** Feuille de l'arbre Vinted. 246 = Hommes > Accessoires > Sacs et sacoches. */
   categoryId: number;
   brandId: number;
   /** 1 = Petit, 2 = Moyen, 3 = Grand. */
@@ -27,9 +27,14 @@ export type MappingVinted = {
    * Fil d'Ariane attendu sur la ligne de résultat (.web_ui__Cell__body).
    *
    * ⚠️ Vérification indispensable : la recherche « Sacs à dos » renvoie
-   * PLUSIEURS feuilles homonymes (157 Femmes, 246 Hommes, et l'équivalent
+   * PLUSIEURS feuilles homonymes (246 Hommes, 157 Femmes, et l'équivalent
    * Enfants). Un id qui changerait chez Vinted rangerait les articles dans
    * le mauvais rayon sans la moindre erreur visible.
+   *
+   * Le rayon visé est HOMMES. Décision d'Aramis du 09/09/2026, qui corrige la
+   * §6 de la spec : c'est 157/Femmes qui était l'erreur de relevé, pas 246.
+   * Valeurs recopiées de docs/audits/2026-09-08-vinted-mecanique-panneaux.md §1,
+   * le seul relevé qui ait créé un vrai brouillon — et il l'a créé sur 246.
    */
   filAriane: string;
 };
@@ -38,14 +43,14 @@ export const MAPPINGS_VINTED: MappingVinted[] = [
   {
     marque: "Nike",
     categorie: "Sac à dos",
-    categoryId: 157,
+    categoryId: 246,
     brandId: 53,
     packageType: 1,
     unisex: true,
     materiauxDefaut: ["Polyester", "Nylon"],
     aUneTaille: false,
     rechercheCategorie: "Sacs à dos",
-    filAriane: "Femmes > Sacs",
+    filAriane: "Hommes > Accessoires > Sacs et sacoches",
   },
 ];
 

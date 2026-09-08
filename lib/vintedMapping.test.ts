@@ -4,17 +4,17 @@ import { MAPPINGS_VINTED, pickVintedMapping } from "@/lib/vintedMapping";
 describe("pickVintedMapping", () => {
   it("trouve le sac à dos Nike", () => {
     const m = pickVintedMapping("Nike", "Sac à dos");
-    expect(m?.categoryId).toBe(157);
+    expect(m?.categoryId).toBe(246);
     expect(m?.brandId).toBe(53);
     expect(m?.packageType).toBe(1);
     expect(m?.unisex).toBe(true);
     expect(m?.materiauxDefaut).toEqual(["Polyester", "Nylon"]);
     expect(m?.aUneTaille).toBe(false);
-    expect(m?.filAriane).toBe("Femmes > Sacs");
+    expect(m?.filAriane).toBe("Hommes > Accessoires > Sacs et sacoches");
   });
 
   it("ignore la casse et les espaces de bord", () => {
-    expect(pickVintedMapping("  nike ", "SAC À DOS")?.categoryId).toBe(157);
+    expect(pickVintedMapping("  nike ", "SAC À DOS")?.categoryId).toBe(246);
   });
 
   it("exige les deux critères", () => {
@@ -26,7 +26,10 @@ describe("pickVintedMapping", () => {
     expect(pickVintedMapping("", "")).toBeNull();
   });
 
-  it("ne vise jamais la catégorie 246, celle du rayon Hommes", () => {
-    expect(MAPPINGS_VINTED.some((m) => m.categoryId === 246)).toBe(false);
+  // Les deux feuilles portent le même libellé « Sacs à dos » : seul l'id les
+  // distingue, et se tromper range tous les sacs dans le mauvais rayon sans
+  // la moindre erreur visible. 157 est celle qu'on ne vise PAS.
+  it("ne vise jamais la catégorie 157, celle du rayon Femmes", () => {
+    expect(MAPPINGS_VINTED.some((m) => m.categoryId === 157)).toBe(false);
   });
 });
