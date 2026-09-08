@@ -66,10 +66,21 @@ describe("delaiDepuisSaisie — fourchette", () => {
     });
   });
 
-  it("refuse une fourchette à l'envers, et le dit", () => {
+  it("refuse une fourchette à l'envers, et le dit distinctement", () => {
     const r = delaiDepuisSaisie("fourchette", "9", "3");
-    expect(r.ok).toBe(false);
-    expect(r).toHaveProperty("erreur");
+    expect(r).toEqual({
+      ok: false,
+      erreur: "Le minimum doit être inférieur ou égal au maximum.",
+    });
+    // Le message DOIT différer de l'invalide générique : sans cette garde, les
+    // deux causes deviendraient indiscernables à l'écran, et le pop-up dirait
+    // « minutes entières » à quelqu'un qui a saisi deux entiers parfaitement
+    // valides mais dans le mauvais ordre.
+    const generique = delaiDepuisSaisie("fourchette", "", "5");
+    expect(generique.ok).toBe(false);
+    expect((generique as { erreur: string }).erreur).not.toBe(
+      (r as { erreur: string }).erreur,
+    );
   });
 
   it("refuse un champ vide", () => {
@@ -88,6 +99,13 @@ describe("delaiDepuisSaisie — fixe", () => {
     expect(delaiDepuisSaisie("fixe", "3", "99")).toEqual({
       ok: true,
       delai: { minMinutes: 3, maxMinutes: 3 },
+    });
+  });
+
+  it("accepte zéro : « pas de pause » est un choix délibéré", () => {
+    expect(delaiDepuisSaisie("fixe", "0", "")).toEqual({
+      ok: true,
+      delai: { minMinutes: 0, maxMinutes: 0 },
     });
   });
 
