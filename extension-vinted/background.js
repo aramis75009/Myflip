@@ -115,17 +115,51 @@ browser.alarms.onAlarm.addListener((alarme) => {
   if (alarme.name === ALARME) void avancer();
 });
 
+// Sérialisation de avancer() : un seul passage à la fois. Sans ce verrou,
+// deux déclenchements concurrents (l'alarme pendant un message entrant, ou
+// reprendre() en parallèle du tout premier message) liraient chacun l'état
+// AVANT que l'autre écrive, décideraient tous deux "ouvrir" pour la même
+// entrée, et ouvriraient deux onglets pour un seul article — l'un des deux
+// orphelin, jamais tracé. Les appels concurrents s'enfilent sur cette chaîne
+// au lieu de s'entrelacer.
+let chaineAvancer = Promise.resolve();
+
+/**
+ * Point d'entrée public, appelé depuis les quatre endroits qui font avancer
+ * la file (message entrant, tabs.onUpdated, l'alarme, la reprise au réveil).
+ * Enfile l'appel sur la chaîne plutôt que de lancer avancerImpl()
+ * directement : c'est ce qui garantit qu'un seul passage tourne à la fois.
+ */
+function avancer() {
+  chaineAvancer = chaineAvancer.then(avancerImpl).catch((erreur) => {
+    // Les appelants en "void avancer()" (l'alarme) ne peuvent attraper aucun
+    // rejet : sans ce catch, la moindre exception deviendrait une unhandled
+    // rejection invisible — dans le seul fichier du chantier sans test.
+    console.error("[myflip-vinted] erreur dans avancer()", erreur);
+  });
+  return chaineAvancer;
+}
+
 /**
  * Fait avancer la file d'un cran. Idempotente : elle peut être rappelée à
  * tout moment (message entrant, alarme, réveil du worker) et ne fera rien de
- * plus que ce que l'état en base justifie.
+ * plus que ce que l'état en base justifie. Ne jamais l'appeler directement
+ * en dehors de avancer() : c'est avancer() qui la sérialise.
  */
-async function avancer() {
+async function avancerImpl() {
   const entries = await getAllEntries();
 
-  for (const entryId of entreesPerimees(entries, Date.now(), TTL_MS)) {
-    console.warn(`[myflip-vinted] purge de l'entrée périmée ${entryId}`);
-    await deleteEntry(entryId);
+  // Une entrée "echouee" suspend toute la chaîne pour que l'utilisateur
+  // termine l'article à la main. La purge TTL ne doit pas lever cette
+  // suspension au bout d'une heure : la chaîne repartirait toute seule, et
+  // les articles suivants échoueraient très probablement pour la même
+  // raison — exactement ce que la suspension existe pour empêcher.
+  const suspendue = entries.some((e) => e.etat === "echouee");
+  if (!suspendue) {
+    for (const entryId of entreesPerimees(entries, Date.now(), TTL_MS)) {
+      console.warn(`[myflip-vinted] purge de l'entrée périmée ${entryId}`);
+      await deleteEntry(entryId);
+    }
   }
 
   const action = prochaineAction(await getAllEntries(), Date.now());
@@ -142,9 +176,20 @@ async function avancer() {
     }
     const entrees = await getAllEntries();
     const entree = entrees.find((e) => e.entryId === action.entryId);
+    if (!entree) {
+      // Disparue entre la décision et cette relecture (purge TTL, action
+      // manuelle...) : rien à planifier, une passe ultérieure repartira d'un
+      // état à jour. Ne pas déréférencer un find() qui a pu rendre undefined.
+      console.warn(`[myflip-vinted] entrée ${action.entryId} disparue avant planification, ignorée`);
+      return;
+    }
     entree.cibleMs = Date.now() + tirerDelaiMs(delai.delaiMin, delai.delaiMax, Math.random);
     await saveEntry(entree);
-    return void avancer();
+    // Récursion directe, PAS via avancer() : on est déjà dans le passage
+    // sérialisé courant, repasser par avancer() enfilerait un appel sur
+    // chaineAvancer qui attend la fin de ce même passage — un verrou
+    // mort-né.
+    return avancerImpl();
   }
 
   if (action.type === "attendre") {
@@ -159,6 +204,16 @@ async function avancer() {
     const onglet = await browser.tabs.create({ url: URL_FORMULAIRE, active: false });
     const entrees = await getAllEntries();
     const entree = entrees.find((e) => e.entryId === action.entryId);
+    if (!entree) {
+      // Même garde que ci-dessus, mais ici tabs.create() a déjà tourné :
+      // l'onglet fraîchement ouvert ne doit pas rester à l'écran, non tracé,
+      // pour un article qui n'existe plus.
+      console.warn(`[myflip-vinted] entrée ${action.entryId} disparue après ouverture de l'onglet, fermeture`);
+      await browser.tabs.remove(onglet.id).catch(() => {
+        // L'onglet a pu être fermé à la main entre-temps : ce n'est pas un échec.
+      });
+      return;
+    }
     entree.tabId = onglet.id;
     entree.etat = "en-cours";
     await saveEntry(entree);
