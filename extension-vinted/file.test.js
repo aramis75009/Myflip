@@ -41,6 +41,26 @@ describe("prochaineAction", () => {
     });
   });
 
+  it("fait attendre une entrée sans champ `premier` — mise en file par une version antérieure", () => {
+    // Entrée LITTÉRALE, sans la clé `premier` : c'est la forme qu'ont déjà en
+    // base les entrées mises en file avant cette mise à jour de l'extension.
+    // « Absent » doit valoir « elle attend », jamais « elle part maintenant ».
+    // Écrire `premier !== false` à la place du `=== true` actuel ferait
+    // repartir un lot entier d'un coup — et sans ce test, rien ne broncherait.
+    const ancienne = {
+      entryId: "a",
+      etat: "en-attente",
+      ts: 100,
+      cibleMs: null,
+      tabId: null,
+    };
+    expect(prochaineAction([ancienne], 1000)).toEqual({
+      type: "planifier",
+      entryId: "a",
+      immediat: false,
+    });
+  });
+
   it("demande à attendre quand la cible est dans le futur", () => {
     expect(prochaineAction([enAttente("a", 100, 5000)], 1000)).toEqual({
       type: "attendre",
