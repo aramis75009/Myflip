@@ -28,6 +28,16 @@ let publicationEcoutee = false; // écouteur "myflip:publier-vinted" posé une s
 let compteSyncEnCours = false; // synchroniserDelaiVinted() actif pour la visite COURANTE de /compte
 let nettoyerCompteSync = null; // déconnecte les observers de la visite /compte précédente en la quittant
 
+// Marqueur de présence, lu par extensionPresente() dans
+// app/mise-en-vente/_publierVinted.ts. Sans lui, la page ne peut pas savoir
+// si quelqu'un écoute son CustomEvent, et ouvrirait un onglet Vinted que
+// l'extension ouvre déjà — deux onglets par article.
+//
+// `dataset` sur documentElement traverse la frontière d'isolation : les
+// attributs DOM sont partagés entre le monde du content script et celui de
+// la page, contrairement aux objets JavaScript (Xray).
+document.documentElement.dataset.myflipVinted = "1";
+
 reagirALaRoute();
 demarrerDetectionNavigationSpa(reagirALaRoute);
 
@@ -126,7 +136,7 @@ function patchHistoriquePage() {
  */
 function ecouterPublicationVinted() {
   window.addEventListener("myflip:publier-vinted", async (e) => {
-    const { articleId, titre, description, prix, photos } = e.detail;
+    const { articleId, titre, description, prix, photos, vinted } = e.detail;
 
     // Les photos ne partent PAS en Blob. Elles traversent deux frontières
     // successives avant d'atteindre l'onglet Vinted :
@@ -171,6 +181,12 @@ function ecouterPublicationVinted() {
       titre,
       description,
       prix,
+      // Identifiants NUMÉRIQUES Vinted, ou undefined si la fiche n'a pas de
+      // mapping. Transmis tels quels : aucune traduction de ce côté-ci, où
+      // rien n'est testé. `vinted` est un objet de nombres et de chaînes,
+      // structured-cloneable sans réserve — contrairement aux Blob, qui ont
+      // dû être convertis en ArrayBuffer juste au-dessus.
+      vinted,
       photos: photosTransportables,
     });
   });
