@@ -441,9 +441,13 @@ export default function MiseEnVentePage() {
       // la base et le formulaire Vinted rempli par l'extension divergent
       // silencieusement.
       const fraiche = etatRef.current.fiches.find((x) => x.id === f.id);
-      // Disparue du lot pendant la chaîne (retirée par l'utilisateur) : pas
-      // un échec, on passe à la suivante sans arrêter la chaîne.
-      if (!fraiche) continue;
+      // Disparue du lot pendant la chaîne (retirée par l'utilisateur), ou
+      // encore présente mais sans `article` : ressaisir le SKU à l'étape 1
+      // remet `article` à `null` sans changer l'`id` ni `generation.phase`.
+      // Dans les deux cas ce n'est pas un échec de publication, on passe à
+      // la suivante sans arrêter la chaîne — même garde que `enregistrer()`
+      // plus haut dans ce fichier.
+      if (!fraiche?.article) continue;
       const ok = await publierVinted(fraiche);
       if (!ok) {
         toast.error(`${fraiche.article!.sku} : mise en file impossible, chaîne arrêtée.`, {
