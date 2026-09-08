@@ -13,6 +13,11 @@
 
 const ORDRE_ATTENDU_MS = 10_000;
 
+// Dernière étape annoncée au badge. C'est la seule chose qui dise QUEL champ a
+// lâché : sur un échec elle part dans la bannière, qui sans elle serait
+// générique au point de n'aider personne.
+let derniereEtape = "";
+
 async function init() {
   let reponse;
   try {
@@ -30,14 +35,14 @@ async function init() {
 
   const badge = creerBadge(entry);
   const statut = await remplir(entry, badge);
-  masquerBadge(badge);
+
+  // Le badge ne disparaît QUE sur un succès. Sur un échec il porte l'étape en
+  // cours — la seule information de diagnostic qui existe — et l'effacer à
+  // l'instant précis où elle devient utile était le pire moment possible.
+  if (statut === "succes") masquerBadge(badge);
 
   if (statut !== "succes") {
-    afficherBanniere(
-      statut === "echec-selecteurs"
-        ? "L'extension a besoin d'une mise à jour — termine cette annonce à la main. La chaîne est arrêtée."
-        : "Remplissage incomplet — rien n'a été sauvegardé. Termine à la main. La chaîne est arrêtée.",
-    );
+    afficherBanniere(texteBanniere(statut, entry));
   }
 
   await browser.runtime
@@ -54,7 +59,8 @@ init();
  *
  * Ne lève jamais. Renvoie :
  *   "echec-selecteurs" — un sélecteur manque, rien n'a été sauvegardé
- *   "succes-partiel"   — un champ n'a pas pris, ou les photos manquent
+ *   "succes-partiel"   — un champ n'a pas pris, le prix est vide, ou les
+ *                        photos manquent
  *   "succes"           — tout est rempli et le brouillon a été demandé
  *
  * ⚠️ Le clic « Sauvegarder le brouillon » n'a lieu QUE dans le dernier cas.
@@ -65,7 +71,16 @@ init();
 async function remplir(entry, badge) {
   try {
     const v = entry.vinted;
-    if (!v) return "echec-selecteurs"; // sans identifiants Vinted, rien à faire ici
+    // Sans identifiants Vinted, rien à faire ici : la fiche n'a pas de mapping
+    // marque + catégorie. Le statut reste `echec-selecteurs` (contrat de
+    // messages inchangé), mais la bannière, elle, dit la vraie raison — cf.
+    // texteBanniere().
+    if (!v) {
+      console.warn(
+        `[myflip-vinted] ${entry.entryId} : aucun mapping Vinted (marque + catégorie non gérées), remplissage abandonné`,
+      );
+      return "echec-selecteurs";
+    }
 
     direAuBadge(badge, "catégorie…");
     if (!(await choisirCategorie(v.rechercheCategorie, v.categoryId, v.filAriane))) {
@@ -78,7 +93,12 @@ async function remplir(entry, badge) {
       '[data-testid="brand-select-dropdown-input"]',
       ORDRE_ATTENDU_MS,
     );
-    if (!marqueVisible) return "echec-selecteurs";
+    if (!marqueVisible) {
+      console.warn(
+        '[myflip-vinted] le champ marque ([data-testid="brand-select-dropdown-input"]) n\'est jamais apparu après la validation de la catégorie',
+      );
+      return "echec-selecteurs";
+    }
 
     direAuBadge(badge, "marque…");
     if (!(await ouvrirPanneau("brand-select-dropdown-input"))) return "echec-selecteurs";
@@ -124,22 +144,49 @@ async function remplir(entry, badge) {
 
     direAuBadge(badge, "titre…");
     const champTitre = document.querySelector('[data-testid="title--input"]');
-    if (!champTitre) return "succes-partiel";
-    await taperTexte(champTitre, entry.titre);
+    if (!champTitre) {
+      console.warn('[myflip-vinted] champ titre introuvable ([data-testid="title--input"])');
+      return "succes-partiel";
+    }
+    if (!(await taperTexte(champTitre, entry.titre))) return "succes-partiel";
 
     direAuBadge(badge, "description…");
     const champDescription = document.querySelector('[data-testid="description--input"]');
-    if (!champDescription) return "succes-partiel";
-    await taperTexte(champDescription, entry.description);
+    if (!champDescription) {
+      console.warn(
+        '[myflip-vinted] champ description introuvable ([data-testid="description--input"])',
+      );
+      return "succes-partiel";
+    }
+    if (!(await taperTexte(champDescription, entry.description))) return "succes-partiel";
 
     // Le prix EN DERNIER, et frappé caractère par caractère : c'est le champ
     // qui s'est déjà affiché rempli tout en valant 0.0 en base (audit
     // 2026-09-08 §6). Aucune vérification depuis la page ne peut le
     // démentir — seul le brouillon relu le dira.
     direAuBadge(badge, "prix…");
+
+    // ⚠️ Sans prix, on s'arrête AVANT toute frappe. `taperTexte(champ, "")`
+    // boucle sur zéro caractère et laisse le champ vide : Vinted enregistrerait
+    // alors un brouillon à 0,00 €, l'entrée serait consommée et l'onglet fermé.
+    // C'est exactement la panne que ce chantier existe pour empêcher — et elle
+    // est invisible une fois l'onglet fermé, puisque rien à l'écran ne la
+    // signale. Cause la plus probable : `PrixReference` n'a aucune ligne pour
+    // cette marque + catégorie (elle est vide au premier passage).
+    const prixDemande = String(entry.prix ?? "");
+    if (prixDemande.trim() === "") {
+      console.warn(
+        "[myflip-vinted] prix vide : aucun brouillon ne sera sauvegardé (il partirait à 0,00 €). Renseigne un prix de référence dans /parametres.",
+      );
+      return "succes-partiel";
+    }
+
     const champPrix = document.querySelector('[data-testid="price-input--input"]');
-    if (!champPrix) return "succes-partiel";
-    await taperTexte(champPrix, String(entry.prix ?? ""));
+    if (!champPrix) {
+      console.warn('[myflip-vinted] champ prix introuvable ([data-testid="price-input--input"])');
+      return "succes-partiel";
+    }
+    if (!(await taperTexte(champPrix, prixDemande))) return "succes-partiel";
 
     direAuBadge(badge, "photos…");
     if (!injecterPhotos(entry.photos)) return "succes-partiel";
@@ -161,8 +208,24 @@ async function remplir(entry, badge) {
  * Badge construit noeud par noeud, PAS via innerHTML : `web-ext lint` remonte
  * UNSAFE_VAR_ASSIGNMENT sur toute affectation d'innerHTML dynamique, et
  * `textContent` rend inutile toute fonction d'échappement maison.
+ *
+ * ⚠️ Enveloppée comme `direAuBadge` et `masquerBadge`. Si `attachShadow` (ou
+ * n'importe quoi d'autre ici) levait, l'exception remonterait dans `init()`
+ * AVANT `remplir()` : aucun `vinted:resultat` ne partirait, l'entrée resterait
+ * « en-cours » côté worker, et toute la file se bloquerait — pour un élément
+ * décoratif. Renvoie `null` en cas de panne ; les trois fonctions du badge
+ * tolèrent un badge nul, donc le remplissage continue sans lui.
  */
 function creerBadge(entry) {
+  try {
+    return construireBadge(entry);
+  } catch (err) {
+    console.warn("[myflip-vinted] badge non affiché, le remplissage continue quand même", err);
+    return null;
+  }
+}
+
+function construireBadge(entry) {
   const host = document.createElement("div");
   host.style.cssText = "position:fixed;bottom:16px;right:16px;z-index:2147483647;";
   const shadow = host.attachShadow({ mode: "closed" });
@@ -202,6 +265,9 @@ function creerBadge(entry) {
 /** Le badge est un pur confort : une panne d'affichage ne doit jamais
  *  interrompre le remplissage, qui est le vrai travail. */
 function direAuBadge(badge, texte) {
+  // Mémorisé AVANT l'affichage, et hors du try : la bannière doit pouvoir
+  // nommer l'étape même quand le badge n'a jamais pu être construit.
+  derniereEtape = texte;
   try {
     const el = badge?.shadow.querySelector(".etape");
     if (el) el.textContent = texte;
@@ -216,6 +282,35 @@ function masquerBadge(badge) {
   } catch {
     // best-effort
   }
+}
+
+/**
+ * Le texte affiché à l'utilisateur sur un échec.
+ *
+ * ⚠️ Une fiche sans `vinted` n'est PAS une extension périmée : c'est un
+ * article que le mapping marque + catégorie ne couvre pas (le bouton unitaire
+ * « Publier sur Vinted » reste utilisable sur n'importe quelle fiche). Lui
+ * afficher « l'extension a besoin d'une mise à jour » enverrait chercher la
+ * panne exactement là où elle n'est pas. Le statut renvoyé au worker, lui, ne
+ * change pas : c'est toujours `echec-selecteurs`.
+ */
+function texteBanniere(statut, entry) {
+  if (statut === "echec-selecteurs" && !entry?.vinted) {
+    return (
+      "Cet article n'est pas géré automatiquement (aucune correspondance marque + catégorie connue) — " +
+      "remplis-le à la main. La chaîne est arrêtée."
+    );
+  }
+  const etape = derniereEtape ? ` Dernière étape atteinte : ${derniereEtape}` : "";
+  if (statut === "echec-selecteurs") {
+    return (
+      "L'extension a besoin d'une mise à jour — termine cette annonce à la main. La chaîne est arrêtée." +
+      etape
+    );
+  }
+  return (
+    "Remplissage incomplet — rien n'a été sauvegardé. Termine à la main. La chaîne est arrêtée." + etape
+  );
 }
 
 function afficherBanniere(texte) {

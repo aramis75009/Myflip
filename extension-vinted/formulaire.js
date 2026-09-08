@@ -79,14 +79,24 @@ function ecrireValeur(el, valeur) {
  *
  * `Array.from` et non `split("")` : « é » et les emojis sont des paires de
  * substituts, que `split("")` couperait en deux.
+ *
+ * Renvoie `true` si le champ porte quelque chose à la fin, `false` si la
+ * frappe n'a rien écrit du tout.
  */
 async function taperTexte(el, texte) {
-  // Un champ non vide a été rempli à la main : on ne l'écrase jamais.
-  if (el.value && el.value.trim() !== "") return;
+  const demande = String(texte);
+  // Un champ non vide a été rempli à la main : on ne l'écrase jamais. C'est un
+  // SUCCÈS — le champ porte bien une valeur — et pas un échec.
+  if (el.value && el.value.trim() !== "") return true;
   el.focus();
   let courant = "";
-  for (const caractere of Array.from(String(texte))) {
+  for (const caractere of Array.from(demande)) {
+    // `keypress` fait partie de la séquence listée par la spec §5.4. Il est
+    // déprécié au sens des standards, mais toujours émis par les vrais
+    // navigateurs à la frappe : l'omettre laisse un trou dans la séquence
+    // qu'un champ qui écoute le clavier peut voir.
     el.dispatchEvent(new KeyboardEvent("keydown", { key: caractere, bubbles: true }));
+    el.dispatchEvent(new KeyboardEvent("keypress", { key: caractere, bubbles: true }));
     courant += caractere;
     ecrireValeur(el, courant);
     el.dispatchEvent(new Event("input", { bubbles: true }));
@@ -96,13 +106,39 @@ async function taperTexte(el, texte) {
   el.dispatchEvent(new Event("change", { bubbles: true }));
   el.blur();
   el.dispatchEvent(new FocusEvent("blur", { bubbles: true }));
+
+  // Parade n° 3 de la spec §5.4 : relire `el.value` après le blur.
+  //
+  // ⚠️ On teste « le champ est-il resté VIDE ? », JAMAIS l'égalité avec le
+  // texte demandé. Le champ prix REFORMATE ce qu'on tape — « 15 » ressort
+  // « 15,00 € » (relevé 2026-09-08 §6) — donc une comparaison stricte
+  // échouerait sur un remplissage parfaitement réussi et arrêterait la chaîne
+  // pour rien. Ne pas « resserrer » cette vérification : elle est faible
+  // exprès, et la spec le dit — elle n'attrape que le cas où la frappe n'a
+  // rien écrit du tout. Seul le brouillon relu après coup prouve le commit.
+  if (demande.trim() !== "" && String(el.value ?? "").trim() === "") {
+    console.warn(
+      `[myflip-vinted] frappe sans effet sur ${decrireChamp(el)} : le champ est resté vide`,
+    );
+    return false;
+  }
+  return true;
+}
+
+/** De quoi nommer un champ dans un avertissement, sans supposer qu'il porte
+ *  un `data-testid` (les champs de panneau n'en ont pas tous un). */
+function decrireChamp(el) {
+  return el?.getAttribute?.("data-testid") || el?.id || el?.name || el?.tagName || "champ inconnu";
 }
 
 /** Ouvre un panneau en cliquant son champ visible. Aucun chevron à viser :
  *  le relevé du 2026-09-08 §2 confirme que le champ suffit pour les cinq. */
 async function ouvrirPanneau(testid) {
   const champ = await attendreElement(`[data-testid="${testid}"]`);
-  if (!champ) return false;
+  if (!champ) {
+    console.warn(`[myflip-vinted] panneau non ouvert : [data-testid="${testid}"] n'est jamais apparu`);
+    return false;
+  }
   champ.click();
   await pauseAleatoire(500, 1200);
   return true;
@@ -147,7 +183,10 @@ async function choisirOption(idInput) {
  */
 async function validerPanneau() {
   const bouton = await attendreElement(SEL_VALIDER_PANNEAU, 3000);
-  if (!bouton) return false;
+  if (!bouton) {
+    console.warn(`[myflip-vinted] bouton « Fait » introuvable (${SEL_VALIDER_PANNEAU}) : panneau non validé`);
+    return false;
+  }
   await pauseAleatoire(300, 900);
   bouton.click();
   await pauseAleatoire(400, 1200);
@@ -166,11 +205,19 @@ async function choisirCategorie(recherche, categoryId, filArianeAttendu) {
   if (!(await ouvrirPanneau("catalog-select-dropdown-input"))) return false;
 
   const champRecherche = await attendreElement("#catalog-search-input", 5000);
-  if (!champRecherche) return false;
+  if (!champRecherche) {
+    console.warn("[myflip-vinted] recherche de catégorie impossible : #catalog-search-input n'est jamais apparu");
+    return false;
+  }
   await taperTexte(champRecherche, recherche);
 
   const ligne = await attendreElement(`#catalog-search-${categoryId}-result`, 8000);
-  if (!ligne) return false;
+  if (!ligne) {
+    console.warn(
+      `[myflip-vinted] catégorie ${categoryId} absente des résultats : #catalog-search-${categoryId}-result n'est jamais apparu pour la recherche « ${recherche} »`,
+    );
+    return false;
+  }
 
   const filAriane = (ligne.querySelector(".web_ui__Cell__body")?.textContent ?? "")
     .replace(/\s+/g, " ")
@@ -191,7 +238,10 @@ async function choisirCategorie(recherche, categoryId, filArianeAttendu) {
  *  donc pas de « Fait » à cliquer derrière. */
 async function cocher(selecteur) {
   const el = await attendreElement(selecteur, 5000);
-  if (!el) return false;
+  if (!el) {
+    console.warn(`[myflip-vinted] case à cocher introuvable : ${selecteur} n'est jamais apparu`);
+    return false;
+  }
   if (!el.checked) el.click();
   await pauseAleatoire(400, 1200);
   return true;
@@ -244,7 +294,12 @@ function injecterPhotos(photos) {
  */
 async function cliquerBrouillon() {
   const bouton = document.querySelector('[data-testid="upload-form-save-draft-button"]');
-  if (!bouton) return false;
+  if (!bouton) {
+    console.warn(
+      '[myflip-vinted] bouton brouillon introuvable ([data-testid="upload-form-save-draft-button"]) : rien n\'a été sauvegardé',
+    );
+    return false;
+  }
   await pauseAleatoire(4000, 10_000);
   bouton.click();
   return true;

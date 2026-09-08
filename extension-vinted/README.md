@@ -52,16 +52,16 @@ page MyFlip ──[CustomEvent.detail]──▶ content script ──[sendMessag
 
 `content-myflip.js` convertit chaque photo en `{ type, buffer }` dès la
 réception, parce que `ArrayBuffer` traverse le messaging **et** IndexedDB sans
-réserve. `content-vinted.js` reconstruit le `Blob` au moment de s'en servir
-(`versBlob()`). Si la conversion échoue, rien n'est mis en file et l'erreur
+réserve. `injecterPhotos()` (`formulaire.js`) reconstruit le `Blob` au moment
+de s'en servir. Si la conversion échoue, rien n'est mis en file et l'erreur
 part en console : mieux vaut un onglet Vinted neutre qu'une entrée aux photos
 creuses qui ferait croire au succès.
 
 **Les champs se remplissent par le setter natif du prototype**, pas par
-`el.value = …` (voir `ecrireValeur()` dans `content-vinted.js`). Vinted est en
+`el.value = …` (voir `ecrireValeur()` dans `formulaire.js`). Vinted est en
 React : une affectation directe passe sous le value tracker, React ignore
 l'événement `input` et remet sa valeur au premier re-render. Le symptôme est
-traître — le champ a l'air rempli, `remplirFormulaire()` renvoie `"succes"`,
+traître — le champ a l'air rempli, `remplir()` renvoie `"succes"`,
 l'entrée est consommée, et le formulaire réel est resté vide.
 
 **Le badge se construit noeud par noeud**, pas en `innerHTML` : `web-ext lint`

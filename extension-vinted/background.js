@@ -34,6 +34,13 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
       console.warn("[myflip-vinted] mise-en-file sans onglet expéditeur, ignorée");
       return;
     }
+    // Un nouvel envoi depuis /mise-en-vente est le geste explicite qui dit
+    // « j'ai corrigé, on repart » (c'est ce que promet le README). Sans cette
+    // purge, l'état "echouee" serait ABSORBANT : rien d'autre ne le supprime,
+    // prochaineAction() renverrait "suspendu" à jamais, et chaque envoi
+    // suivant partirait dans le vide — la page afficherait « Brouillon », et
+    // pas un onglet ne s'ouvrirait.
+    await purgerEchecs();
     await saveEntry({
       entryId: msg.entryId,
       titre: msg.titre,
@@ -100,15 +107,40 @@ browser.tabs.onUpdated.addListener(async (tabId, infos) => {
   await avancer();
 });
 
-// Un onglet en cours fermé à la main, sans redirection : le travail n'a pas
-// abouti. On suspend plutôt que de passer au suivant — l'onglet a été fermé
-// pour une raison, et elle vaut probablement pour les articles suivants.
+// Deux gestes différents portent le même événement, et il faut les distinguer
+// par l'état de l'entrée :
+//
+//   "en-cours"  — l'onglet a été fermé PENDANT le remplissage, sans
+//                 redirection : le travail n'a pas abouti. On suspend plutôt
+//                 que de passer au suivant — l'onglet a été fermé pour une
+//                 raison, et elle vaut probablement pour les suivants.
+//   "echouee"   — l'onglet avait été LAISSÉ ouvert avec sa bannière après un
+//                 échec. Le fermer est le « ferme l'onglet » du README :
+//                 l'utilisateur a vu le problème, on retire l'entrée et la
+//                 chaîne repart. Sans cette sortie, la file resterait
+//                 suspendue pour toujours.
 browser.tabs.onRemoved.addListener(async (tabId) => {
   const entries = await getAllEntries();
-  const entree = entries.find((e) => e.tabId === tabId && e.etat === "en-cours");
+  const entree = entries.find((e) => e.tabId === tabId);
   if (!entree) return;
+
+  if (entree.etat === "echouee") {
+    console.warn(
+      `[myflip-vinted] onglet de l'entrée en échec ${entree.entryId} fermé : entrée retirée, la file repart`,
+    );
+    await deleteEntry(entree.entryId);
+    await avancer();
+    return;
+  }
+
+  if (entree.etat !== "en-cours") return;
   entree.etat = "echouee";
   await saveEntry(entree);
+  // Ce basculement était totalement muet : un onglet fermé par mégarde
+  // arrêtait la chaîne sans laisser la moindre trace.
+  console.warn(
+    `[myflip-vinted] onglet de ${entree.entryId} fermé avant la fin du remplissage : chaîne suspendue`,
+  );
 });
 
 browser.alarms.onAlarm.addListener((alarme) => {
@@ -164,6 +196,19 @@ async function avancerImpl() {
 
   const action = prochaineAction(await getAllEntries(), Date.now());
 
+  if (action.type === "suspendu") {
+    // Ce cas était muet, et c'était la panne silencieuse la plus grave du
+    // chantier : chaque nouvel envoi retombait ici sans rien journaliser,
+    // pendant que /mise-en-vente affichait « Brouillon » comme si tout allait
+    // bien. Les deux sorties nommées ici sont celles du README.
+    console.warn(
+      `[myflip-vinted] file ARRÊTÉE sur l'entrée ${action.entryId} (son remplissage a échoué). ` +
+        "Rien ne repartira tant que son onglet n'aura pas été fermé, ou qu'un nouvel envoi " +
+        "depuis /mise-en-vente n'aura pas purgé les entrées en échec.",
+    );
+    return;
+  }
+
   if (action.type === "planifier") {
     const delai = await lireDelaiRegle();
     if (!delai) {
@@ -218,8 +263,26 @@ async function avancerImpl() {
     entree.etat = "en-cours";
     await saveEntry(entree);
   }
-  // "occupe", "suspendu", "rien" : il n'y a rien à faire. La reprise viendra
-  // d'un tabs.onUpdated, d'un tabs.onRemoved, ou d'une nouvelle mise en file.
+  // "occupe" et "rien" : il n'y a rien à faire, et c'est normal — les taire
+  // est un choix, pas un oubli ("suspendu", lui, est journalisé plus haut).
+  // La reprise viendra d'un tabs.onUpdated, d'un tabs.onRemoved, ou d'une
+  // nouvelle mise en file.
+}
+
+/**
+ * Retire toutes les entrées en échec. Appelée au moment d'une nouvelle mise
+ * en file, jamais automatiquement : lever la suspension toute seule ferait
+ * repartir la chaîne sur une cause qui n'a pas été corrigée.
+ *
+ * Ne ferme aucun onglet : celui qui reste ouvert porte la bannière qui dit ce
+ * qui a lâché, et c'est la seule information de diagnostic disponible.
+ */
+async function purgerEchecs() {
+  const entries = await getAllEntries();
+  for (const e of entries.filter((x) => x.etat === "echouee")) {
+    console.warn(`[myflip-vinted] nouvel envoi : l'entrée en échec ${e.entryId} est retirée de la file`);
+    await deleteEntry(e.entryId);
+  }
 }
 
 // Au réveil du worker (MV3 : il peut être tué à tout moment), la file est en
