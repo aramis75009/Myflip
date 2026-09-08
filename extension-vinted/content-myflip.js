@@ -33,6 +33,18 @@ document.documentElement.dataset.myflipVinted = "1";
 reagirALaRoute();
 demarrerDetectionNavigationSpa(reagirALaRoute);
 
+/**
+ * Ré-évaluée à CHAQUE navigation détectée, pas seulement à l'injection.
+ *
+ * MyFlip navigue en SPA (`components/Sidebar.tsx` utilise `next/link`) : un
+ * content script s'injecte une fois par CHARGEMENT DE PAGE RÉEL, jamais par
+ * changement de route côté client. Quelqu'un qui atterrit sur `/dashboard`
+ * après connexion puis clique vers `/mise-en-vente` dans la barre latérale ne
+ * provoque donc AUCUNE nouvelle injection. Si `location.pathname` n'était lu
+ * qu'une fois au chargement du script, l'écouteur de publication ne
+ * s'attacherait jamais dans ce parcours pourtant banal — c'est exactement le
+ * bug trouvé en revue lors du chantier de remplissage (09/2026).
+ */
 function reagirALaRoute() {
   if (location.pathname.startsWith("/mise-en-vente") && !publicationEcoutee) {
     ecouterPublicationVinted();

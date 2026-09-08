@@ -1,7 +1,7 @@
 // La combinaison marque + catégorie MyFlip → les constantes Vinted de la
 // catégorie visée. Une seule entrée aujourd'hui : sacs à dos Nike.
 //
-// Pas de cascade façon pickPrompt()/pickPrix() (marque seule, catégorie
+// Pas de cascade façon pickPrompt() (marque seule, catégorie
 // seule, défaut) : avec une entrée, ce serait du code mort qui ment sur son
 // intention, et un défaut trop large rangerait n'importe quel article dans
 // les sacs à dos. Le jour où une deuxième combinaison arrive, la cascade se

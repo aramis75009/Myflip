@@ -208,7 +208,7 @@ Run: `cat docs/audits/2026-09-08-prix-reference-avant-migration.md`
 
 Expected : le compte de lignes annoncé correspond au nombre de lignes du tableau. Si les deux divergent, s'arrêter : le fichier est la seule sauvegarde.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add scripts/exporter-prix-reference.ts docs/audits/2026-09-08-prix-reference-avant-migration.md
@@ -1963,7 +1963,27 @@ devient
 
 Une seule ligne, et rien d'autre dans ce fichier : c'est un orphelin créé par ce chantier, pas une amélioration de voisinage.
 
-- [ ] **Step 3: Mettre `TODOS.md` à jour**
+- [ ] **Step 3: Restaurer l'explication perdue dans `content-myflip.js`**
+
+La réécriture de l'en-tête en Tâche 7 a emporté le paragraphe qui disait **pourquoi** `reagirALaRoute()` doit être ré-évaluée à chaque navigation SPA. Le mécanisme est intact ; seule sa raison d'être a disparu, et c'est elle qui empêche un successeur de « simplifier » la fonction en lecture unique — un bug déjà trouvé en revue lors du chantier précédent.
+
+Ajouter ce commentaire **juste au-dessus de `function reagirALaRoute()`** (l'en-tête du fichier, lui, ne bouge plus : il traite désormais la question distincte du périmètre du manifest) :
+
+```js
+/**
+ * Ré-évaluée à CHAQUE navigation détectée, pas seulement à l'injection.
+ *
+ * MyFlip navigue en SPA (`components/Sidebar.tsx` utilise `next/link`) : un
+ * content script s'injecte une fois par CHARGEMENT DE PAGE RÉEL, jamais par
+ * changement de route côté client. Quelqu'un qui atterrit sur `/dashboard`
+ * après connexion puis clique vers `/mise-en-vente` dans la barre latérale ne
+ * provoque donc AUCUNE nouvelle injection. Si `location.pathname` n'était lu
+ * qu'une fois au chargement du script, l'écouteur de publication ne
+ * s'attacherait jamais dans ce parcours pourtant banal — c'est exactement le
+ * bug trouvé en revue lors du chantier de remplissage (09/2026).
+ */
+
+- [ ] **Step 4: Mettre `TODOS.md` à jour**
 
 Supprimer la section `## P2 · Le prix dans le prompt, le délai dans un pop-up — cadré le 08/09/2026` et la remplacer par :
 
@@ -2016,7 +2036,7 @@ qu'aucune permission actuelle ne couvre : `host_permissions` s'arrête à
 `https://www.vinted.fr/items/new*`.
 ```
 
-- [ ] **Step 4: Vérification finale, les trois commandes**
+- [ ] **Step 5: Vérification finale, les trois commandes**
 
 Run: `npx tsc --noEmit`
 Expected : aucune sortie, exit 0.
@@ -2029,14 +2049,14 @@ Expected : `errors 0`, `warnings 2`.
 
 ⚠️ **Ne pas lancer `npm run build`.**
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add -A
 git commit -m "docs: describe the batch delay popup and close the priced-prompt chantier"
 ```
 
-- [ ] **Step 6: Dire ce qui n'a pas été vérifié**
+- [ ] **Step 7: Dire ce qui n'a pas été vérifié**
 
 En rendant la main, énoncer explicitement — et sans l'adoucir :
 

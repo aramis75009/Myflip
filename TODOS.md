@@ -255,12 +255,10 @@ délice) — utiles surtout dans les sessions à plusieurs articles (5-10 clics
       réelle). Hors périmètre tant que le brouillon n'a pas tourné plusieurs
 
 
-## P2 · Le prix dans le prompt, le délai dans un pop-up — cadré le 08/09/2026
+## P2 · Suites du chantier « prix dans le prompt, délai en pop-up » — livré le 08/09/2026
 
-Spec : `docs/superpowers/specs/2026-09-08-prix-prompt-delai-popup-design.md`.
-Feu vert d'Aramis pour enchaîner plan puis code. Rien n'est commencé.
-
-Trois choses différées par ce cadrage, notées ici pour ne pas les perdre :
+Plan : `docs/superpowers/plans/2026-09-08-prix-prompt-delai-popup.md`.
+Deux choses ont été différées par le cadrage, notées ici pour ne pas les perdre :
 
 - [ ] **La matière, la taille et la catégorie Vinted dans le prompt.** Décision
       du 08/09 : le prix seul pour l'instant. Le reste continue de venir de
@@ -269,11 +267,34 @@ Trois choses différées par ce cadrage, notées ici pour ne pas les perdre :
       elle demanderait une liste déroulante alimentée par un relevé.
 - [ ] **Les délais en secondes.** Écartés explicitement : minutes entières.
       À rouvrir seulement si un essai réel montre que la minute est trop grossière.
-- [ ] **Reporter les prix de `PrixReference` dans les prompts** avant
-      d'appliquer la nouvelle migration, qui détruit la table. La migration ne
-      peut pas faire ce report : elle ne sait pas quel prompt choisir quand
-      plusieurs correspondent.
 
+## P2 · Voyant « connecté à Vinted » — relevé le 08/09/2026
+
+**Quoi.** Un écran qui dit, avant de lancer quoi que ce soit : extension
+installée ✓, session Vinted détectée ✓. Sa place naturelle est `/compte`, dans
+la section que ce chantier vient d'y vider.
+
+**Pourquoi.** Le concurrent Le Troc Futé ouvre son parcours par une page
+« Connexion Vinted » qui affiche « Connexion Vinted détectée ». Ce n'est PAS
+une autorisation façon OAuth — Vinted n'en propose aucune à un tiers — et sa
+capture d'écran le dit elle-même : le service repose sur **une extension
+Firefox** (« Vérifiez que l'extension dispose des autorisations nécessaires »,
+« Version actuellement installée : 2.0.9 »), plus une session Vinted ouverte
+dans le navigateur. C'est exactement la mécanique de MyFlip.
+
+**Donc rien à construire côté connexion.** Ce qui manque n'est pas une
+capacité, c'est un **retour visible** : aujourd'hui on lance et on espère.
+C'est le même défaut que les pannes muettes corrigées par ce chantier.
+
+⚠️ Aramis a écarté le 08/09/2026 l'hypothèse d'un fonctionnement navigateur
+fermé chez le concurrent : il n'y a pas d'écart de capacité entre les deux
+produits, seulement d'affichage. Ne pas rouvrir ce point.
+
+**Ce que ça demande.** `extensionPresente()` existe déjà
+(`app/mise-en-vente/_publierVinted.ts`) pour le premier voyant. Le second
+— « session Vinted détectée » — demande que l'extension regarde vinted.fr, ce
+qu'aucune permission actuelle ne couvre : `host_permissions` s'arrête à
+`https://www.vinted.fr/items/new*`.
 ## P3 · Défauts mineurs connus, laissés en l'état après la revue finale
 
 Aucun ne bloque la fusion ; tous sont documentés avec leur raison.

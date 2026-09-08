@@ -70,14 +70,18 @@ remonte `UNSAFE_VAR_ASSIGNMENT` sur toute interpolation dynamique, et
 
 ## Ce que fait l'extension
 
-1. Dans `/mise-en-vente`, étape 4, « Tout mettre en brouillon sur Vinted ».
-2. MyFlip enregistre chaque article en statut *Brouillon*, puis met l'annonce
-   en file dans l'extension. **Aucun onglet ne s'ouvre à ce moment-là.**
-3. L'extension traite **un article à la fois**. Pour chacun : elle attend un
-   délai tiré au hasard dans la fourchette réglée dans `/compte`, ouvre un
-   onglet Vinted, remplit tout le formulaire, puis clique
+1. Dans `/mise-en-vente`, étape 4, « Tout mettre en brouillon sur Vinted » (ou
+   « Publier sur Vinted » sur une seule fiche).
+2. Un pop-up demande le délai à laisser entre deux annonces : un délai fixe, ou
+   une fourchette aléatoire, en minutes entières. Le dernier réglage est
+   reproposé au lancement suivant.
+3. MyFlip enregistre chaque article en statut *Brouillon*, puis met l'annonce en
+   file dans l'extension. **Aucun onglet ne s'ouvre à ce moment-là.**
+4. L'extension traite **un article à la fois**. Le premier part tout de suite ;
+   pour chacun des suivants, elle attend un délai tiré dans la fourchette du
+   lot, ouvre un onglet Vinted, remplit tout le formulaire, puis clique
    « Sauvegarder le brouillon ».
-4. L'onglet se ferme tout seul quand le brouillon est enregistré, et l'article
+5. L'onglet se ferme tout seul quand le brouillon est enregistré, et l'article
    suivant démarre son propre délai.
 
 L'extension ne clique **jamais** « Ajouter » : rien n'est publié.
@@ -102,9 +106,17 @@ commune à tous (Vinted a changé son DOM) — enchaîner ne ferait qu'aggraver.
 
 Pour repartir : ferme l'onglet, corrige, et relance depuis `/mise-en-vente`.
 
-## Le délai doit être réglé
+## Le délai voyage avec le lot
 
-Si `/compte` n'a jamais été visité depuis l'installation, aucune fourchette
-n'est en mémoire et **rien ne se passe** — un avertissement part dans la
-console du worker (`about:debugging` → Inspecter). Visiter `/compte` une fois
-suffit.
+Il n'y a plus rien à régler avant de lancer, et plus rien à visiter : le délai
+se choisit dans le pop-up, au moment où il sert, et **chaque entrée de la file
+porte le sien**. Deux lots lancés avec des réglages différents s'enchaînent donc
+correctement, au lieu que le second impose le sien au premier.
+
+Jusqu'au 08/09/2026, la fourchette était un réglage de compte que ce content
+script allait lire dans le DOM de `/compte`. Si `/compte` n'avait jamais été
+visité, rien ne partait et rien ne le disait — c'est ce mode de panne muet que
+le pop-up supprime.
+
+Une entrée qui arriverait sans délai exploitable (mise en file par une version
+antérieure de l'extension) retombe sur 2 à 5 minutes, jamais sur zéro.
