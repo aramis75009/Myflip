@@ -1,32 +1,24 @@
 // extension-vinted/content-myflip.js
 //
-// Content script injecté sur tout le domaine MyFlip (voir manifest.json —
-// élargi depuis `/mise-en-vente*` pour couvrir aussi `/compte`, cf. ruling
-// Task 14). Deux responsabilités indépendantes, chacune activée seulement
-// sur la page où elle a un sens :
+// Content script injecté sur tout le domaine MyFlip (voir manifest.json). Une
+// seule responsabilité depuis le 08/09/2026 : sur /mise-en-vente, écouter le
+// CustomEvent "myflip:publier-vinted" (émis par
+// app/mise-en-vente/_publierVinted.ts) et le transmettre au service worker
+// sous forme de message runtime.
 //
-//   1. /mise-en-vente : écoute le CustomEvent "myflip:publier-vinted" (émis
-//      par app/mise-en-vente/_publierVinted.ts, Task 8) et le transmet au
-//      service worker (Task 13) sous forme de message runtime.
-//   2. /compte : copie best-effort des réglages de délai anti-ban
-//      (ExtensionVinted.tsx, Task 9) depuis le DOM vers
-//      browser.storage.local — seule voie d'accès pour le service worker,
-//      qui n'a pas d'API MyFlip dédiée pour les lire (cf. commentaire
-//      lireDelaiRegle() dans background.js).
+// Ce qu'il ne fait PLUS : recopier la fourchette de délai anti-ban depuis le
+// DOM de /compte vers browser.storage.local. Le délai est désormais choisi
+// dans un pop-up au lancement du lot et voyage avec chaque annonce — c'était
+// le mécanisme le plus fragile du chantier, et le seul à produire une panne
+// muette (/compte jamais visité, la file ne démarrait pas, rien ne le disait).
 //
-// MyFlip navigue en SPA (components/Sidebar.tsx utilise next/link) : un
-// content script s'injecte une fois par CHARGEMENT DE PAGE RÉEL, pas par
-// changement de route côté client. Un utilisateur qui atterrit sur une page
-// non matchée (ex. /dashboard après connexion) puis clique vers
-// /mise-en-vente dans la sidebar ne provoque donc PAS une nouvelle
-// injection — si on ne lisait `location.pathname` qu'une fois au chargement
-// du script, l'écouteur de publication ne s'attacherait jamais dans ce
-// parcours pourtant normal (trouvé en revue, fix round 1 de cette tâche).
-// `reagirALaRoute()` est donc ré-évaluée à chaque navigation détectée, pas
-// seulement à l'injection.
+// ⚠️ Le manifest matche TOUT le domaine, et pas seulement /mise-en-vente,
+// alors même que /compte n'est plus concerné : MyFlip navigue en SPA
+// (next/link), et un content script ne s'injecte qu'à un CHARGEMENT DE PAGE
+// RÉEL. Restreindre le match empêcherait l'injection pour qui atterrit sur
+// /dashboard après connexion puis clique vers /mise-en-vente — un parcours
+// parfaitement normal.
 let publicationEcoutee = false; // écouteur "myflip:publier-vinted" posé une seule fois pour toute la vie du script
-let compteSyncEnCours = false; // synchroniserDelaiVinted() actif pour la visite COURANTE de /compte
-let nettoyerCompteSync = null; // déconnecte les observers de la visite /compte précédente en la quittant
 
 // Marqueur de présence, lu par extensionPresente() dans
 // app/mise-en-vente/_publierVinted.ts. Sans lui, la page ne peut pas savoir
@@ -42,28 +34,9 @@ reagirALaRoute();
 demarrerDetectionNavigationSpa(reagirALaRoute);
 
 function reagirALaRoute() {
-  const chemin = location.pathname;
-
-  if (chemin.startsWith("/mise-en-vente") && !publicationEcoutee) {
+  if (location.pathname.startsWith("/mise-en-vente") && !publicationEcoutee) {
     ecouterPublicationVinted();
     publicationEcoutee = true;
-  }
-
-  if (chemin.startsWith("/compte")) {
-    if (!compteSyncEnCours) {
-      compteSyncEnCours = true;
-      nettoyerCompteSync = synchroniserDelaiVinted();
-    }
-  } else if (compteSyncEnCours) {
-    // On quitte /compte : les <input> de la visite précédente vont être
-    // démontées par React (nouvelle visite = nouveaux noeuds DOM plus tard),
-    // donc rien à observer entre-temps. Sans ce nettoyage, un observer
-    // encore en attente d'éléments (jamais trouvés) continuerait à réagir à
-    // des mutations DOM sans rapport sur la nouvelle page jusqu'à son
-    // timeout interne.
-    compteSyncEnCours = false;
-    nettoyerCompteSync?.();
-    nettoyerCompteSync = null;
   }
 }
 
@@ -136,7 +109,7 @@ function patchHistoriquePage() {
  */
 function ecouterPublicationVinted() {
   window.addEventListener("myflip:publier-vinted", async (e) => {
-    const { articleId, titre, description, prix, photos, vinted } = e.detail;
+    const { articleId, titre, description, prix, photos, vinted, delai } = e.detail;
 
     // Les photos ne partent PAS en Blob. Elles traversent deux frontières
     // successives avant d'atteindre l'onglet Vinted :
@@ -187,101 +160,19 @@ function ecouterPublicationVinted() {
       // structured-cloneable sans réserve — contrairement aux Blob, qui ont
       // dû être convertis en ArrayBuffer juste au-dessus.
       vinted,
+      // Reconstruit champ par champ, contrairement à `vinted` qui passe tel
+      // quel. Ce n'est pas de la coquetterie : un `delai` qui arriverait
+      // abîmé de l'autre côté de la frontière Xray produirait un `cibleMs` à
+      // NaN, `NaN > maintenant` vaut `false`, et l'onglet s'ouvrirait
+      // IMMÉDIATEMENT — le garde-fou anti-ban annulé sans un mot. Un objet
+      // mal formé arrive ici en `null` et déclenche le repli de
+      // delaiDeLEntree() (file.js), qui lui est prudent.
+      delai:
+        delai && typeof delai === "object"
+          ? { minMinutes: Number(delai.minMinutes), maxMinutes: Number(delai.maxMinutes) }
+          : null,
       photos: photosTransportables,
     });
   });
 }
 
-/**
- * Copie best-effort des bornes de délai (ExtensionVinted.tsx) vers
- * browser.storage.local, sous les clés `delaiMin`/`delaiMax` lues par
- * lireDelaiRegle() dans background.js.
- *
- * Pas d'API dédiée pour lire UserSettings.delaiVintedMinMinutes/MaxMinutes
- * depuis l'extension (invariant du design) : seule source disponible, le
- * DOM des deux <input> de /compte (id stables `delai-vinted-min` /
- * `delai-vinted-max`, cf. ExtensionVinted.tsx).
- *
- * Deux signaux d'écriture distincts, car ils couvrent deux moments
- * différents :
- *   - "change" natif sur chaque <input> : édition manuelle, même moment que
- *     l'onBlur qui déclenche la sauvegarde serveur côté ExtensionVinted.tsx.
- *   - transition `disabled` → activé : chargement initial. Les deux champs
- *     sont `disabled` et vides tant que le premier GET de useReglages()
- *     n'a pas résolu (pretAModifier) ; ce flip est piloté par React comme
- *     attribut DOM, pas un événement "change", donc guetté séparément via
- *     un second MutationObserver dédié à l'attribut `disabled`. Sans ce
- *     second signal, visiter /compte sans rien modifier ne copiait jamais
- *     les valeurs déjà enregistrées côté serveur vers le storage de
- *     l'extension — trouvé en revue, fix round 1 de cette tâche.
- *
- * Renvoie une fonction de nettoyage qui déconnecte les observers encore
- * actifs (appelée par reagirALaRoute() en quittant /compte).
- */
-function synchroniserDelaiVinted() {
-  const TIMEOUT_MS = 20_000;
-  const debut = Date.now();
-  let attache = false;
-  let attrObserver = null;
-
-  const observer = new MutationObserver(essayerAttacher);
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-  essayerAttacher();
-
-  function essayerAttacher() {
-    if (attache) return;
-    const champMin = document.getElementById("delai-vinted-min");
-    const champMax = document.getElementById("delai-vinted-max");
-    if (!(champMin instanceof HTMLInputElement) || !(champMax instanceof HTMLInputElement)) {
-      if (Date.now() - debut > TIMEOUT_MS) observer.disconnect();
-      return;
-    }
-    attache = true;
-    observer.disconnect(); // plus besoin de guetter l'apparition des champs
-
-    const synchroniser = () => copierDelaiVersStorage(champMin, champMax);
-    champMin.addEventListener("change", synchroniser);
-    champMax.addEventListener("change", synchroniser);
-
-    if (!champMin.disabled && !champMax.disabled) {
-      // Déjà activés (données chargées avant que ce content script ait fini
-      // de chercher les champs) : sync immédiate, rien d'autre à observer.
-      synchroniser();
-      return;
-    }
-    // Encore désactivés : guetter la transition disabled → activé.
-    // "disabled" est un attribut booléen réfléchi par le DOM (contrairement
-    // à `value`/`checked`) — que React le pose via la propriété IDL ou via
-    // setAttribute, le navigateur reflète toujours l'attribut en conséquence,
-    // donc cet observer se déclenche de façon fiable dans les deux cas.
-    attrObserver = new MutationObserver(() => {
-      if (champMin.disabled || champMax.disabled) return;
-      attrObserver.disconnect();
-      attrObserver = null;
-      synchroniser();
-    });
-    attrObserver.observe(champMin, { attributes: true, attributeFilter: ["disabled"] });
-    attrObserver.observe(champMax, { attributes: true, attributeFilter: ["disabled"] });
-  }
-
-  return () => {
-    observer.disconnect();
-    attrObserver?.disconnect();
-  };
-}
-
-/** Chaîne de saisie → entier ou `null` (champ vide = borne non réglée). Même
- * règle que versNombre() dans ExtensionVinted.tsx. */
-function versNombre(v) {
-  const s = v.trim();
-  if (s === "") return null;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
-}
-
-async function copierDelaiVersStorage(champMin, champMax) {
-  if (champMin.disabled || champMax.disabled) return;
-  const delaiMin = versNombre(champMin.value);
-  const delaiMax = versNombre(champMax.value);
-  await browser.storage.local.set({ delaiMin, delaiMax });
-}

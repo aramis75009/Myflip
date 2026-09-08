@@ -12,21 +12,17 @@
 // Ici il ne reste que du branchement d'API browser.*, volontairement.
 
 import { deleteEntry, getAllEntries, saveEntry } from "./db.js";
-import { entreesPerimees, prochaineAction, tirerDelaiMs } from "./file.js";
+import {
+  delaiDeLEntree,
+  entreesPerimees,
+  estPremiereEntree,
+  prochaineAction,
+  tirerDelaiMs,
+} from "./file.js";
 
 const ALARME = "myflip-vinted-suite";
 const TTL_MS = 60 * 60_000;
 const URL_FORMULAIRE = "https://www.vinted.fr/items/new";
-
-// Les bornes de délai ne sont pas lisibles par API (invariant de design : pas
-// d'API MyFlip dédiée à l'extension). content-myflip.js les copie depuis le
-// DOM de /compte vers storage.local. « Réglé » veut donc dire « Aramis a
-// visité /compte après son dernier changement ».
-async function lireDelaiRegle() {
-  const { delaiMin, delaiMax } = await browser.storage.local.get(["delaiMin", "delaiMax"]);
-  if (delaiMin == null || delaiMax == null) return null;
-  return { delaiMin, delaiMax };
-}
 
 browser.runtime.onMessage.addListener(async (msg, sender) => {
   if (msg.type === "myflip:mise-en-file") {
@@ -41,6 +37,12 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
     // suivant partirait dans le vide — la page afficherait « Brouillon », et
     // pas un onglet ne s'ouvrirait.
     await purgerEchecs();
+    // La file est relue APRÈS la purge : une entrée en échec qui vient d'être
+    // retirée ne doit pas faire passer ce nouvel envoi pour un article qui
+    // rejoint un lot en cours. Le drapeau est posé maintenant, une fois pour
+    // toutes — pas recalculé à la planification, où il redeviendrait vrai
+    // après chaque succès (cf. estPremiereEntree dans file.js).
+    const premier = estPremiereEntree(await getAllEntries());
     await saveEntry({
       entryId: msg.entryId,
       titre: msg.titre,
@@ -54,6 +56,11 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
       // mapping. Consommé tel quel par content-vinted.js : aucune traduction
       // de ce côté-ci de la frontière.
       vinted: msg.vinted,
+      // Fourchette choisie dans le pop-up de /mise-en-vente, en minutes.
+      // Portée par l'entrée : deux lots lancés avec des réglages différents
+      // s'enchaînent sans que le second impose le sien au premier.
+      delai: msg.delai,
+      premier,
       etat: "en-attente",
       ts: Date.now(),
       cibleMs: null,
@@ -210,15 +217,6 @@ async function avancerImpl() {
   }
 
   if (action.type === "planifier") {
-    const delai = await lireDelaiRegle();
-    if (!delai) {
-      // Sans fourchette réglée, on n'invente pas de délai : un délai implicite
-      // de zéro annulerait le garde-fou anti-ban. La bannière de
-      // content-vinted.js ne peut rien dire ici (aucun onglet ouvert), donc
-      // la console est le seul canal — documenté dans le README.
-      console.warn("[myflip-vinted] délai anti-ban non réglé : ouvre /compte une fois.");
-      return;
-    }
     const entrees = await getAllEntries();
     const entree = entrees.find((e) => e.entryId === action.entryId);
     if (!entree) {
@@ -228,7 +226,12 @@ async function avancerImpl() {
       console.warn(`[myflip-vinted] entrée ${action.entryId} disparue avant planification, ignorée`);
       return;
     }
-    entree.cibleMs = Date.now() + tirerDelaiMs(delai.delaiMin, delai.delaiMax, Math.random);
+    const { minMinutes, maxMinutes } = delaiDeLEntree(entree);
+    entree.cibleMs = action.immediat
+      ? // Premier article du lot : il ne patiente pas. Le délai anti-ban n'a
+        // de sens qu'ENTRE deux annonces.
+        Date.now()
+      : Date.now() + tirerDelaiMs(minMinutes, maxMinutes, Math.random);
     await saveEntry(entree);
     // Récursion directe, PAS via avancer() : on est déjà dans le passage
     // sérialisé courant, repasser par avancer() enfilerait un appel sur
