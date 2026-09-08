@@ -31,7 +31,7 @@
     },
     {
       "matches": ["https://www.vinted.fr/items/new*"],
-      "js": ["content-vinted.js"]
+      "js": ["formulaire.js", "content-vinted.js"]
     }
   ]
 }
