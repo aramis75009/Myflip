@@ -86,3 +86,26 @@ export function compilePrompt(contenu: string, vars: PromptVars): string {
   }
   return compiled;
 }
+
+/**
+ * Normalise un prix de référence saisi.
+ *
+ * Trois issues, pas deux : un prix valide, l'ABSENCE de prix (champ laissé
+ * vide — c'est le cas le plus courant, la plupart des prompts n'en portent
+ * pas), et une saisie invalide. Confondre les deux dernières ferait refuser un
+ * formulaire simplement parce que son champ facultatif est vide.
+ *
+ * Zéro est refusé : un prix de 0 € pré-rempli dans le QCM serait indiscernable
+ * d'une absence de prix à l'écran, mais bloquerait le pré-remplissage suivant
+ * (l'invariant « ne jamais écraser un prix déjà posé » le figerait).
+ */
+export function prixReferenceDepuisSaisie(
+  v: unknown,
+): { ok: true; prix: number | null } | { ok: false } {
+  if (v == null) return { ok: true, prix: null };
+  if (typeof v === "string" && v.trim() === "") return { ok: true, prix: null };
+  if (typeof v !== "number" && typeof v !== "string") return { ok: false };
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return { ok: false };
+  return { ok: true, prix: n };
+}

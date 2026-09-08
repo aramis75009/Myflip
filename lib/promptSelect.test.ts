@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickPrompt } from "./promptSelect";
+import { pickPrompt, prixReferenceDepuisSaisie } from "./promptSelect";
 import type { PromptTemplateDTO } from "./types";
 
 function tmpl(p: Partial<PromptTemplateDTO>): PromptTemplateDTO {
@@ -75,5 +75,34 @@ describe("pickPrompt — le prix porté par le prompt", () => {
   it("rend null quand le prompt retenu n'a pas de prix", () => {
     const prompts = [tmpl({ id: "a", marque: "Nike", categorie: "Sac à dos" })];
     expect(pickPrompt(prompts, "Nike", "Sac à dos")?.prixReference).toBeNull();
+  });
+});
+
+describe("prixReferenceDepuisSaisie", () => {
+  it("accepte un nombre positif", () => {
+    expect(prixReferenceDepuisSaisie(24.5)).toEqual({ ok: true, prix: 24.5 });
+  });
+
+  it("accepte une chaîne numérique", () => {
+    expect(prixReferenceDepuisSaisie("18")).toEqual({ ok: true, prix: 18 });
+  });
+
+  it("traite le vide comme « pas de prix », pas comme une erreur", () => {
+    expect(prixReferenceDepuisSaisie("")).toEqual({ ok: true, prix: null });
+    expect(prixReferenceDepuisSaisie("   ")).toEqual({ ok: true, prix: null });
+    expect(prixReferenceDepuisSaisie(null)).toEqual({ ok: true, prix: null });
+    expect(prixReferenceDepuisSaisie(undefined)).toEqual({ ok: true, prix: null });
+  });
+
+  it("refuse zéro et les négatifs", () => {
+    expect(prixReferenceDepuisSaisie(0)).toEqual({ ok: false });
+    expect(prixReferenceDepuisSaisie("-3")).toEqual({ ok: false });
+  });
+
+  it("refuse ce qui n'est pas un nombre", () => {
+    expect(prixReferenceDepuisSaisie("gratuit")).toEqual({ ok: false });
+    expect(prixReferenceDepuisSaisie(Number.NaN)).toEqual({ ok: false });
+    expect(prixReferenceDepuisSaisie(Number.POSITIVE_INFINITY)).toEqual({ ok: false });
+    expect(prixReferenceDepuisSaisie({})).toEqual({ ok: false });
   });
 });

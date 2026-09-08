@@ -432,6 +432,8 @@ export type PromptInput = {
   categorie: string | null;
   contenu: string;
   estDefaut: boolean;
+  /** `null` = ce prompt ne porte pas de prix. */
+  prixReference: number | null;
 };
 
 export function usePrompts() {

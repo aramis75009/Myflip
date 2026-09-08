@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId, unauthorized, notFound } from "@/lib/apiAuth";
 import { toPromptDTO } from "@/lib/promptsServer";
+import { prixReferenceDepuisSaisie } from "@/lib/promptSelect";
 
 type Body = {
   nom?: string;
@@ -9,6 +10,7 @@ type Body = {
   categorie?: string | null;
   contenu?: string;
   estDefaut?: boolean;
+  prixReference?: number | string | null;
 };
 
 function critere(v: string | null | undefined): string | null {
@@ -47,6 +49,16 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
     if (body.marque !== undefined) data.marque = critere(body.marque);
     if (body.categorie !== undefined) data.categorie = critere(body.categorie);
     if (body.estDefaut !== undefined) data.estDefaut = Boolean(body.estDefaut);
+    if (body.prixReference !== undefined) {
+      const prix = prixReferenceDepuisSaisie(body.prixReference);
+      if (!prix.ok) {
+        return NextResponse.json(
+          { error: "Prix de référence invalide : un nombre supérieur à 0, ou vide." },
+          { status: 400 },
+        );
+      }
+      data.prixReference = prix.prix;
+    }
 
     const updated = await prisma.$transaction(async (tx) => {
       // Le défaut est un singleton par compte : ne démarquer que les prompts
