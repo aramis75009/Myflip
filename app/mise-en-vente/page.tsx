@@ -433,9 +433,20 @@ export default function MiseEnVentePage() {
         f.qcm.couleurs.length > 0,
     );
     for (const f of eligibles) {
-      const ok = await publierVinted(f);
+      // `f` est un instantané pris au clic : si la fiche n+2 est éditée
+      // pendant que la chaîne traite la fiche n, ce texte est périmé.
+      // `enregistrer()` relit déjà l'état frais de son côté (etatRef.current)
+      // et patche la base avec le texte à jour — la fiche envoyée à
+      // l'extension doit donc être relue fraîche elle aussi, sous peine que
+      // la base et le formulaire Vinted rempli par l'extension divergent
+      // silencieusement.
+      const fraiche = etatRef.current.fiches.find((x) => x.id === f.id);
+      // Disparue du lot pendant la chaîne (retirée par l'utilisateur) : pas
+      // un échec, on passe à la suivante sans arrêter la chaîne.
+      if (!fraiche) continue;
+      const ok = await publierVinted(fraiche);
       if (!ok) {
-        toast.error(`${f.article!.sku} : mise en file impossible, chaîne arrêtée.`, {
+        toast.error(`${fraiche.article!.sku} : mise en file impossible, chaîne arrêtée.`, {
           duration: 8000,
         });
         return;
