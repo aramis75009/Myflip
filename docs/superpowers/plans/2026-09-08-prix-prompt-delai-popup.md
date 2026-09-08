@@ -2086,12 +2086,13 @@ plan ne s'interrompt pour lui.
    l'endpoint dev `ep-autumn-morning-asmqan0o`, avec 16 prompts et 14 comptes
    au même instant). Il n'y a donc rien à ressaisir côté dev.
 
-   ⚠️ **Mais la production n'a pas été interrogée** — aucun accès production
-   n'a été autorisé pour cette session. **Avant d'appliquer la migration en
-   production**, relever la table là-bas :
-   `SELECT * FROM "PrixReference";`. Si elle porte des lignes, elles seront
-   détruites par `DROP TABLE`, et elles sont les seules à ne pas avoir de
-   sauvegarde. C'est le point 2 ci-dessous qui en dépend.
+   ⚠️ **La production n'a jamais eu cette table** — elle n'a appliqué aucune
+   des trois migrations en attente (`20260818000000_add_prix_reference`
+   comprise, cf. l'en-tête de `20260908120000_prix_dans_prompt_delai_par_lot`).
+   Rien à interroger là-bas, rien à perdre. La partie destructrice de la
+   migration (`DROP TABLE "PrixReference"`) n'a donc jamais concerné que dev,
+   où elle a été vérifiée et trouvée vide (ci-dessus). C'est le point 2
+   ci-dessous qui en dépend.
 2. **Appliquer les migrations en production avant toute fusion dans `main`.**
    `vercel.json` s'arrête à `prisma generate`, jamais `migrate deploy` :
    fusionner sans ça déploie du code qui interroge une colonne absente, ce qui

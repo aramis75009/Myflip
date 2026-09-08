@@ -176,9 +176,11 @@ function ecouterPublicationVinted() {
       // quel. Ce n'est pas de la coquetterie : un `delai` qui arriverait
       // abîmé de l'autre côté de la frontière Xray produirait un `cibleMs` à
       // NaN, `NaN > maintenant` vaut `false`, et l'onglet s'ouvrirait
-      // IMMÉDIATEMENT — le garde-fou anti-ban annulé sans un mot. Un objet
-      // mal formé arrive ici en `null` et déclenche le repli de
-      // delaiDeLEntree() (file.js), qui lui est prudent.
+      // IMMÉDIATEMENT — le garde-fou anti-ban annulé sans un mot. Un `delai`
+      // qui n'est pas un objet arrive ici en `null` ; un objet mal formé
+      // arrive avec des bornes `NaN` (`Number(undefined)`, `Number("abc")`,
+      // etc.). Dans les deux cas, delaiDeLEntree() (file.js) retombe sur son
+      // repli prudent, puisque `Number.isInteger(NaN)` vaut `false`.
       delai:
         delai && typeof delai === "object"
           ? { minMinutes: Number(delai.minMinutes), maxMinutes: Number(delai.maxMinutes) }

@@ -295,6 +295,7 @@ produits, seulement d'affichage. Ne pas rouvrir ce point.
 — « session Vinted détectée » — demande que l'extension regarde vinted.fr, ce
 qu'aucune permission actuelle ne couvre : `host_permissions` s'arrête à
 `https://www.vinted.fr/items/new*`.
+
 ## P3 · Défauts mineurs connus, laissés en l'état après la revue finale
 
 Aucun ne bloque la fusion ; tous sont documentés avec leur raison.

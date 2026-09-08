@@ -1,6 +1,7 @@
 # Prix de référence, relevés avant leur suppression
 
-Généré par `scripts/exporter-prix-reference.ts` le 2026-09-08 sur la base
+Généré par `scripts/exporter-prix-reference.ts` (supprimé deux commits plus
+tard avec le modèle Prisma `PrixReference` qu'il lisait) le 2026-09-08 sur la base
 **dev**, juste avant la migration `20260908120000_prix_dans_prompt_delai_par_lot`,
 qui détruit la table `PrixReference`.
 

@@ -184,6 +184,14 @@ describe("delaiDeLEntree", () => {
     ).toEqual(DELAI_REPLI);
   });
 
+  it("replie sur 2–5 min un délai aux bornes NaN — la forme que produit le pont", () => {
+    // content-myflip.js reconstruit `delai` avec Number(...) : un objet abîmé
+    // n'arrive pas en `null`, il arrive avec des bornes NaN. Number.isInteger(NaN)
+    // étant faux, le repli s'applique — mais rien ne le figeait.
+    const e = enAttente("a", 100, null, { delai: { minMinutes: NaN, maxMinutes: NaN } });
+    expect(delaiDeLEntree(e)).toEqual(DELAI_REPLI);
+  });
+
   it("laisse passer une fourchette à l'envers : tirerDelaiMs la réordonne déjà", () => {
     const e = enAttente("a", 100, null, { delai: { minMinutes: 9, maxMinutes: 4 } });
     expect(delaiDeLEntree(e)).toEqual({ minMinutes: 9, maxMinutes: 4 });

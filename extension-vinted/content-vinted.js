@@ -171,8 +171,8 @@ async function remplir(entry, badge) {
     // alors un brouillon à 0,00 €, l'entrée serait consommée et l'onglet fermé.
     // C'est exactement la panne que ce chantier existe pour empêcher — et elle
     // est invisible une fois l'onglet fermé, puisque rien à l'écran ne la
-    // signale. Cause la plus probable : `PrixReference` n'a aucune ligne pour
-    // cette marque + catégorie (elle est vide au premier passage).
+    // signale. Cause la plus probable : le prompt sélectionné pour cet
+    // article ne porte pas de `prixReference`.
     const prixDemande = String(entry.prix ?? "");
     if (prixDemande.trim() === "") {
       console.warn(

@@ -467,7 +467,7 @@ export default function PromptsPage() {
             <input
               type="number"
               inputMode="decimal"
-              min="0"
+              min="0.5"
               step="0.5"
               value={form.prix}
               onChange={(e) => setForm({ ...form, prix: e.target.value })}
