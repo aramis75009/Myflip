@@ -1,140 +1,166 @@
 // extension-vinted/content-vinted.js
 //
-// Content script injecté sur https://www.vinted.fr/items/new* (manifest.json
-// — un vrai chargement de page à chaque fois, pas une SPA : pas besoin de la
-// détection de navigation utilisée par content-myflip.js).
+// Injecté sur https://www.vinted.fr/items/new*. Chargé APRÈS formulaire.js,
+// dont il utilise les primitives (même portée, scripts classiques).
 //
-// Contrat avec le service worker (background.js, Task 13) pour
-// "vinted:qui-suis-je" — vérifié en le lisant directement dans background.js,
-// PAS déduit du brief (qui mentionne à tort un champ `delaiMs`, absent en
-// réalité) :
-//   { entry: null }                    → aucun article assigné à cet onglet.
-//   { entry, delaiNonRegle: true }     → article assigné, mais aucun délai
-//                                         anti-ban réglé dans /compte ;
-//                                         entry.cibleMs est absent.
-//   { entry }                          → article assigné, délai déjà tiré ;
-//                                         entry.cibleMs est un epoch ms
-//                                         ABSOLU, déjà calculé et persisté
-//                                         par background.js. Ce script le LIT
-//                                         seulement — jamais recalculé ici.
-// `entry` : { entryId, titre, description, prix, photos, openerTabId, ts,
-// tabId, cibleMs }.
+// Contrat avec background.js :
+//   "vinted:qui-suis-je" → { entry } ou { entry: null }
+//   "vinted:resultat"    → { entryId, statut }
 //
-// `entry.photos` est un tableau de `{ type, buffer }` — PAS de `Blob`. La
-// conversion a lieu dans content-myflip.js, au plus près de la page : voir
-// le commentaire de `ecouterPublicationVinted()` sur les deux frontières que
-// les photos doivent traverser. Ici on reconstruit le `Blob` au moment de
-// s'en servir, via `versBlob()`.
-//
-// Ce script ne définit ni import ni export : comme content-myflip.js, il
-// n'est PAS déclaré "type: module" dans manifest.json content_scripts, donc
-// chargé comme script classique.
+// Le délai anti-ban n'est PLUS attendu ici : l'onglet n'est créé par le
+// worker qu'une fois l'heure venue. Ce script n'a donc plus de compte à
+// rebours — quand il s'exécute, c'est qu'il est l'heure.
 
-/**
- * Décide quoi faire à partir de la réponse brute de "vinted:qui-suis-je".
- * Fonction pure (aucun DOM), volontairement séparée de init() pour rester
- * testable indépendamment du navigateur.
- */
-function interpreterReponseQuiSuisJe(reponse, maintenant) {
-  const { entry, delaiNonRegle } = reponse || {};
-  if (!entry) return { action: "neutre" };
-  if (delaiNonRegle) return { action: "delai-non-regle" };
-  // Contrat background.js : quand delaiNonRegle n'est pas true, cibleMs a
-  // toujours été tiré et persisté avant que la réponse parte (cf. handler
-  // "vinted:qui-suis-je" dans background.js) — jamais recalculé ici.
-  return { action: "remplir", attendreMs: entry.cibleMs - maintenant };
-}
+const ORDRE_ATTENDU_MS = 10_000;
 
 async function init() {
   let reponse;
   try {
     reponse = await browser.runtime.sendMessage({ type: "vinted:qui-suis-je" });
   } catch (err) {
-    // Service worker injoignable (contexte d'extension invalidé, etc.) :
-    // aucune certitude qu'un article est assigné à cet onglet, donc état
-    // neutre plutôt qu'une bannière trompeuse sur une page qui n'a peut-être
-    // aucun rapport avec MyFlip.
+    // Worker injoignable : aucune certitude qu'un article soit assigné à cet
+    // onglet. État neutre plutôt qu'une bannière sur une page qui n'a
+    // peut-être aucun rapport avec MyFlip.
     console.error("[myflip-vinted]", err);
     return;
   }
 
-  const action = interpreterReponseQuiSuisJe(reponse, Date.now());
+  const entry = reponse?.entry;
+  if (!entry) return; // onglet Vinted ouvert à la main : ne rien afficher, jamais
 
-  if (action.action === "neutre") return; // onglet Vinted sans lien avec MyFlip : rien à afficher, jamais de badge ni de bannière
+  const badge = creerBadge(entry);
+  const statut = await remplir(entry, badge);
+  masquerBadge(badge);
 
-  if (action.action === "delai-non-regle") {
-    afficherBanniere("Réglez le délai anti-ban dans /compte avant de publier automatiquement.");
-    return;
-  }
-
-  const { entry } = reponse;
-
-  // Le badge n'a de sens que s'il reste effectivement une attente à montrer
-  // (ex. relecture de cette page après un premier passage déjà en retard sur
-  // sa cible) — pas la peine de l'afficher pour le faire disparaître dans la
-  // même passe.
-  let badge = null;
-  if (action.attendreMs > 0) {
-    // Le badge est un pur confort d'affichage sur NOTRE Shadow DOM (aucun
-    // sélecteur Vinted en jeu ici, contrairement à remplirFormulaire) : une
-    // panne inattendue ne doit donc jamais empêcher la suite, qui est le
-    // vrai travail (remplir le formulaire). On dégrade silencieusement au
-    // lieu de laisser une exception interrompre init() avant même d'avoir
-    // tenté le remplissage.
-    try {
-      badge = creerBadge(entry);
-      demarrerCompteARebours(badge, entry.cibleMs);
-    } catch (err) {
-      console.error("[myflip-vinted] badge non affiché", err);
-      badge = null;
-    }
-    await new Promise((r) => setTimeout(r, action.attendreMs));
-  }
-
-  const statut = remplirFormulaire(entry);
-  if (badge) masquerBadge(badge);
-
-  if (statut === "echec-selecteurs") {
+  if (statut !== "succes") {
     afficherBanniere(
-      "L'extension a besoin d'une mise à jour — continue à la main pour cet article, la mise à jour n'est pas automatique.",
+      statut === "echec-selecteurs"
+        ? "L'extension a besoin d'une mise à jour — termine cette annonce à la main. La chaîne est arrêtée."
+        : "Remplissage incomplet — rien n'a été sauvegardé. Termine à la main. La chaîne est arrêtée.",
     );
-    // Rien n'a été rempli : l'entrée reste en file côté background (pas de
-    // "vinted:entree-consommee"). Un rechargement de cette page la
-    // retentera, puisque le tabId lui reste assigné.
-    return;
   }
 
-  if (statut === "succes-partiel") {
-    afficherBanniere("Photos non injectées automatiquement — le texte est rempli, ajoute les photos à la main.");
-    // Volontairement PAS de "vinted:entree-consommee" ici non plus : le
-    // travail n'est que partiellement fait. Consommer marquerait l'article
-    // comme traité alors que les photos manquent encore, sans bénéfice pour
-    // Aramis — un rechargement ne réécrira pas le texte déjà rempli (garde-fou
-    // ne-jamais-écraser plus bas) mais retentera l'injection des photos.
-    return;
-  }
-
-  // statut === "succes" : texte ET photos en place, seul cas de consommation.
   await browser.runtime
-    .sendMessage({ type: "vinted:entree-consommee", entryId: entry.entryId })
+    .sendMessage({ type: "vinted:resultat", entryId: entry.entryId, statut })
     .catch((err) => console.error("[myflip-vinted]", err));
 }
 
 init();
 
+/**
+ * Remplit le formulaire dans l'ORDRE IMPOSÉ par Vinted : marque, état,
+ * couleur, matériau, unisexe et colis n'existent pas dans le DOM tant qu'une
+ * catégorie feuille n'a pas été validée (audit 2026-09-07 §3).
+ *
+ * Ne lève jamais. Renvoie :
+ *   "echec-selecteurs" — un sélecteur manque, rien n'a été sauvegardé
+ *   "succes-partiel"   — un champ n'a pas pris, ou les photos manquent
+ *   "succes"           — tout est rempli et le brouillon a été demandé
+ *
+ * ⚠️ Le clic « Sauvegarder le brouillon » n'a lieu QUE dans le dernier cas.
+ * Un brouillon à moitié rempli sauvegardé automatiquement est pire qu'un
+ * onglet laissé ouvert : il faut aller le rechercher dans Vinted pour le
+ * corriger, sans savoir ce qui manque.
+ */
+async function remplir(entry, badge) {
+  try {
+    const v = entry.vinted;
+    if (!v) return "echec-selecteurs"; // sans identifiants Vinted, rien à faire ici
+
+    direAuBadge(badge, "catégorie…");
+    if (!(await choisirCategorie(v.rechercheCategorie, v.categoryId, v.filAriane))) {
+      return "echec-selecteurs";
+    }
+
+    // La marque n'apparaît qu'après la validation de la catégorie : son
+    // arrivée est le signal que le reste du formulaire est monté.
+    const marqueVisible = await attendreElement(
+      '[data-testid="brand-select-dropdown-input"]',
+      ORDRE_ATTENDU_MS,
+    );
+    if (!marqueVisible) return "echec-selecteurs";
+
+    direAuBadge(badge, "marque…");
+    if (!(await ouvrirPanneau("brand-select-dropdown-input"))) return "echec-selecteurs";
+    if (!(await choisirOption(`brand-radio-${v.brandId}`))) return "succes-partiel";
+    if (!(await validerPanneau())) return "succes-partiel";
+
+    direAuBadge(badge, "état…");
+    if (!(await ouvrirPanneau("category-condition-single-list-input"))) return "succes-partiel";
+    if (!(await choisirOption(`condition-radio-${v.conditionId}`))) return "succes-partiel";
+    if (!(await validerPanneau())) return "succes-partiel";
+
+    direAuBadge(badge, "couleur…");
+    if (!(await ouvrirPanneau("color-select-dropdown-input"))) return "succes-partiel";
+    // Jamais plus que la limite : au-delà, Vinted évince silencieusement la
+    // plus ancienne sélection au lieu de refuser le clic (FIFO).
+    for (const id of v.colorIds.slice(0, 2)) {
+      if (!(await choisirOption(`color-checkbox-${id}`))) return "succes-partiel";
+    }
+    if (!(await validerPanneau())) return "succes-partiel";
+
+    if (v.materialIds.length > 0) {
+      direAuBadge(badge, "matériau…");
+      if (!(await ouvrirPanneau("category-material-multi-list-input"))) return "succes-partiel";
+      for (const id of v.materialIds.slice(0, 3)) {
+        if (!(await choisirOption(`material-checkbox-${id}`))) return "succes-partiel";
+      }
+      if (!(await validerPanneau())) return "succes-partiel";
+    }
+
+    if (v.unisex) {
+      direAuBadge(badge, "unisexe…");
+      if (!(await cocher("#unisex"))) return "succes-partiel";
+    }
+
+    // `input[name=…]` et non `#package_type_selector_N` : le relevé donne ce
+    // nom à la fois comme `data-testid`, comme `id` et comme `name`, et les
+    // variantes `--input` / `--text` laissent penser que le testid nu porte
+    // un conteneur. `cocher()` a besoin du vrai `input`, il lit `.checked`.
+    direAuBadge(badge, "format du colis…");
+    if (!(await cocher(`input[name="package_type_selector_${v.packageType}"]`))) {
+      return "succes-partiel";
+    }
+
+    direAuBadge(badge, "titre…");
+    const champTitre = document.querySelector('[data-testid="title--input"]');
+    if (!champTitre) return "succes-partiel";
+    await taperTexte(champTitre, entry.titre);
+
+    direAuBadge(badge, "description…");
+    const champDescription = document.querySelector('[data-testid="description--input"]');
+    if (!champDescription) return "succes-partiel";
+    await taperTexte(champDescription, entry.description);
+
+    // Le prix EN DERNIER, et frappé caractère par caractère : c'est le champ
+    // qui s'est déjà affiché rempli tout en valant 0.0 en base (audit
+    // 2026-09-08 §6). Aucune vérification depuis la page ne peut le
+    // démentir — seul le brouillon relu le dira.
+    direAuBadge(badge, "prix…");
+    const champPrix = document.querySelector('[data-testid="price-input--input"]');
+    if (!champPrix) return "succes-partiel";
+    await taperTexte(champPrix, String(entry.prix ?? ""));
+
+    direAuBadge(badge, "photos…");
+    if (!injecterPhotos(entry.photos)) return "succes-partiel";
+
+    direAuBadge(badge, "brouillon…");
+    if (!(await cliquerBrouillon())) return "succes-partiel";
+    return "succes";
+  } catch (err) {
+    console.error("[myflip-vinted] remplissage en échec", err);
+    return "echec-selecteurs";
+  }
+}
+
 // ---------------------------------------------------------------------------
-// Badge (Shadow DOM) + bannières
+// Badge (Shadow DOM) et bannières
 // ---------------------------------------------------------------------------
 
 /**
- * Badge construit noeud par noeud, PAS via innerHTML.
- *
- * `web-ext lint` remonte `UNSAFE_VAR_ASSIGNMENT` sur toute affectation
- * d'innerHTML portant une valeur dynamique — c'est un avertissement que la
- * revue AMO regarde. Le titre était bien échappé à la main, mais échapper
- * soi-même est exactement ce que `textContent` rend inutile : plus de
- * fonction d'échappement à maintenir, plus de valeur interpolée dans une
- * chaîne de balisage, plus d'avertissement.
+ * Badge construit noeud par noeud, PAS via innerHTML : `web-ext lint` remonte
+ * UNSAFE_VAR_ASSIGNMENT sur toute affectation d'innerHTML dynamique, et
+ * `textContent` rend inutile toute fonction d'échappement maison.
  */
 function creerBadge(entry) {
   const host = document.createElement("div");
@@ -146,101 +172,50 @@ function creerBadge(entry) {
     .badge { display:flex; align-items:center; gap:8px; background:#fff;
       border:1px solid #ddd; border-radius:12px; padding:8px 12px;
       font: 13px system-ui, sans-serif; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
-    .vignette { width:28px; height:28px; border-radius:6px; object-fit:cover;
-      flex-shrink:0; background:#eee; display:block; }
     .repere { width:8px; height:8px; border-radius:50%; background:#0f5132; flex-shrink:0; }
     .titre { max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .etape { color:#666; font-variant-numeric:tabular-nums; }
   `;
 
   const badge = document.createElement("div");
   badge.className = "badge";
 
-  const urlVignette = creerUrlVignette(entry.photos);
-  if (urlVignette) {
-    const img = document.createElement("img");
-    img.className = "vignette";
-    img.src = urlVignette;
-    img.alt = "";
-    badge.appendChild(img);
-  } else {
-    const repere = document.createElement("span");
-    repere.className = "repere";
-    badge.appendChild(repere);
-  }
+  const repere = document.createElement("span");
+  repere.className = "repere";
+  badge.appendChild(repere);
 
   const titre = document.createElement("span");
   titre.className = "titre";
   titre.textContent = String(entry.titre || "").slice(0, 40);
   badge.appendChild(titre);
 
-  const compteARebours = document.createElement("span");
-  compteARebours.className = "compte-a-rebours";
-  compteARebours.textContent = "…";
-  badge.appendChild(compteARebours);
+  const etape = document.createElement("span");
+  etape.className = "etape";
+  etape.textContent = "…";
+  badge.appendChild(etape);
 
   shadow.append(style, badge);
   document.documentElement.appendChild(host);
-  return { host, shadow, urlVignette };
+  return { host, shadow };
 }
 
-/**
- * `{ type, buffer }` → `Blob`. Renvoie `null` sur une entrée malformée
- * plutôt que de lever : l'appelant décide quoi en faire.
- */
-function versBlob(photo) {
-  if (!photo || !photo.buffer) return null;
+/** Le badge est un pur confort : une panne d'affichage ne doit jamais
+ *  interrompre le remplissage, qui est le vrai travail. */
+function direAuBadge(badge, texte) {
   try {
-    return new Blob([photo.buffer], { type: photo.type || "image/jpeg" });
-  } catch (err) {
-    console.error("[myflip-vinted] photo illisible", err);
-    return null;
-  }
-}
-
-/**
- * Miniature de la première photo via URL.createObjectURL — best-effort :
- * sur tout échec (pas de photos, API absente, buffer invalide) on retombe
- * sur le repère coloré, jamais d'exception qui empêcherait l'affichage du
- * badge.
- */
-function creerUrlVignette(photos) {
-  try {
-    if (!Array.isArray(photos) || !photos[0]) return null;
-    if (typeof URL.createObjectURL !== "function") return null;
-    const blob = versBlob(photos[0]);
-    return blob ? URL.createObjectURL(blob) : null;
+    const el = badge?.shadow.querySelector(".etape");
+    if (el) el.textContent = texte;
   } catch {
-    // best-effort, cf. commentaire ci-dessus
-    return null;
+    // best-effort
   }
-}
-
-function demarrerCompteARebours(badge, cibleMs) {
-  const el = badge.shadow.querySelector(".compte-a-rebours");
-  const tick = () => {
-    const reste = Math.max(0, cibleMs - Date.now());
-    el.textContent = formaterCompteARebours(reste);
-    if (reste > 0) requestAnimationFrame(tick);
-  };
-  tick();
-}
-
-/** reste (ms, déjà >= 0) → "M:SS". Pure, testable sans DOM. */
-function formaterCompteARebours(resteMs) {
-  const min = Math.floor(resteMs / 60_000);
-  const sec = Math.floor((resteMs % 60_000) / 1000);
-  return `${min}:${String(sec).padStart(2, "0")}`;
 }
 
 function masquerBadge(badge) {
-  if (badge.urlVignette) {
-    try {
-      URL.revokeObjectURL(badge.urlVignette);
-    } catch {
-      // best-effort
-    }
+  try {
+    badge?.host.remove();
+  } catch {
+    // best-effort
   }
-  badge.host.remove();
 }
 
 function afficherBanniere(texte) {
@@ -249,126 +224,4 @@ function afficherBanniere(texte) {
     "position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#fef3c7;color:#78350f;padding:10px;text-align:center;font:14px system-ui,sans-serif;";
   host.textContent = texte;
   document.documentElement.appendChild(host);
-}
-
-// ---------------------------------------------------------------------------
-// Remplissage des champs
-// ---------------------------------------------------------------------------
-
-/**
- * Sélecteurs `data-testid`/`name` : hypothèses raisonnables mais NON
- * vérifiées contre le DOM réel de vinted.fr/items/new (personne sur ce
- * projet ne l'a inspecté — cf. brief Task 15). C'est le point de maintenance
- * déjà budgété par la bannière "mise à jour nécessaire" ci-dessous : si ces
- * sélecteurs sont faux, aucun champ n'est trouvé, remplirFormulaire()
- * renvoie "echec-selecteurs" sans rien avoir touché, et init() bascule sur
- * la bannière au lieu de planter ou de rester silencieux.
- *
- * Renvoie "echec-selecteurs" (rien trouvé, rien rempli), "succes-partiel"
- * (texte rempli, photos non injectées) ou "succes" (texte + photos). Ne
- * lève jamais : toute exception inattendue pendant la manipulation du DOM
- * Vinted est rattrapée et traduite en "echec-selecteurs".
- */
-function remplirFormulaire(entry) {
-  try {
-    const champTitre = document.querySelector('[data-testid="title--input"], input[name="title"]');
-    const champDescription = document.querySelector(
-      '[data-testid="description--input"], textarea[name="description"]',
-    );
-    const champPrix = document.querySelector('[data-testid="price-input--input"], input[name="price"]');
-
-    if (!champTitre || !champDescription || !champPrix) return "echec-selecteurs";
-
-    remplirChamp(champTitre, entry.titre);
-    remplirChamp(champDescription, entry.description);
-    remplirChamp(champPrix, String(entry.prix));
-
-    const succesPhotos = injecterPhotos(entry.photos);
-    return succesPhotos ? "succes" : "succes-partiel";
-  } catch (err) {
-    console.error("[myflip-vinted] remplissage du formulaire Vinted en échec", err);
-    return "echec-selecteurs";
-  }
-}
-
-/** Un champ non vide (espaces compris) est considéré rempli à la main : on
- * ne le touche jamais. Pure, testable sans DOM. */
-function devraitRemplirChamp(valeurActuelle) {
-  return !valeurActuelle || valeurActuelle.trim() === "";
-}
-
-/**
- * Écrit une valeur dans un champ en passant par le setter NATIF du prototype,
- * pas par `el.value = …`.
- *
- * Vinted est une application React, et React installe un « value tracker »
- * sur chaque champ contrôlé : il retient la dernière valeur qu'il a lui-même
- * écrite pour décider si un événement `input` correspond à un vrai
- * changement. Une affectation directe `el.value = …` passe sous ce tracker —
- * le DOM change, mais React croit que la valeur n'a pas bougé, ignore
- * l'événement synthétique, et remet sa propre valeur (vide) au premier
- * re-render.
- *
- * Le symptôme est le pire possible : le champ se remplit visuellement, donc
- * `remplirFormulaire()` renvoie "succes", donc l'entrée est CONSOMMÉE et
- * supprimée de la file — pendant que le formulaire réel est resté vide.
- *
- * Appeler le setter du prototype met à jour le tracker en même temps que la
- * valeur, ce qui rend l'événement `input` qui suit indiscernable d'une vraie
- * frappe. Repli sur l'affectation directe si le descripteur est introuvable
- * (champ non standard) : mieux vaut tenter que ne rien écrire.
- */
-function ecrireValeur(el, valeur) {
-  const proto =
-    el instanceof HTMLTextAreaElement
-      ? HTMLTextAreaElement.prototype
-      : HTMLInputElement.prototype;
-  const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
-  if (setter) setter.call(el, valeur);
-  else el.value = valeur;
-}
-
-// Ne jamais écraser un champ déjà rempli à la main.
-function remplirChamp(el, valeur) {
-  if (!devraitRemplirChamp(el.value)) return;
-  el.focus();
-  ecrireValeur(el, valeur);
-  el.dispatchEvent(new Event("input", { bubbles: true }));
-  el.dispatchEvent(new Event("change", { bubbles: true }));
-  el.blur();
-}
-
-function injecterPhotos(photos) {
-  // Un tableau vide/absent n'est pas un succès silencieux : sans photo
-  // réelle à transférer, l'input file ne doit pas être touché, et l'appelant
-  // doit savoir que les photos restent à faire à la main.
-  if (!Array.isArray(photos) || photos.length === 0) return false;
-  const inputFichier = document.querySelector('input[type="file"]');
-  if (!inputFichier) return false;
-  try {
-    // Reconstruction des Blob depuis les { type, buffer } transportés — cf.
-    // l'en-tête de ce fichier. Une seule photo illisible ne doit pas faire
-    // perdre les autres, mais une liste entièrement vide après filtrage est
-    // un échec : sans quoi on toucherait l'input pour n'y mettre rien.
-    const fichiers = photos
-      .map((p, i) => {
-        const blob = versBlob(p);
-        return blob
-          ? new File([blob], `photo-${String(i + 1).padStart(2, "0")}.jpg`, {
-              type: blob.type,
-            })
-          : null;
-      })
-      .filter(Boolean);
-    if (fichiers.length === 0) return false;
-
-    const dt = new DataTransfer();
-    for (const fichier of fichiers) dt.items.add(fichier);
-    inputFichier.files = dt.files;
-    inputFichier.dispatchEvent(new Event("change", { bubbles: true }));
-    return true;
-  } catch (err) {
-    console.error("[myflip-vinted] injection des photos en échec", err);
-    return false;
-  }
 }
