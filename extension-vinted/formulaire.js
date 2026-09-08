@@ -120,8 +120,18 @@ async function ouvrirPanneau(testid) {
 async function choisirOption(idInput) {
   const input = document.getElementById(idInput);
   if (!input) return false;
-  const cible = input.closest('[role="radio"], [role="checkbox"]') ?? input.closest("label");
-  if (!cible) return false;
+  const cible = input.closest('[role="radio"], [role="checkbox"]');
+  // Pas de repli sur le `<label>` : dans le DOM relevé, ce label enveloppe
+  // l'input caché et le cible directement — le cliquer reviendrait à cliquer
+  // l'input aria-hidden que cette fonction interdit. Un conteneur `role`
+  // absent signale que le DOM de Vinted a changé sous nos pieds : mieux vaut
+  // échouer bruyamment (l'appelant traduit ce `false` en `echec-selecteurs`,
+  // bannière + arrêt de la chaîne) qu'un demi-remplissage muet, invérifiable
+  // depuis la page (même piège que le champ prix).
+  if (!cible) {
+    console.warn(`[myflip-vinted] conteneur role="radio"/"checkbox" introuvable pour #${idInput}`);
+    return false;
+  }
   cible.click();
   await pauseAleatoire(300, 900);
   return true;
