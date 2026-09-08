@@ -1,12 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { entreesPerimees, prochaineAction, tirerDelaiMs } from "./file.js";
+import {
+  DELAI_REPLI,
+  delaiDeLEntree,
+  entreesPerimees,
+  estPremiereEntree,
+  prochaineAction,
+  tirerDelaiMs,
+} from "./file.js";
 
-const enAttente = (entryId, ts, cibleMs = null) => ({
+const enAttente = (entryId, ts, cibleMs = null, extra = {}) => ({
   entryId,
   etat: "en-attente",
   ts,
   cibleMs,
   tabId: null,
+  premier: false,
+  delai: { minMinutes: 2, maxMinutes: 5 },
+  ...extra,
 });
 
 describe("prochaineAction", () => {
@@ -14,10 +24,20 @@ describe("prochaineAction", () => {
     expect(prochaineAction([], 1000)).toEqual({ type: "rien" });
   });
 
-  it("demande à planifier une entrée qui n'a pas encore de cible", () => {
+  it("demande à planifier avec attente une entrée qui n'a pas encore de cible", () => {
     expect(prochaineAction([enAttente("a", 100)], 1000)).toEqual({
       type: "planifier",
       entryId: "a",
+      immediat: false,
+    });
+  });
+
+  it("demande à planifier SANS attente le premier article d'un lot", () => {
+    const file = [enAttente("a", 100, null, { premier: true })];
+    expect(prochaineAction(file, 1000)).toEqual({
+      type: "planifier",
+      entryId: "a",
+      immediat: true,
     });
   });
 
@@ -90,5 +110,62 @@ describe("entreesPerimees", () => {
   it("ne purge jamais une entrée en cours, même vieille", () => {
     const file = [{ entryId: "a", etat: "en-cours", ts: 0, cibleMs: 0, tabId: 7 }];
     expect(entreesPerimees(file, 10_000_000, 500)).toEqual([]);
+  });
+});
+
+describe("estPremiereEntree", () => {
+  // Le drapeau est posé À LA MISE EN FILE, pas à la planification.
+  //
+  // Le critère « aucune entrée n'a de cibleMs » aurait été rejoué après CHAQUE
+  // succès : une entrée réussie est supprimée de la base (background.js,
+  // tabs.onUpdated), donc la file y retombe entre deux articles et tout le lot
+  // serait parti sans attendre — le garde-fou annulé en silence.
+  it("est vraie quand la file est vide", () => {
+    expect(estPremiereEntree([])).toBe(true);
+  });
+
+  it("est fausse dès qu'une entrée attend déjà", () => {
+    expect(estPremiereEntree([enAttente("a", 100)])).toBe(false);
+  });
+
+  it("est fausse quand un article est en vol", () => {
+    const file = [{ entryId: "a", etat: "en-cours", ts: 100, cibleMs: 0, tabId: 7 }];
+    expect(estPremiereEntree(file)).toBe(false);
+  });
+});
+
+describe("delaiDeLEntree", () => {
+  it("rend la fourchette portée par l'entrée", () => {
+    const e = enAttente("a", 100, null, { delai: { minMinutes: 4, maxMinutes: 9 } });
+    expect(delaiDeLEntree(e)).toEqual({ minMinutes: 4, maxMinutes: 9 });
+  });
+
+  it("accepte un délai fixe et un délai nul", () => {
+    const fixe = enAttente("a", 100, null, { delai: { minMinutes: 3, maxMinutes: 3 } });
+    expect(delaiDeLEntree(fixe)).toEqual({ minMinutes: 3, maxMinutes: 3 });
+    const nul = enAttente("b", 100, null, { delai: { minMinutes: 0, maxMinutes: 0 } });
+    expect(delaiDeLEntree(nul)).toEqual({ minMinutes: 0, maxMinutes: 0 });
+  });
+
+  it("replie sur 2–5 min une entrée sans délai — jamais sur zéro", () => {
+    const e = enAttente("a", 100, null, { delai: undefined });
+    expect(delaiDeLEntree(e)).toEqual(DELAI_REPLI);
+    expect(DELAI_REPLI).toEqual({ minMinutes: 2, maxMinutes: 5 });
+  });
+
+  it("replie aussi sur un délai abîmé", () => {
+    expect(delaiDeLEntree(enAttente("a", 1, null, { delai: null }))).toEqual(DELAI_REPLI);
+    expect(delaiDeLEntree(enAttente("b", 1, null, { delai: {} }))).toEqual(DELAI_REPLI);
+    expect(
+      delaiDeLEntree(enAttente("c", 1, null, { delai: { minMinutes: "2", maxMinutes: 5 } })),
+    ).toEqual(DELAI_REPLI);
+    expect(
+      delaiDeLEntree(enAttente("d", 1, null, { delai: { minMinutes: -1, maxMinutes: 5 } })),
+    ).toEqual(DELAI_REPLI);
+  });
+
+  it("laisse passer une fourchette à l'envers : tirerDelaiMs la réordonne déjà", () => {
+    const e = enAttente("a", 100, null, { delai: { minMinutes: 9, maxMinutes: 4 } });
+    expect(delaiDeLEntree(e)).toEqual({ minMinutes: 9, maxMinutes: 4 });
   });
 });
