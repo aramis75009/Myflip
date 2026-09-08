@@ -14,7 +14,7 @@
 
 - **Branche de travail** : `worktree-extension-vinted`, worktree monté sur `.claude/worktrees/extension-vinted/`. Jamais `main`.
 - **Aucune migration Prisma.** Ce chantier n'ajoute ni table ni colonne. Deux migrations antérieures (`PrixReference`, `delai_vinted`) ne sont toujours pas appliquées en production et bloquent déjà la fusion — ne pas en ajouter une troisième.
-- **Catégorie Vinted cible : `246`**, « Sacs à dos » sous **Hommes > Accessoires > Sacs et sacoches**. Fil d'Ariane attendu : `Hommes > Accessoires > Sacs et sacoches`. Ne jamais utiliser `157` (Femmes). ⚠️ **Corrigé le 2026-09-09** : cette contrainte disait exactement l'inverse, et le code livré le 08/09 visait 157. Les sacs vendus sont des sacs homme.
+- **Catégorie Vinted cible : `246`**, « Sacs à dos » sous **Hommes > Accessoires > Sacs et sacoches**. Fil d'Ariane attendu : `Hommes > Accessoires > Sacs et sacoches`. Ne jamais utiliser `157` (Femmes). ⚠️ **Corrigé le 2026-09-08** : cette contrainte disait exactement l'inverse, et le code livré le 08/09 visait 157. Les sacs vendus sont des sacs homme.
 - **Marque Vinted : `53`** (Nike). Format de colis : `package_type_selector_1` (Petit). Unisexe : coché.
 - **Ne jamais cliquer `[data-testid="<champ>-select-dropdown-close-button"]`** (le « X » d'un panneau) : il ferme **en annulant** la sélection. Le seul geste de fermeture autorisé est `[data-testid="input-dropdown-save-button"]` (« Fait »).
 - **Ne jamais cliquer un `input[type=radio|checkbox]` d'un panneau** : ils sont `aria-hidden="true"` / `tabindex="-1"` et répondent par intermittence. Cliquer le conteneur `[role="radio"]` / `[role="checkbox"]` parent.
@@ -286,7 +286,7 @@ git commit -m "feat(vinted): add the MyFlip-to-Vinted lookup tables"
 
 ## Task 2: Le mapping « Sac à dos Nike »
 
-> ⚠️ **Périmé sur un point, corrigé le 2026-09-09.** Les blocs de code ci-dessous
+> ⚠️ **Périmé sur un point, corrigé le 2026-09-08.** Les blocs de code ci-dessous
 > écrivent `categoryId: 157` et `filAriane: "Femmes > Sacs"`. C'est faux : la
 > catégorie visée est **`246`**, fil d'Ariane `Hommes > Accessoires > Sacs et
 > sacoches`. Ils sont laissés tels quels parce que ce fichier est le compte rendu

@@ -386,10 +386,10 @@ commune (Vinted a changé son DOM).
 
 ## 6. La catégorie retenue : 246, Hommes > Accessoires > Sacs et sacoches
 
-> **Corrigé le 2026-09-09.** Cette section disait l'inverse : elle retenait `157`
+> **Corrigé le 2026-09-08.** Cette section disait l'inverse : elle retenait `157`
 > (Femmes) et qualifiait `246` d'erreur de navigation. C'est `157` qui était
 > l'erreur — elle vient de ce que le relevé automatique avait remonté la branche
-> Femmes. Les sacs à dos vendus sont des sacs **homme** (Aramis, 2026-09-09).
+> Femmes. Les sacs à dos vendus sont des sacs **homme** (Aramis, 2026-09-08).
 
 **La catégorie visée est `246`, « Sacs à dos » sous Hommes > Accessoires > Sacs et
 sacoches.**
@@ -444,7 +444,7 @@ Firefox d'Aramis, avec un article, en regardant le brouillon produit.
 
 ## 9. Ce qui reste à la charge d'Aramis
 
-1. ~~Trancher 157 ou 246~~ — tranché le 2026-09-09 : **246**, rayon Hommes (cf. §6).
+1. ~~Trancher 157 ou 246~~ — tranché le 2026-09-08 : **246**, rayon Hommes (cf. §6).
 2. Appliquer les migrations `PrixReference` et `delai_vinted` sur la base de
    production avant toute fusion dans `main`.
 3. Peupler `PrixReference` dans `/parametres`, sans quoi le prix part vide.

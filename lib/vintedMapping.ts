@@ -31,7 +31,7 @@ export type MappingVinted = {
    * Enfants). Un id qui changerait chez Vinted rangerait les articles dans
    * le mauvais rayon sans la moindre erreur visible.
    *
-   * Le rayon visé est HOMMES. Décision d'Aramis du 09/09/2026, qui corrige la
+   * Le rayon visé est HOMMES. Décision d'Aramis du 08/09/2026, qui corrige la
    * §6 de la spec : c'est 157/Femmes qui était l'erreur de relevé, pas 246.
    * Valeurs recopiées de docs/audits/2026-09-08-vinted-mecanique-panneaux.md §1,
    * le seul relevé qui ait créé un vrai brouillon — et il l'a créé sur 246.

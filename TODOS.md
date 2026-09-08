@@ -253,4 +253,46 @@ délice) — utiles surtout dans les sessions à plusieurs articles (5-10 clics
       brouillon créé (cf. extension-vinted/README.md).
 - [ ] Vinted : décider si l'on passe un jour au clic « Ajouter » (publication
       réelle). Hors périmètre tant que le brouillon n'a pas tourné plusieurs
+
+
+## P2 · Le prix dans le prompt, le délai dans un pop-up — cadré le 08/09/2026
+
+Spec : `docs/superpowers/specs/2026-09-08-prix-prompt-delai-popup-design.md`.
+Feu vert d'Aramis pour enchaîner plan puis code. Rien n'est commencé.
+
+Trois choses différées par ce cadrage, notées ici pour ne pas les perdre :
+
+- [ ] **La matière, la taille et la catégorie Vinted dans le prompt.** Décision
+      du 08/09 : le prix seul pour l'instant. Le reste continue de venir de
+      `lib/vintedMapping.ts`. La catégorie pose un problème propre — la rendre
+      éditable obligerait à connaître les identifiants Vinted par cœur, donc
+      elle demanderait une liste déroulante alimentée par un relevé.
+- [ ] **Les délais en secondes.** Écartés explicitement : minutes entières.
+      À rouvrir seulement si un essai réel montre que la minute est trop grossière.
+- [ ] **Reporter les prix de `PrixReference` dans les prompts** avant
+      d'appliquer la nouvelle migration, qui détruit la table. La migration ne
+      peut pas faire ce report : elle ne sait pas quel prompt choisir quand
+      plusieurs correspondent.
+
+## P3 · Défauts mineurs connus, laissés en l'état après la revue finale
+
+Aucun ne bloque la fusion ; tous sont documentés avec leur raison.
+
+- [ ] `content-vinted.js` — la frontière entre `echec-selecteurs` et
+      `succes-partiel` n'est pas strictement « rien n'a été commité » : un id de
+      radio introuvable APRÈS l'ouverture d'un panneau est classé
+      `succes-partiel`. Les deux mènent au même traitement côté worker, donc
+      l'écart est cosmétique.
+- [ ] `file.js` — avec plusieurs entrées `echouee` ou `en-cours` simultanées,
+      `.find()` prend la première du tableau et non la plus ancienne par `ts`.
+      L'invariant « un seul article en vol » rend le cas improbable.
+- [ ] `background.js` — si le worker meurt entre `browser.tabs.create()` et
+      l'écriture du `tabId`, un onglet reste non tracé et la reprise au réveil
+      ne le rattrape pas. Fenêtre de quelques millisecondes.
+- [ ] `_publierVinted.test.ts` — `toEqual` ne distingue pas une clé `vinted`
+      absente d'une clé à `undefined`. Il faudrait `toStrictEqual`.
+- [ ] L'éligibilité d'une fiche est définie à trois endroits (`page.tsx` avec
+      quatre conditions, `ExportAnnonces.tsx` avec trois, puis
+      `couleurManquante`). Inoffensif tant que `generation.phase === "ok"`
+      implique `article !== null`.
       fois sans surprise.
