@@ -36,35 +36,37 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
     // prochaineAction() renverrait "suspendu" à jamais, et chaque envoi
     // suivant partirait dans le vide — la page afficherait « Brouillon », et
     // pas un onglet ne s'ouvrirait.
-    await purgerEchecs();
-    // La file est relue APRÈS la purge : une entrée en échec qui vient d'être
-    // retirée ne doit pas faire passer ce nouvel envoi pour un article qui
-    // rejoint un lot en cours. Le drapeau est posé maintenant, une fois pour
-    // toutes — pas recalculé à la planification, où il redeviendrait vrai
-    // après chaque succès (cf. estPremiereEntree dans file.js).
-    const premier = estPremiereEntree(await getAllEntries());
-    await saveEntry({
-      entryId: msg.entryId,
-      titre: msg.titre,
-      description: msg.description,
-      prix: msg.prix,
-      // `{ type, buffer }[]`, pas des Blob : content-myflip.js convertit à la
-      // source pour que les photos traversent sans ambiguïté le messaging ET
-      // IndexedDB.
-      photos: msg.photos,
-      // Identifiants numériques Vinted, ou undefined si la fiche n'a pas de
-      // mapping. Consommé tel quel par content-vinted.js : aucune traduction
-      // de ce côté-ci de la frontière.
-      vinted: msg.vinted,
-      // Fourchette choisie dans le pop-up de /mise-en-vente, en minutes.
-      // Portée par l'entrée : deux lots lancés avec des réglages différents
-      // s'enchaînent sans que le second impose le sien au premier.
-      delai: msg.delai,
-      premier,
-      etat: "en-attente",
-      ts: Date.now(),
-      cibleMs: null,
-      tabId: null,
+    await enfilerMiseEnFile(async () => {
+      await purgerEchecs();
+      // La file est relue APRÈS la purge : une entrée en échec qui vient d'être
+      // retirée ne doit pas faire passer ce nouvel envoi pour un article qui
+      // rejoint un lot en cours. Le drapeau est posé maintenant, une fois pour
+      // toutes — pas recalculé à la planification, où il redeviendrait vrai
+      // après chaque succès (cf. estPremiereEntree dans file.js).
+      const premier = estPremiereEntree(await getAllEntries());
+      await saveEntry({
+        entryId: msg.entryId,
+        titre: msg.titre,
+        description: msg.description,
+        prix: msg.prix,
+        // `{ type, buffer }[]`, pas des Blob : content-myflip.js convertit à la
+        // source pour que les photos traversent sans ambiguïté le messaging ET
+        // IndexedDB.
+        photos: msg.photos,
+        // Identifiants numériques Vinted, ou undefined si la fiche n'a pas de
+        // mapping. Consommé tel quel par content-vinted.js : aucune traduction
+        // de ce côté-ci de la frontière.
+        vinted: msg.vinted,
+        // Fourchette choisie dans le pop-up de /mise-en-vente, en minutes.
+        // Portée par l'entrée : deux lots lancés avec des réglages différents
+        // s'enchaînent sans que le second impose le sien au premier.
+        delai: msg.delai,
+        premier,
+        etat: "en-attente",
+        ts: Date.now(),
+        cibleMs: null,
+        tabId: null,
+      });
     });
     await avancer();
     return;
@@ -177,6 +179,28 @@ function avancer() {
     console.error("[myflip-vinted] erreur dans avancer()", erreur);
   });
   return chaineAvancer;
+}
+
+// Sérialisation des MISES EN FILE, pour une raison distincte de celle de
+// chaineAvancer : `premier` est une décision LUE puis ÉCRITE — lire la file,
+// la trouver vide, puis y écrire l'entrée. Deux messages concurrents liraient
+// tous deux une file vide, se marqueraient tous deux « premier », et
+// ouvriraient deux onglets sans délai.
+//
+// Et ils PEUVENT être concurrents : la page ne nous attend pas. Son
+// `window.dispatchEvent` est synchrone et rend la main avant que l'écouteur
+// asynchrone de content-myflip.js ait converti ses photos et appelé
+// sendMessage. L'article suivant n'est donc gaté que par son PATCH réseau,
+// pendant que le précédent écrit plusieurs mégaoctets de photos en IndexedDB.
+let chaineFile = Promise.resolve();
+
+/** Enfile un travail de mise en file. Même forme que avancer() : les appels
+ *  concurrents s'enchaînent au lieu de s'entrelacer. */
+function enfilerMiseEnFile(travail) {
+  chaineFile = chaineFile.then(travail).catch((erreur) => {
+    console.error("[myflip-vinted] erreur pendant la mise en file", erreur);
+  });
+  return chaineFile;
 }
 
 /**
