@@ -23,6 +23,7 @@ import {
   conditionIdDepuisEtat,
   materialIdsDepuisMatieres,
 } from "@/lib/vintedReferentiels";
+import type { DelaiVinted } from "./_delaiVinted";
 
 /**
  * Les champs du formulaire Vinted, en identifiants NUMÉRIQUES — jamais en
@@ -50,6 +51,15 @@ export type DetailPublicationVinted = {
   prix: string;
   /** Blob pleine résolution — cf. _reducer.ts sur `Photo.blob`. */
   photos: Blob[];
+  /**
+   * Délai anti-ban choisi pour CE lancement, en minutes.
+   *
+   * Il voyage avec l'annonce plutôt que d'être stocké quelque part et relu :
+   * chaque entrée de la file de l'extension porte donc le sien, et deux lots
+   * lancés avec des réglages différents s'enchaînent sans que le second impose
+   * le sien au premier. Un délai fixe s'exprime `minMinutes === maxMinutes`.
+   */
+  delai: DelaiVinted;
   /** Absent quand la fiche ne correspond à aucun mapping. L'extension ne
    *  sait alors pas remplir le formulaire seule : elle laisse l'onglet
    *  ouvert et suspend la chaîne, pour que l'annonce se finisse à la main. */
@@ -87,7 +97,10 @@ function champsVinted(f: ArticleEnCours): ChampsVinted | null {
 }
 
 /** Charge utile du `CustomEvent("myflip:publier-vinted")` consommé par l'extension. */
-export function detailPublicationVinted(f: ArticleEnCours): DetailPublicationVinted {
+export function detailPublicationVinted(
+  f: ArticleEnCours,
+  delai: DelaiVinted,
+): DetailPublicationVinted {
   const vinted = champsVinted(f);
   return {
     articleId: f.article!.id,
@@ -95,6 +108,7 @@ export function detailPublicationVinted(f: ArticleEnCours): DetailPublicationVin
     description: f.annonce.description,
     prix: f.qcm.prix,
     photos: f.photos.map((p) => p.blob),
+    delai,
     ...(vinted ? { vinted } : {}),
   };
 }
@@ -114,6 +128,7 @@ export function detailPublicationVinted(f: ArticleEnCours): DetailPublicationVin
  */
 export async function publierVinted(
   f: ArticleEnCours,
+  delai: DelaiVinted,
   enregistrerUn: (id: string, statut: string) => Promise<boolean>,
   emettreEvenement: (detail: DetailPublicationVinted) => void,
 ): Promise<boolean> {
@@ -122,7 +137,7 @@ export async function publierVinted(
   // que `enregistrer()` (page.tsx) sait résoudre.
   const succes = await enregistrerUn(f.id, "Brouillon");
   if (!succes) return false;
-  emettreEvenement(detailPublicationVinted(f));
+  emettreEvenement(detailPublicationVinted(f, delai));
   return true;
 }
 

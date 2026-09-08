@@ -6,6 +6,7 @@ import {
 } from "./_publierVinted";
 import { ficheVide, type ArticleEnCours } from "./_reducer";
 import type { ArticleDTO } from "@/lib/types";
+import { DELAI_PAR_DEFAUT } from "./_delaiVinted";
 
 const article = (extra: Partial<ArticleDTO> = {}): ArticleDTO =>
   ({
@@ -60,7 +61,12 @@ describe("publierVinted — invariant critique : PATCH gate l'onglet", () => {
     const enregistrerUn = vi.fn().mockResolvedValue(false);
     const emettreEvenement = vi.fn();
 
-    const resultat = await publierVinted(ficheDeTest(), enregistrerUn, emettreEvenement);
+    const resultat = await publierVinted(
+      ficheDeTest(),
+      DELAI_PAR_DEFAUT,
+      enregistrerUn,
+      emettreEvenement,
+    );
 
     // f.id ("f0"), PAS f.article.id ("art_PRL1") : c'est l'id CLIENT que
     // `enregistrer()` (page.tsx) résout via `fiches.find((x) => x.id === id)`.
@@ -75,7 +81,12 @@ describe("publierVinted — invariant critique : PATCH gate l'onglet", () => {
     const enregistrerUn = vi.fn().mockResolvedValue(true);
     const emettreEvenement = vi.fn();
 
-    const resultat = await publierVinted(ficheDeTest(), enregistrerUn, emettreEvenement);
+    const resultat = await publierVinted(
+      ficheDeTest(),
+      DELAI_PAR_DEFAUT,
+      enregistrerUn,
+      emettreEvenement,
+    );
 
     expect(enregistrerUn).toHaveBeenCalledWith("f0", "Brouillon");
     expect(emettreEvenement).toHaveBeenCalledTimes(1);
@@ -90,7 +101,7 @@ describe("publierVinted — invariant critique : PATCH gate l'onglet", () => {
     expect(f.id).not.toBe(f.article!.id);
 
     const enregistrerUn = vi.fn().mockResolvedValue(true);
-    await publierVinted(f, enregistrerUn, vi.fn());
+    await publierVinted(f, DELAI_PAR_DEFAUT, enregistrerUn, vi.fn());
 
     expect(enregistrerUn).toHaveBeenCalledWith(f.id, "Brouillon");
     expect(enregistrerUn).not.toHaveBeenCalledWith(f.article!.id, "Brouillon");
@@ -101,7 +112,12 @@ describe("publierVinted — invariant critique : PATCH gate l'onglet", () => {
     const emettreEvenement = vi.fn();
     const sansArticle: ArticleEnCours = { ...ficheDeTest(), article: null };
 
-    const resultat = await publierVinted(sansArticle, enregistrerUn, emettreEvenement);
+    const resultat = await publierVinted(
+      sansArticle,
+      DELAI_PAR_DEFAUT,
+      enregistrerUn,
+      emettreEvenement,
+    );
 
     expect(enregistrerUn).not.toHaveBeenCalled();
     expect(emettreEvenement).not.toHaveBeenCalled();
@@ -114,6 +130,7 @@ describe("publierVinted — sans ouverture d'onglet", () => {
     const emis: DetailPublicationVinted[] = [];
     const ok = await publierVinted(
       ficheAvec({ marque: "Nike", categorie: "Sac à dos", etat: "Très bon état" }),
+      DELAI_PAR_DEFAUT,
       async () => true,
       (d) => emis.push(d),
     );
@@ -125,6 +142,7 @@ describe("publierVinted — sans ouverture d'onglet", () => {
     const emis: DetailPublicationVinted[] = [];
     const ok = await publierVinted(
       ficheAvec({ marque: "Nike", categorie: "Sac à dos", etat: "Très bon état" }),
+      DELAI_PAR_DEFAUT,
       async () => false,
       (d) => emis.push(d),
     );
@@ -134,15 +152,21 @@ describe("publierVinted — sans ouverture d'onglet", () => {
 });
 
 describe("detailPublicationVinted", () => {
-  it("porte l'id article, le texte de l'annonce, le prix et les blobs photo", () => {
-    const detail = detailPublicationVinted(ficheDeTest());
+  it("porte l'id article, le texte de l'annonce, le prix, les blobs photo et le délai", () => {
+    const detail = detailPublicationVinted(ficheDeTest(), { minMinutes: 4, maxMinutes: 9 });
     expect(detail).toEqual({
       articleId: "art_PRL1",
       titre: "Polo Ralph Lauren M",
       description: "Description.",
       prix: "25",
       photos: [{ id: "p1" }],
+      delai: { minMinutes: 4, maxMinutes: 9 },
     });
+  });
+
+  it("transporte un délai fixe tel quel, min = max", () => {
+    const detail = detailPublicationVinted(ficheDeTest(), { minMinutes: 3, maxMinutes: 3 });
+    expect(detail.delai).toEqual({ minMinutes: 3, maxMinutes: 3 });
   });
 });
 
@@ -156,7 +180,7 @@ describe("detailPublicationVinted — champs Vinted", () => {
       matiere2: "Nylon",
       couleurs: [1, 3],
     });
-    const detail = detailPublicationVinted(f);
+    const detail = detailPublicationVinted(f, DELAI_PAR_DEFAUT);
     expect(detail.vinted).toEqual({
       categoryId: 246,
       rechercheCategorie: "Sacs à dos",
@@ -172,12 +196,12 @@ describe("detailPublicationVinted — champs Vinted", () => {
 
   it("n'a pas de bloc vinted quand aucun mapping ne correspond", () => {
     const f = ficheAvec({ marque: "Ralph Lauren", categorie: "Polo", etat: "Bon état" });
-    expect(detailPublicationVinted(f).vinted).toBeUndefined();
+    expect(detailPublicationVinted(f, DELAI_PAR_DEFAUT).vinted).toBeUndefined();
   });
 
   it("n'a pas de bloc vinted si l'état n'a pas d'équivalent Vinted", () => {
     const f = ficheAvec({ marque: "Nike", categorie: "Sac à dos", etat: "" });
-    expect(detailPublicationVinted(f).vinted).toBeUndefined();
+    expect(detailPublicationVinted(f, DELAI_PAR_DEFAUT).vinted).toBeUndefined();
   });
 
   it("plafonne les couleurs à 2 et les matériaux à 2", () => {
@@ -189,7 +213,7 @@ describe("detailPublicationVinted — champs Vinted", () => {
       matiere2: "Coton piqué",
       couleurs: [1, 3, 12],
     });
-    const v = detailPublicationVinted(f).vinted!;
+    const v = detailPublicationVinted(f, DELAI_PAR_DEFAUT).vinted!;
     expect(v.colorIds).toEqual([1, 3]);
     expect(v.materialIds).toEqual([44]);
     expect(v.conditionId).toBe(3);

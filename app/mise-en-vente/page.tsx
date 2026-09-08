@@ -27,12 +27,19 @@ import {
 } from "@/lib/imageProcessing";
 import type { ArticleDTO } from "@/lib/types";
 import { Eyebrow } from "@/components/console";
+import DialogueDelaiVinted from "./_components/DialogueDelaiVinted";
 import EtapeSku from "./_components/EtapeSku";
 import ExportAnnonces from "./_components/ExportAnnonces";
 import FicheArticle from "./_components/FicheArticle";
 import FileGeneration from "./_components/FileGeneration";
 import RailArticles from "./_components/RailArticles";
 import { descripteurBarre } from "./_barreAction";
+import {
+  DELAI_PAR_DEFAUT,
+  ecrireDelai,
+  lireDelai,
+  type DelaiVinted,
+} from "./_delaiVinted";
 import { ecrire, effacer, lire } from "./_persistance";
 import {
   extensionPresente,
@@ -85,6 +92,11 @@ export default function MiseEnVentePage() {
   const [saveEnCours, setSaveEnCours] = useState(false);
   const [zoom, setZoom] = useState<{ ficheId: string; photoId: string } | null>(null);
   const [choixPrompt, setChoixPrompt] = useState(false);
+  // Ce que le pop-up de délai est en train de demander, ou null s'il est fermé.
+  const [demandeDelai, setDemandeDelai] = useState<
+    { cible: "tout" } | { cible: "fiche"; id: string } | null
+  >(null);
+  const [delaiInitial, setDelaiInitial] = useState<DelaiVinted>(DELAI_PAR_DEFAUT);
 
   const { data: prompts = [] } = usePrompts();
   const generate = useGenerateListing();
@@ -405,9 +417,10 @@ export default function MiseEnVentePage() {
   // _publierVinted.ts, testée sans DOM ; ici on ne branche que le vrai effet
   // de bord (événement DOM). C'est l'extension qui ouvre l'onglet Vinted en
   // réaction à l'événement — plus la page.
-  async function publierVinted(f: ArticleEnCours) {
+  async function publierVinted(f: ArticleEnCours, delai: DelaiVinted) {
     const ok = await orchestrerPublicationVinted(
       f,
+      delai,
       (id, statut) => enregistrer([id], statut),
       (detail) => window.dispatchEvent(new CustomEvent("myflip:publier-vinted", { detail })),
     );
@@ -424,7 +437,7 @@ export default function MiseEnVentePage() {
   // raison que l'enregistrement groupé (instantané du cache dans onMutate),
   // et parce que N événements émis d'un coup produiraient N onglets d'un coup
   // côté extension — exactement ce que l'ordonnanceur cherche à éviter.
-  async function publierVintedTout() {
+  async function publierVintedTout(delai: DelaiVinted) {
     const eligibles = etatRef.current.fiches.filter(
       (f) =>
         f.generation.phase === "ok" &&
@@ -448,7 +461,7 @@ export default function MiseEnVentePage() {
       // la suivante sans arrêter la chaîne — même garde que `enregistrer()`
       // plus haut dans ce fichier.
       if (!fraiche?.article) continue;
-      const ok = await publierVinted(fraiche);
+      const ok = await publierVinted(fraiche, delai);
       if (!ok) {
         toast.error(`${fraiche.article!.sku} : mise en file impossible, chaîne arrêtée.`, {
           duration: 8000,
@@ -456,6 +469,32 @@ export default function MiseEnVentePage() {
         return;
       }
     }
+  }
+
+  // ── Le pop-up de délai ──────────────────────────────────────────────────
+  // `lireDelai()` touche `localStorage` : appelée AU CLIC, jamais au rendu —
+  // ce composant est aussi rendu côté serveur, où `window` n'existe pas. La
+  // valeur est rangée dans un état pour que sa RÉFÉRENCE reste stable tant que
+  // le dialogue est ouvert : il réinitialise ses champs quand `initial` change,
+  // et un objet recréé à chaque rendu effacerait la saisie à chaque frappe.
+  function ouvrirDialogueDelai(cible: { cible: "tout" } | { cible: "fiche"; id: string }) {
+    setDelaiInitial(lireDelai());
+    setDemandeDelai(cible);
+  }
+
+  function confirmerDelai(delai: DelaiVinted) {
+    const cible = demandeDelai;
+    setDemandeDelai(null);
+    if (!cible) return;
+    // Retenu pour le prochain lancement, dans le navigateur — pas en base :
+    // ça n'a pas à survivre à un changement de machine.
+    ecrireDelai(delai);
+    if (cible.cible === "tout") {
+      void publierVintedTout(delai);
+      return;
+    }
+    const f = etatRef.current.fiches.find((x) => x.id === cible.id);
+    if (f) void publierVinted(f, delai);
   }
 
   // ── Barre d'action ──────────────────────────────────────────────────────
@@ -624,11 +663,8 @@ export default function MiseEnVentePage() {
                 statut,
               )
             }
-            onPublierVinted={(id) => {
-              const f = etat.fiches.find((x) => x.id === id);
-              if (f) void publierVinted(f);
-            }}
-            onPublierVintedTout={() => void publierVintedTout()}
+            onPublierVinted={(id) => ouvrirDialogueDelai({ cible: "fiche", id })}
+            onPublierVintedTout={() => ouvrirDialogueDelai({ cible: "tout" })}
             onEditerAnnonce={(id, champ, valeur) =>
               dispatch({ type: "annonce", id, champ, valeur })
             }
@@ -667,6 +703,15 @@ export default function MiseEnVentePage() {
           />
         </div>
       )}
+
+      {/* Délai anti-ban — demandé avant que le moindre article ne parte. */}
+      <DialogueDelaiVinted
+        open={demandeDelai !== null}
+        initial={delaiInitial}
+        libelleAction={demandeDelai?.cible === "tout" ? "Lancer le lot" : "Lancer le brouillon"}
+        onAnnuler={() => setDemandeDelai(null)}
+        onConfirmer={confirmerDelai}
+      />
 
       {/* Barre d'action collante */}
       {/* `bottom-[68px]` sous 768 px : le dock mobile occupe déjà le bas de
