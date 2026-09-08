@@ -140,16 +140,38 @@ absente, ce qui donne une page vide, pas une erreur.
 ⚠️ **Mais ne pas les appliquer telles quelles.** Le chantier cadré les remplace
 par une seule migration. Voir la spec, §4.2.
 
-**Pour tester** : rien ne bloque. Aramis peut essayer dès maintenant, sans
-appliquer aucune migration :
+**Pour tester** : rien ne bloque, et aucune migration n'est à appliquer.
 
-1. `cd extension-vinted && npx web-ext sign --channel=unlisted`, installer le `.xpi`
-2. Ouvrir la console du worker (`about:debugging` → Inspecter) et coller :
-   `browser.storage.local.set({ delaiMin: 1, delaiMax: 1 })`
-3. Taper le prix à la main dans le questionnaire (le prix de référence ne fait
-   que pré-remplir, il n'est pas obligatoire)
-4. Lancer sur **un seul** article, puis **ouvrir le brouillon créé dans Vinted et
-   regarder le prix**
+⚠️ **Le test se fait en local, pas sur `myflip-app.vercel.app`.** L'URL de
+production tourne sur `main`, qui ne contient rien de ce chantier : ni la carte
+Vinted, ni le sélecteur de couleur, ni le marqueur de présence de l'extension.
+Il faut lancer `npm run dev` **depuis le worktree**, et travailler sur
+`http://localhost:3000` — que le manifest autorise déjà.
+
+Le worktree pointe sur la base **dev**, qui a les deux migrations appliquées.
+Donc `/compte` et `/parametres` fonctionnent normalement : le délai se règle à
+l'écran, pas par la console.
+
+1. `npm run dev` depuis la racine du worktree.
+2. Charger l'extension : `about:debugging` → « Ce Firefox » → **Charger un
+   module temporaire** → choisir `extension-vinted/manifest.json`. Pas besoin de
+   signer pour un essai ; `web-ext sign --channel=unlisted` (qui demande des
+   identifiants API addons.mozilla.org) ne sert qu'à l'installer durablement.
+3. Régler la fourchette de délai dans `/compte`. Mettre **1 et 1** pour l'essai :
+   inutile d'attendre. *(Si un jour le test se fait contre la production, où les
+   colonnes n'existent pas, le repli est la console du worker —
+   `about:debugging` → Inspecter — avec
+   `browser.storage.local.set({ delaiMin: 1, delaiMax: 1 })`.)*
+4. Dans `/mise-en-vente` : un SKU, des photos, puis dans le questionnaire
+   choisir **marque « Nike »** et **catégorie « Sac à dos »** — les deux
+   pastilles ont été ajoutées par ce chantier. La carte « Vinted — pilote
+   automatique » doit apparaître.
+5. **Choisir une couleur** : le bouton Vinted reste grisé sans elle, et il le
+   dit. Saisir un prix à la main (le prix de référence ne fait que pré-remplir,
+   il n'est pas obligatoire).
+6. Générer l'annonce, puis publier sur Vinted. **Sur UN SEUL article**, pas cinq.
+7. **Ouvrir le brouillon créé dans Vinted et regarder le prix.** C'est le point
+   de tout l'essai : c'est la seule chose que personne n'a jamais vérifiée.
 
 ## Next — la prochaine action
 
