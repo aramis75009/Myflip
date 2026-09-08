@@ -17,6 +17,7 @@ import { ArrowLeft, ArrowRight, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { useGenerateListing, usePrompts, useUpdateArticle } from "@/lib/hooks";
 import { pickPrompt } from "@/lib/promptSelect";
+import { pickVintedMapping } from "@/lib/vintedMapping";
 import {
   blobToBase64,
   compressForApi,
@@ -419,6 +420,29 @@ export default function MiseEnVentePage() {
     return ok;
   }
 
+  // Toutes les fiches éligibles, EN SÉRIE. Le parallèle est exclu pour la même
+  // raison que l'enregistrement groupé (instantané du cache dans onMutate),
+  // et parce que N événements émis d'un coup produiraient N onglets d'un coup
+  // côté extension — exactement ce que l'ordonnanceur cherche à éviter.
+  async function publierVintedTout() {
+    const eligibles = etatRef.current.fiches.filter(
+      (f) =>
+        f.generation.phase === "ok" &&
+        f.article !== null &&
+        pickVintedMapping(f.qcm.marque, f.qcm.categorie) !== null &&
+        f.qcm.couleurs.length > 0,
+    );
+    for (const f of eligibles) {
+      const ok = await publierVinted(f);
+      if (!ok) {
+        toast.error(`${f.article!.sku} : mise en file impossible, chaîne arrêtée.`, {
+          duration: 8000,
+        });
+        return;
+      }
+    }
+  }
+
   // ── Barre d'action ──────────────────────────────────────────────────────
   // Ce qu'elle DIT est calculé par un module pur et testé ; il ne reste ici
   // qu'à traduire l'intention en effet de bord.
@@ -589,6 +613,7 @@ export default function MiseEnVentePage() {
               const f = etat.fiches.find((x) => x.id === id);
               if (f) void publierVinted(f);
             }}
+            onPublierVintedTout={() => void publierVintedTout()}
             onEditerAnnonce={(id, champ, valeur) =>
               dispatch({ type: "annonce", id, champ, valeur })
             }
