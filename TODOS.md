@@ -296,6 +296,38 @@ produits, seulement d'affichage. Ne pas rouvrir ce point.
 qu'aucune permission actuelle ne couvre : `host_permissions` s'arrête à
 `https://www.vinted.fr/items/new*`.
 
+## P1 · `prixAnnonce` : le prix d'annonce prend sa propre colonne — décidé le 09/09/2026
+
+**Le défaut.** `Article.prixVente` n'est jamais enregistré tant que l'article
+n'est pas « Vendu » : `/api/articles/[id]` appelle `deriveVente()`
+(`lib/calc.ts`) et écrase `data.prixVente` **sans condition**, or `deriveVente()`
+rend `null` pour tout statut autre que « Vendu ». `enregistrer()`
+(`app/mise-en-vente/page.tsx`) n'envoie jamais que « Brouillon » ou « En vente ».
+La route répond 200 et l'update optimiste affiche le prix : il disparaît au
+rechargement. Documenté comme C1 dans
+`docs/audits/2026-09-04-revue-finale-lane-a.md`, jamais corrigé.
+
+**La décision d'Aramis (09/09/2026).** Le prix d'annonce **prend sa propre
+colonne**. L'audit posait deux options ; celle-ci est retenue. `prixVente` garde
+son sens unique et non ambigu — « ce pour quoi l'article s'est vendu », vide
+tant qu'il ne l'est pas — et `deriveVente()` n'est pas touché.
+
+**Ce que ça demande.**
+- `Article.prixAnnonce Float?`, plus une migration **écrite à la main** (cf. la
+  consigne `photosPretes` de CLAUDE.md).
+- `/mise-en-vente` écrit `prixAnnonce` au lieu de `prixVente` (`page.tsx`,
+  fonction `enregistrer()`).
+- `/stock` et `/a-comptabiliser` affichent `prixAnnonce` tant que l'article
+  n'est pas vendu, `prixVente` ensuite.
+- Le `CustomEvent` vers l'extension ne change **pas** : il lit `f.qcm.prix` en
+  mémoire, pas la base. Le brouillon Vinted reçoit déjà le bon prix aujourd'hui.
+- Décider si les articles déjà passés en « Brouillon » doivent être rattrapés :
+  leur prix est perdu, il n'existe nulle part.
+
+**À faire APRÈS le premier essai navigateur**, pas avant : le prix du brouillon
+Vinted ne dépend pas de cette colonne, donc ce chantier ne changerait rien à ce
+que l'essai doit prouver, et ajouterait du code non éprouvé au diagnostic.
+
 ## P3 · Défauts mineurs connus, laissés en l'état après la revue finale
 
 Aucun ne bloque la fusion ; tous sont documentés avec leur raison.
