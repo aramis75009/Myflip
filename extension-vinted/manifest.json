@@ -36,7 +36,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["page-visible.js"],
+      "resources": ["page-visible.js", "minuteur-worker.js"],
       "matches": ["https://www.vinted.fr/*"]
     }
   ]

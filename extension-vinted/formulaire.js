@@ -12,8 +12,56 @@
 
 const SEL_VALIDER_PANNEAU = '[data-testid="input-dropdown-save-button"]';
 
+/**
+ * Le worker de minuterie, créé une seule fois et à la demande.
+ *
+ * `null` tant qu'on n'a pas essayé, `false` si la création a échoué — auquel
+ * cas on retombe définitivement sur `setTimeout`. Distinguer les deux évite
+ * de retenter la création à chaque pause.
+ */
+let minuteurWorker = null;
+
+function obtenirMinuteur() {
+  if (minuteurWorker !== null) return minuteurWorker;
+  try {
+    minuteurWorker = new Worker(browser.runtime.getURL("minuteur-worker.js"));
+  } catch (err) {
+    console.warn(
+      "[myflip-vinted] worker de minuterie indisponible : les pauses seront bridées en arrière-plan",
+      err,
+    );
+    minuteurWorker = false;
+  }
+  return minuteurWorker;
+}
+
+let prochainIdPause = 1;
+
+/**
+ * Attend `ms` millisecondes.
+ *
+ * Passe par un worker plutôt que par `setTimeout` : l'onglet Vinted est ouvert
+ * en ARRIÈRE-PLAN, et le navigateur y bride les minuteurs à une seconde
+ * minimum. Une frappe qui pose des pauses de 25 ms deviendrait vingt fois plus
+ * lente. Un worker tourne dans son propre fil et échappe à ce bridage.
+ *
+ * Repli sur `setTimeout` si le worker ne peut pas être créé : lent, mais
+ * fonctionnel — jamais un blocage.
+ */
 function pause(ms) {
-  return new Promise((r) => setTimeout(r, ms));
+  const worker = obtenirMinuteur();
+  if (!worker) return new Promise((r) => setTimeout(r, ms));
+
+  const id = prochainIdPause++;
+  return new Promise((resolve) => {
+    const surReponse = (e) => {
+      if (e.data?.id !== id) return;
+      worker.removeEventListener("message", surReponse);
+      resolve();
+    };
+    worker.addEventListener("message", surReponse);
+    worker.postMessage({ id, delai: ms });
+  });
 }
 
 /** Pause aléatoire, bornes en ms. C'est la mesure anti-bot : un formulaire
