@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MyFlip → Vinted",
-  "version": "1.1.0",
+  "version": "1.3.0",
   "description": "Pré-remplit un brouillon Vinted depuis une annonce générée dans MyFlip.",
   "browser_specific_settings": {
     "gecko": {
@@ -31,7 +31,14 @@
     },
     {
       "matches": ["https://www.vinted.fr/items/new*"],
-      "js": ["formulaire.js", "content-vinted.js"]
+      "js": ["interception.js", "formulaire.js", "content-vinted.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["minuteur-worker.js"],
+      "matches": ["https://www.vinted.fr/items/new*"]
     }
   ]
 }

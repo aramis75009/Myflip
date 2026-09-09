@@ -12,8 +12,70 @@
 
 const SEL_VALIDER_PANNEAU = '[data-testid="input-dropdown-save-button"]';
 
+/**
+ * Le worker de minuterie, créé une seule fois et à la demande.
+ *
+ * `null` tant qu'on n'a pas essayé, `false` si la création a échoué — auquel
+ * cas on retombe définitivement sur `setTimeout`. Distinguer les deux évite
+ * de retenter la création à chaque pause.
+ */
+let minuteurWorker = null;
+
+function obtenirMinuteur() {
+  if (minuteurWorker !== null) return minuteurWorker;
+  try {
+    minuteurWorker = new Worker(browser.runtime.getURL("minuteur-worker.js"));
+    minuteurWorker.addEventListener("error", (err) => {
+      // Un worker qui se construit mais ne DÉMARRE pas (chargement refusé,
+      // CSP worker-src, erreur d'exécution) ne lève pas : il émet cet
+      // événement. Sans cette bascule, chaque pause suivante repartirait
+      // l'attendre en vain.
+      console.warn("[myflip-vinted] worker de minuterie en erreur : repli sur setTimeout", err);
+      minuteurWorker = false;
+    });
+  } catch (err) {
+    console.warn(
+      "[myflip-vinted] worker de minuterie indisponible : les pauses seront bridées en arrière-plan",
+      err,
+    );
+    minuteurWorker = false;
+  }
+  return minuteurWorker;
+}
+
+let prochainIdPause = 1;
+
+/**
+ * Attend `ms` millisecondes.
+ *
+ * Passe par un worker plutôt que par `setTimeout` : l'onglet Vinted est ouvert
+ * en ARRIÈRE-PLAN, et le navigateur y bride les minuteurs à une seconde
+ * minimum. Une frappe qui pose des pauses de 25 ms deviendrait vingt fois plus
+ * lente. Un worker tourne dans son propre fil et échappe à ce bridage.
+ *
+ * Repli sur `setTimeout` si le worker ne peut pas être créé : lent, mais
+ * fonctionnel — jamais un blocage.
+ */
 function pause(ms) {
-  return new Promise((r) => setTimeout(r, ms));
+  const worker = obtenirMinuteur();
+  if (!worker) return new Promise((r) => setTimeout(r, ms));
+
+  const id = prochainIdPause++;
+  return new Promise((resolve) => {
+    // Filet de sécurité. Une pause qui ne se résout jamais laisse l'entrée
+    // « en-cours », que file.js ne purge JAMAIS par TTL : la file entière
+    // s'arrête sans un mot, jusqu'à ce qu'Aramis ferme l'onglet à la main.
+    // Mieux vaut une pause trop longue qu'une chaîne bloquée.
+    const secours = setTimeout(resolve, ms + 2000);
+    const surReponse = (e) => {
+      if (e.data?.id !== id) return;
+      clearTimeout(secours);
+      worker.removeEventListener("message", surReponse);
+      resolve();
+    };
+    worker.addEventListener("message", surReponse);
+    worker.postMessage({ id, delai: ms });
+  });
 }
 
 /** Pause aléatoire, bornes en ms. C'est la mesure anti-bot : un formulaire
@@ -44,6 +106,102 @@ function attendreElement(selecteur, timeoutMs = 10_000) {
       resolve(null);
     }, timeoutMs);
   });
+}
+
+/**
+ * Clique comme un humain : la séquence souris complète, puis l'activation.
+ *
+ * `HTMLElement.click()` seul ne suffisait pas, et pour deux raisons
+ * distinctes :
+ *
+ * 1. Il n'émet NI `mousedown` NI `mouseup` — seulement un `click`. Un
+ *    formulaire qui écoute l'appui (React le fait couramment) ne voit donc
+ *    jamais rien venir avant le clic lui-même.
+ * 2. Il ne déplace PAS le focus, alors qu'un vrai appui le fait. C'est
+ *    l'effet de bord qui manquait au champ prix, dont tout le commit dépend.
+ *
+ * L'inverse — n'émettre que des événements fabriqués, sans `click()` — serait
+ * pire : un `click` non fiable (`isTrusted: false`) NE DÉCLENCHE PAS le
+ * comportement d'activation par défaut. Une case à cocher recevrait toute la
+ * séquence sans que `checked` bascule, et `cocher()` renverrait `true` sur un
+ * formulaire resté vide. C'est le mode de panne le plus cher du chantier :
+ * l'apparence du succès.
+ *
+ * Donc les deux : la séquence pour être vu, `click()` pour agir.
+ *
+ * ⚠️ Séquence volontairement limitée aux `MouseEvent`. Y ajouter des
+ * `PointerEvent` serait plus proche de ce qu'émet un vrai navigateur, mais
+ * rien ne l'a vérifié sur le DOM de Vinted, et l'inventer « par analogie »
+ * est la règle la plus chère de ce chantier. La séquence ci-dessous est celle
+ * qui a été observée en fonctionnement réel.
+ */
+async function cliquerVraiment(el) {
+  if (!el) return false;
+  try {
+    // Pas de `behavior: "smooth"` : le défilement animé s'appuie sur
+    // requestAnimationFrame, gelé dans un onglet d'arrière-plan. Il ne
+    // finirait jamais, et les coordonnées resteraient celles d'avant.
+    el.scrollIntoView({ block: "center", inline: "nearest" });
+  } catch (e) {
+    // Un élément détaché ou un navigateur qui refuse : le clic reste utile.
+  }
+  await pauseAleatoire(80, 200);
+
+  const rect = el.getBoundingClientRect();
+  // Le centre, décalé de quelques pixels : personne ne vise le pixel exact.
+  const x = rect.left + rect.width / 2 + (Math.random() * 6 - 3);
+  const y = rect.top + rect.height / 2 + (Math.random() * 6 - 3);
+
+  const souris = (type, boutonsEnfonces) => {
+    try {
+      el.dispatchEvent(
+        new MouseEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          detail: 1,
+          clientX: x,
+          clientY: y,
+          screenX: x + (window.screenX || 0),
+          screenY: y + (window.screenY || 0),
+          button: 0,
+          buttons: boutonsEnfonces,
+        }),
+      );
+    } catch (e) {
+      // Un événement refusé ne doit pas emporter le reste de la séquence.
+    }
+  };
+
+  souris("mouseover", 0);
+  souris("mousemove", 0);
+  await pauseAleatoire(30, 80);
+  souris("mousedown", 1);
+
+  // L'effet de bord d'un vrai appui, que rien de synthétique ne produit. Sur
+  // un élément non focusable (un conteneur `role="radio"`, par exemple),
+  // `focus()` ne fait rien — c'est exactement ce que ferait le navigateur.
+  try {
+    el.focus();
+  } catch (e) {
+    // idem
+  }
+
+  await pauseAleatoire(40, 100);
+  souris("mouseup", 0);
+
+  // Le `click` et le comportement d'activation. C'est la seule ligne de toute
+  // la fonction qui coche réellement une case ou soumet réellement un
+  // formulaire — ne jamais la retirer au profit d'un `MouseEvent("click")`.
+  try {
+    el.click();
+  } catch (err) {
+    console.warn(`[myflip-vinted] clic refusé sur ${decrireChamp(el)}`, err);
+    return false;
+  }
+
+  souris("mouseout", 0);
+  return true;
 }
 
 /**
@@ -125,6 +283,94 @@ async function taperTexte(el, texte) {
   return true;
 }
 
+/**
+ * Écrit le PRIX. Ce champ a sa propre fonction parce qu'il a sa propre
+ * mécanique — c'est le seul du formulaire qui valide au DÉPART du focus, et
+ * c'est ce qui a produit le brouillon à `0,00 €` du 2026-09-08.
+ *
+ * Trois différences avec `taperTexte()`, chacune motivée dans
+ * docs/audits/2026-09-09-champ-prix-vinted-diagnostic.md :
+ *
+ * 1. `focusout` — LA correction. Depuis React 17, `onBlur` est émulé depuis
+ *    `focusout`, écouté à la RACINE de l'application. `blur` ne remonte pas
+ *    l'arbre (par spécification) : un `blur` fabriqué et lancé sur le champ
+ *    n'atteint jamais cet écouteur, quoi qu'on mette dans `bubbles`. Le champ
+ *    ne valide donc jamais, garde l'affichage produit par `input`, et le
+ *    formulaire part avec zéro. Le titre survit à ça parce qu'il valide à la
+ *    frappe, pas au départ.
+ * 2. La valeur est posée EN UNE FOIS. La frappe caractère par caractère
+ *    n'était pas la parade — elle ne touche pas au problème de focus, et elle
+ *    coûte cher dans un onglet bridé.
+ * 3. Un vrai clic précède l'écriture, sur le conteneur PUIS sur le champ, et
+ *    depuis le 09/09 c'est `cliquerVraiment()` qui le donne : la séquence
+ *    souris complète, et le déplacement de focus au `mousedown` — l'effet de
+ *    bord d'un vrai appui, que `HTMLElement.click()` ne produit jamais. Le
+ *    `el.focus()` qui suit est devenu une ceinture, plus le mécanisme. En
+ *    sortie, le focus part vers un AUTRE champ (voir plus bas) : recliquer ce
+ *    même conteneur — celui du prix — lui rendrait le focus qu'on vient de
+ *    lui retirer.
+ */
+async function taperPrix(el, valeur) {
+  const demande = String(valeur);
+  // Même règle que taperTexte : un champ déjà rempli à la main ne s'écrase pas.
+  if (el.value && el.value.trim() !== "") return true;
+
+  const conteneur = document.querySelector('[data-testid="price-input"]');
+
+  if (conteneur) {
+    await cliquerVraiment(conteneur);
+    await pauseAleatoire(100, 200);
+  }
+  await cliquerVraiment(el);
+  el.focus();
+  await pauseAleatoire(100, 200);
+
+  // `focusin` remonte, contrairement à `focus` : c'est celui que React voit.
+  el.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+
+  ecrireValeur(el, demande);
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.dispatchEvent(new Event("change", { bubbles: true }));
+
+  // Laisser au champ le temps de reformater avant de lui retirer le focus :
+  // c'est pendant cette fenêtre qu'il transforme « 15 » en « 15,00 € ».
+  await pauseAleatoire(300, 500);
+
+  // Le focus était-il RÉEL ? Cette mesure départage les deux causes du
+  // diagnostic : `false` en onglet caché voudrait dire que la cause racine est
+  // l'onglet (fait n° 4) et non l'événement (fait n° 1). Elle coûte une ligne
+  // et rend le diagnostic falsifiable au premier passage navigateur.
+  const avaitLeFocus = document.activeElement === el;
+  console.info(`[myflip-vinted] prix : le champ avait le focus = ${avaitLeFocus}`);
+  el.blur();
+  // Le focusout synthétique SEULEMENT si `blur()` n'avait rien à émettre.
+  // Sinon on ferait commiter React une seconde fois, sur « 15,00 € » déjà
+  // reformaté — qu'un parseur naïf rend NaN, c'est-à-dire 0,00 €.
+  if (!avaitLeFocus) {
+    el.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+  }
+  await pauseAleatoire(200, 300);
+
+  // Sortir le focus pour de bon, vers un AUTRE champ. Recliquer le conteneur
+  // ne convenait pas : il EST celui du prix — s'il enveloppe l'input, le
+  // cliquer lui rendrait le focus qu'on vient de lui retirer. Le risque n'est
+  // plus théorique depuis que `cliquerVraiment()` déplace réellement le focus.
+  document.querySelector('[data-testid="description--input"]')?.focus();
+  await pauseAleatoire(200, 400);
+
+  // Vérification VOLONTAIREMENT FAIBLE, comme dans taperTexte : on teste que
+  // le champ n'est pas resté vide, jamais l'égalité avec la valeur demandée —
+  // le champ reformate ce qu'on lui donne. Et rien de ce qui se lit depuis la
+  // page ne prouve le commit : seul le brouillon relu après coup le dit.
+  if (demande.trim() !== "" && String(el.value ?? "").trim() === "") {
+    console.warn(
+      `[myflip-vinted] prix sans effet sur ${decrireChamp(el)} : le champ est resté vide`,
+    );
+    return false;
+  }
+  return true;
+}
+
 /** De quoi nommer un champ dans un avertissement, sans supposer qu'il porte
  *  un `data-testid` (les champs de panneau n'en ont pas tous un). */
 function decrireChamp(el) {
@@ -139,7 +385,7 @@ async function ouvrirPanneau(testid) {
     console.warn(`[myflip-vinted] panneau non ouvert : [data-testid="${testid}"] n'est jamais apparu`);
     return false;
   }
-  champ.click();
+  await cliquerVraiment(champ);
   await pauseAleatoire(500, 1200);
   return true;
 }
@@ -168,7 +414,7 @@ async function choisirOption(idInput) {
     console.warn(`[myflip-vinted] conteneur role="radio"/"checkbox" introuvable pour #${idInput}`);
     return false;
   }
-  cible.click();
+  await cliquerVraiment(cible);
   await pauseAleatoire(300, 900);
   return true;
 }
@@ -188,7 +434,7 @@ async function validerPanneau() {
     return false;
   }
   await pauseAleatoire(300, 900);
-  bouton.click();
+  await cliquerVraiment(bouton);
   await pauseAleatoire(400, 1200);
   return true;
 }
@@ -229,7 +475,7 @@ async function choisirCategorie(recherche, categoryId, filArianeAttendu) {
     return false;
   }
 
-  ligne.click();
+  await cliquerVraiment(ligne);
   await pauseAleatoire(300, 900);
   return validerPanneau();
 }
@@ -242,7 +488,7 @@ async function cocher(selecteur) {
     console.warn(`[myflip-vinted] case à cocher introuvable : ${selecteur} n'est jamais apparu`);
     return false;
   }
-  if (!el.checked) el.click();
+  if (!el.checked) await cliquerVraiment(el);
   await pauseAleatoire(400, 1200);
   return true;
 }
@@ -301,6 +547,6 @@ async function cliquerBrouillon() {
     return false;
   }
   await pauseAleatoire(4000, 10_000);
-  bouton.click();
+  await cliquerVraiment(bouton);
   return true;
 }

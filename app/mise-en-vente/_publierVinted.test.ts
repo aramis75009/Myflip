@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   detailPublicationVinted,
   publierVinted,
+  prixPourVinted,
   type DetailPublicationVinted,
 } from "./_publierVinted";
 import { ficheVide, type ArticleEnCours } from "./_reducer";
@@ -217,5 +218,35 @@ describe("detailPublicationVinted — champs Vinted", () => {
     expect(v.colorIds).toEqual([1, 3]);
     expect(v.materialIds).toEqual([44]);
     expect(v.conditionId).toBe(3);
+  });
+});
+
+describe("prixPourVinted", () => {
+  it("convertit le point décimal en virgule — le champ Vinted est en locale française", () => {
+    expect(prixPourVinted("24.5")).toBe("24,5");
+  });
+
+  it("laisse une virgule déjà saisie tranquille", () => {
+    expect(prixPourVinted("24,5")).toBe("24,5");
+  });
+
+  it("laisse un entier tranquille", () => {
+    expect(prixPourVinted("25")).toBe("25");
+  });
+
+  it("retire les espaces autour", () => {
+    expect(prixPourVinted("  25 ")).toBe("25");
+  });
+
+  it("ne convertit QUE le premier point — « 1.234.5 » n'est pas un prix, on ne l'invente pas", () => {
+    // Un second point signalerait une saisie qu'on ne sait pas interpréter.
+    // La convertir en virgule fabriquerait un nombre plausible et faux ;
+    // la laisser telle quelle fait échouer le champ bruyamment.
+    expect(prixPourVinted("1.234.5")).toBe("1,234.5");
+  });
+
+  it("rend une chaîne vide sur une entrée vide", () => {
+    expect(prixPourVinted("")).toBe("");
+    expect(prixPourVinted("   ")).toBe("");
   });
 });
