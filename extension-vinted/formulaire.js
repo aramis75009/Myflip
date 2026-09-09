@@ -109,6 +109,102 @@ function attendreElement(selecteur, timeoutMs = 10_000) {
 }
 
 /**
+ * Clique comme un humain : la séquence souris complète, puis l'activation.
+ *
+ * `HTMLElement.click()` seul ne suffisait pas, et pour deux raisons
+ * distinctes :
+ *
+ * 1. Il n'émet NI `mousedown` NI `mouseup` — seulement un `click`. Un
+ *    formulaire qui écoute l'appui (React le fait couramment) ne voit donc
+ *    jamais rien venir avant le clic lui-même.
+ * 2. Il ne déplace PAS le focus, alors qu'un vrai appui le fait. C'est
+ *    l'effet de bord qui manquait au champ prix, dont tout le commit dépend.
+ *
+ * L'inverse — n'émettre que des événements fabriqués, sans `click()` — serait
+ * pire : un `click` non fiable (`isTrusted: false`) NE DÉCLENCHE PAS le
+ * comportement d'activation par défaut. Une case à cocher recevrait toute la
+ * séquence sans que `checked` bascule, et `cocher()` renverrait `true` sur un
+ * formulaire resté vide. C'est le mode de panne le plus cher du chantier :
+ * l'apparence du succès.
+ *
+ * Donc les deux : la séquence pour être vu, `click()` pour agir.
+ *
+ * ⚠️ Séquence volontairement limitée aux `MouseEvent`. Y ajouter des
+ * `PointerEvent` serait plus proche de ce qu'émet un vrai navigateur, mais
+ * rien ne l'a vérifié sur le DOM de Vinted, et l'inventer « par analogie »
+ * est la règle la plus chère de ce chantier. La séquence ci-dessous est celle
+ * qui a été observée en fonctionnement réel.
+ */
+async function cliquerVraiment(el) {
+  if (!el) return false;
+  try {
+    // Pas de `behavior: "smooth"` : le défilement animé s'appuie sur
+    // requestAnimationFrame, gelé dans un onglet d'arrière-plan. Il ne
+    // finirait jamais, et les coordonnées resteraient celles d'avant.
+    el.scrollIntoView({ block: "center", inline: "nearest" });
+  } catch (e) {
+    // Un élément détaché ou un navigateur qui refuse : le clic reste utile.
+  }
+  await pauseAleatoire(80, 200);
+
+  const rect = el.getBoundingClientRect();
+  // Le centre, décalé de quelques pixels : personne ne vise le pixel exact.
+  const x = rect.left + rect.width / 2 + (Math.random() * 6 - 3);
+  const y = rect.top + rect.height / 2 + (Math.random() * 6 - 3);
+
+  const souris = (type, boutonsEnfonces) => {
+    try {
+      el.dispatchEvent(
+        new MouseEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          detail: 1,
+          clientX: x,
+          clientY: y,
+          screenX: x + (window.screenX || 0),
+          screenY: y + (window.screenY || 0),
+          button: 0,
+          buttons: boutonsEnfonces,
+        }),
+      );
+    } catch (e) {
+      // Un événement refusé ne doit pas emporter le reste de la séquence.
+    }
+  };
+
+  souris("mouseover", 0);
+  souris("mousemove", 0);
+  await pauseAleatoire(30, 80);
+  souris("mousedown", 1);
+
+  // L'effet de bord d'un vrai appui, que rien de synthétique ne produit. Sur
+  // un élément non focusable (un conteneur `role="radio"`, par exemple),
+  // `focus()` ne fait rien — c'est exactement ce que ferait le navigateur.
+  try {
+    el.focus();
+  } catch (e) {
+    // idem
+  }
+
+  await pauseAleatoire(40, 100);
+  souris("mouseup", 0);
+
+  // Le `click` et le comportement d'activation. C'est la seule ligne de toute
+  // la fonction qui coche réellement une case ou soumet réellement un
+  // formulaire — ne jamais la retirer au profit d'un `MouseEvent("click")`.
+  try {
+    el.click();
+  } catch (err) {
+    console.warn(`[myflip-vinted] clic refusé sur ${decrireChamp(el)}`, err);
+    return false;
+  }
+
+  souris("mouseout", 0);
+  return true;
+}
+
+/**
  * Écrit une valeur en passant par le setter NATIF du prototype.
  *
  * React installe un « value tracker » sur chaque champ contrôlé : il retient
@@ -205,13 +301,14 @@ async function taperTexte(el, texte) {
  * 2. La valeur est posée EN UNE FOIS. La frappe caractère par caractère
  *    n'était pas la parade — elle ne touche pas au problème de focus, et elle
  *    coûte cher dans un onglet bridé.
- * 3. Un vrai clic précède l'écriture, sur le conteneur. Il ne DÉPLACE pas le
- *    focus lui-même — `HTMLElement.click()` ne le fait jamais, il n'émet ni
- *    `pointerdown` ni `mousedown` — c'est `el.focus()` juste après qui s'en
- *    charge ; le clic n'est là que pour ressembler à un geste utilisateur
- *    avant ce focus. En sortie, la sortie du focus vise un AUTRE champ (voir
- *    plus bas) : recliquer ce même conteneur — celui du prix — risquerait de
- *    lui rendre le focus qu'on vient de lui retirer.
+ * 3. Un vrai clic précède l'écriture, sur le conteneur PUIS sur le champ, et
+ *    depuis le 09/09 c'est `cliquerVraiment()` qui le donne : la séquence
+ *    souris complète, et le déplacement de focus au `mousedown` — l'effet de
+ *    bord d'un vrai appui, que `HTMLElement.click()` ne produit jamais. Le
+ *    `el.focus()` qui suit est devenu une ceinture, plus le mécanisme. En
+ *    sortie, le focus part vers un AUTRE champ (voir plus bas) : recliquer ce
+ *    même conteneur — celui du prix — lui rendrait le focus qu'on vient de
+ *    lui retirer.
  */
 async function taperPrix(el, valeur) {
   const demande = String(valeur);
@@ -221,10 +318,10 @@ async function taperPrix(el, valeur) {
   const conteneur = document.querySelector('[data-testid="price-input"]');
 
   if (conteneur) {
-    conteneur.click();
+    await cliquerVraiment(conteneur);
     await pauseAleatoire(100, 200);
   }
-  el.click();
+  await cliquerVraiment(el);
   el.focus();
   await pauseAleatoire(100, 200);
 
@@ -254,10 +351,10 @@ async function taperPrix(el, valeur) {
   }
   await pauseAleatoire(200, 300);
 
-  // Sortir le focus pour de bon, vers un AUTRE champ. `conteneur.click()` ne
-  // convenait pas deux fois : `HTMLElement.click()` ne déplace pas le focus,
-  // et le conteneur EST celui du prix — s'il enveloppe l'input, le cliquer
-  // lui rendrait le focus qu'on vient de lui retirer.
+  // Sortir le focus pour de bon, vers un AUTRE champ. Recliquer le conteneur
+  // ne convenait pas : il EST celui du prix — s'il enveloppe l'input, le
+  // cliquer lui rendrait le focus qu'on vient de lui retirer. Le risque n'est
+  // plus théorique depuis que `cliquerVraiment()` déplace réellement le focus.
   document.querySelector('[data-testid="description--input"]')?.focus();
   await pauseAleatoire(200, 400);
 
@@ -288,7 +385,7 @@ async function ouvrirPanneau(testid) {
     console.warn(`[myflip-vinted] panneau non ouvert : [data-testid="${testid}"] n'est jamais apparu`);
     return false;
   }
-  champ.click();
+  await cliquerVraiment(champ);
   await pauseAleatoire(500, 1200);
   return true;
 }
@@ -317,7 +414,7 @@ async function choisirOption(idInput) {
     console.warn(`[myflip-vinted] conteneur role="radio"/"checkbox" introuvable pour #${idInput}`);
     return false;
   }
-  cible.click();
+  await cliquerVraiment(cible);
   await pauseAleatoire(300, 900);
   return true;
 }
@@ -337,7 +434,7 @@ async function validerPanneau() {
     return false;
   }
   await pauseAleatoire(300, 900);
-  bouton.click();
+  await cliquerVraiment(bouton);
   await pauseAleatoire(400, 1200);
   return true;
 }
@@ -378,7 +475,7 @@ async function choisirCategorie(recherche, categoryId, filArianeAttendu) {
     return false;
   }
 
-  ligne.click();
+  await cliquerVraiment(ligne);
   await pauseAleatoire(300, 900);
   return validerPanneau();
 }
@@ -391,7 +488,7 @@ async function cocher(selecteur) {
     console.warn(`[myflip-vinted] case à cocher introuvable : ${selecteur} n'est jamais apparu`);
     return false;
   }
-  if (!el.checked) el.click();
+  if (!el.checked) await cliquerVraiment(el);
   await pauseAleatoire(400, 1200);
   return true;
 }
@@ -450,6 +547,6 @@ async function cliquerBrouillon() {
     return false;
   }
   await pauseAleatoire(4000, 10_000);
-  bouton.click();
+  await cliquerVraiment(bouton);
   return true;
 }
