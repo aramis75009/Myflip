@@ -14,31 +14,91 @@ Le mode d'emploi complet est dans [`AGENTS.md`](AGENTS.md), section
 | | |
 |---|---|
 | **Agent** | Claude Code (Opus 5) + Aramis |
-| **Branche** | `vinted-champ-prix`, partie de `origin/main` (`a31f369`). **Non poussée. Non fusionnée.** 9 commits. |
-| **Commits** | `9763058` → `b1905b8` |
+| **Branche** | `vinted-champ-prix`, partie de `origin/main` (`a31f369`). **Non poussée. Non fusionnée.** 11 commits. |
+| **Commits** | `9763058` → HEAD (correctifs de code : `9763058`..`b1905b8`) |
 | **Plan** | `docs/superpowers/plans/2026-09-09-champ-prix-et-onglet-cache.md` |
 | **Spec** | `docs/audits/2026-09-09-champ-prix-vinted-diagnostic.md` |
 
-## ⚠️ UNE DÉCISION D'ARAMIS EST EN ATTENTE — LIRE AVANT DE CODER
+# 🎯 L'OBJECTIF DE CE CHANTIER : PASSER DE 6/10 À **9/10 MINIMUM**
 
-Le diagnostic classait les correctifs par coût et disait, mot pour mot :
+**C'est la consigne la plus importante de cette passation, donnée par Aramis le
+09/09/2026. Tout le reste en découle.**
 
-| # 4 | Ouvrir l'onglet **au premier plan** (`active: true`) | **1 mot** |
-| # 5 | Mensonge de visibilité + minuteurs en worker | important. **À n'envisager que si le n° 4 ne suffit pas** |
+L'extension MyFlip doit **ressembler le plus possible à celle du Troc Futé** —
+dans ses mécanismes, jamais dans son code. Leur outil tourne depuis deux ans chez
+des clients payants **sans se faire repérer par Vinted** ; c'est la seule preuve
+de terrain disponible, et Aramis connaît personnellement leur développeur.
 
-**On a construit le n° 5 sans jamais essayer le n° 4.** La décision produit que
-la spec réclamait n'a été ni prise ni soumise — c'est la faute de conduite de
-cette session, relevée par la revue finale.
+**Note actuelle : 6/10.** Le relevé complet, avec le détail de ce qui est aligné
+et de ce qui manque, est dans
+[`docs/audits/2026-09-09-ecart-avec-le-troc-fute.md`](docs/audits/2026-09-09-ecart-avec-le-troc-fute.md).
 
-`background.js` dit toujours `active: false`. Trois options ont été posées à
-Aramis le 09/09, **il n'avait pas répondu à la fin de la session** :
+## Le chemin vers 9/10, chiffré et ordonné
 
-1. Essayer `active: true` d'abord, et retirer la machinerie si ça suffit.
-2. Garder l'arrière-plan et la machinerie telle quelle.
-3. Les deux.
+| Rang | Ce qui manque | Gain | Note atteinte |
+|---|---|---|---|
+| **1** | **Lire la réponse de l'API Vinted** au lieu de deviner | **+2** | **8/10** |
+| **2** | **De vrais événements souris** au lieu de `HTMLElement.click()` | **+1** | **9/10** ✅ |
+| 3 | Oscillateur Web Audio anti-endormissement | +0,5 | 9,5/10 |
+| 4 | Règles sur les en-têtes réseau (rôle non analysé) | +0,5 | 10/10 |
 
-Recommandation formulée : **option 1**. Ne pas coder plus loin sans sa réponse —
-l'option 1 SUPPRIME du code au lieu d'en ajouter.
+**Les rangs 1 et 2 suffisent à atteindre l'objectif.**
+
+**Rang 1 — le manque le plus coûteux du projet.** Ils remplacent
+`XMLHttpRequest` et attendent la réponse de `POST /api/v2/item_upload/drafts` :
+ils savent **ce que Vinted a réellement enregistré**, champ par champ. MyFlip
+déduit le succès d'un changement d'URL et ne sait rien du contenu. **Cette
+interception aurait détecté le prix à 0,00 € au premier essai**, au lieu de
+coûter un mois et deux chantiers. À faire porter par un script du monde de la
+page — le `XMLHttpRequest` du monde isolé n'est pas celui que Vinted utilise.
+
+**Rang 2 — `HTMLElement.click()` n'est pas un clic.** Il n'émet ni
+`pointerdown` ni `mousedown`, donc **ne déplace pas le focus** — ce qui est tout
+le sujet du champ prix. Ils composent la séquence complète.
+
+## ⚠️ Le seul endroit où il NE FAUT PAS s'aligner
+
+Leur mensonge de visibilité bloque `blur` en phase de **capture** sans
+condition. `blur` ne bouillonne pas mais il capture : ce blocage tuerait
+**n'importe quel écouteur `blur` d'élément de la page**. Si Vinted tourne en
+React 16, cela **causerait** le brouillon à `0,00 €` au lieu de le corriger.
+
+Celui de MyFlip ne bloque que les événements dont la **cible** est `window` ou
+`document`. **C'est volontaire. Ne pas « aligner » ce point** — la revue finale
+du 09/09 l'a exigé.
+
+## ⚠️ La note vient d'une lecture PARTIELLE
+
+Ont été lus : `manifest.json`, `content-always-focus.js`, `timer-worker.js`, et
+dans `content-human-actions.js` la fonction du prix plus la table des matières.
+**N'ont pas été analysés** : `background.js` (37 Ko), `content.js`,
+`content-interceptor.js`, `rules/vinted-headers.json` (22 Ko).
+
+**Premier travail pour viser 9/10 sérieusement : finir cette lecture.** Le
+`.xpi` se retélécharge publiquement depuis addons.mozilla.org (`le-troc-futé`).
+**Ne recopier aucune ligne** — consigner des faits sur Vinted, comme les deux
+documents existants.
+
+---
+
+## La décision en attente, à relire à la lumière de l'objectif
+
+Le diagnostic classait « ouvrir l'onglet **au premier plan** » (`active: true`
+dans `background.js`) comme un correctif d'un mot, et la machinerie — mensonge
+de visibilité + minuteurs en worker — comme « à n'envisager que si ce mot ne
+suffit pas ». La machinerie a été construite **sans jamais essayer le mot**, et
+l'arbitrage n'a pas été soumis à Aramis. C'est la faute de conduite de la
+session du 09/09, relevée par la revue finale.
+
+⚠️ **Mais la consigne du 9/10 la tranche en pratique : Le Troc Futé garde
+l'onglet CACHÉ.** Retirer la machinerie ferait *baisser* la note. L'option
+« essayer `active: true` et retirer la machinerie » est donc écartée, sauf
+contre-ordre explicite d'Aramis.
+
+`background.js` reste sur `active: false`. Ce qui subsiste, et qui est bon
+marché : la mesure `avaitLeFocus` journalisée par `taperPrix()` dira au premier
+passage si l'onglet caché était bien la cause racine. Si oui, `active: true`
+reste un **repli de secours** — pas la voie principale.
 
 ## Goal — l'objectif
 
@@ -150,15 +210,29 @@ $ cd extension-vinted && npx web-ext lint --self-hosted
 
 ## Next — la prochaine action
 
-1. **Obtenir la réponse d'Aramis** sur l'onglet au premier plan.
-2. **Le premier passage réel**, qu'il fera lui-même : compte Vinted **jetable**,
-   depuis son **PC Windows**, contre `myflip-app.vercel.app`. Il refuse
-   d'essayer depuis le Mac — il n'y a accès qu'à son compte pro (700 avis).
-   Charger l'extension par `about:debugging` → Charger un module temporaire.
-   **Regarder le prix du brouillon créé**, et la console pour la ligne
-   `le champ avait le focus = …`.
-3. Ensuite : la colonne `prixAnnonce` (`TODOS.md`), puis la signature de
+**L'objectif en tête de cette passation commande l'ordre ci-dessous.**
+
+1. **Finir la lecture de l'extension concurrente** — `background.js` (37 Ko),
+   `content.js`, `content-interceptor.js`, `rules/vinted-headers.json` (22 Ko).
+   Sans ça, la note de 6/10 reste une estimation. Télécharger le `.xpi` depuis
+   addons.mozilla.org, lire, supprimer, **ne rien recopier**.
+2. **Rang 1 — lire la réponse de l'API Vinted** (+2 → 8/10). Le manque le plus
+   coûteux du projet, et celui qui rendra la vérification du prix automatique
+   au lieu de dépendre d'Aramis relisant un brouillon à la main.
+3. **Rang 2 — de vrais événements souris** (+1 → **9/10, objectif atteint**).
+4. **Le premier passage réel**, qu'Aramis fera lui-même : compte Vinted
+   **jetable**, depuis son **PC Windows**, contre `myflip-app.vercel.app`. Il
+   refuse d'essayer depuis le Mac — il n'y a accès qu'à son compte pro
+   (700 avis). Charger l'extension par `about:debugging` → Charger un module
+   temporaire. **Regarder le prix du brouillon créé**, et la console pour la
+   ligne `le champ avait le focus = …`.
+5. Ensuite : la colonne `prixAnnonce` (`TODOS.md`), puis la signature de
    l'extension en « unlisted » pour une installation permanente.
+
+⚠️ **L'ordre entre 3 et 4 se discute.** Faire l'essai plus tôt donnerait une
+mesure réelle plutôt qu'une hypothèse de plus — mais chaque session d'essai
+coûte un compte jetable à Aramis, et le rang 1 est précisément ce qui rendrait
+cet essai concluant du premier coup. À trancher avec lui.
 
 ⚠️ **Cette passation n'est pas passée par une relecture indépendante** :
 écrite par le contrôleur en fin de session.
