@@ -96,6 +96,23 @@ function champsVinted(f: ArticleEnCours): ChampsVinted | null {
   };
 }
 
+/**
+ * Le prix, au format que le champ Vinted attend réellement.
+ *
+ * Le champ est en locale française : il veut « 24,5 », pas « 24.5 ». Un point
+ * reçu là où il attend une virgule fait partie des causes retenues pour le
+ * brouillon enregistré à `0,00 €` du 2026-09-08 (cf.
+ * docs/audits/2026-09-09-champ-prix-vinted-diagnostic.md, fait n° 2).
+ *
+ * `replace` sans drapeau global : il ne remplace que la PREMIÈRE occurrence.
+ * C'est voulu. « 1.234.5 » n'est pas un prix que nous savons lire ; en faire
+ * « 1,234,5 » fabriquerait un nombre plausible et faux. Mieux vaut laisser
+ * passer une valeur que le champ refusera visiblement.
+ */
+export function prixPourVinted(brut: string): string {
+  return String(brut ?? "").trim().replace(".", ",");
+}
+
 /** Charge utile du `CustomEvent("myflip:publier-vinted")` consommé par l'extension. */
 export function detailPublicationVinted(
   f: ArticleEnCours,
@@ -106,7 +123,7 @@ export function detailPublicationVinted(
     articleId: f.article!.id,
     titre: f.annonce.titre,
     description: f.annonce.description,
-    prix: f.qcm.prix,
+    prix: prixPourVinted(f.qcm.prix),
     photos: f.photos.map((p) => p.blob),
     delai,
     ...(vinted ? { vinted } : {}),
