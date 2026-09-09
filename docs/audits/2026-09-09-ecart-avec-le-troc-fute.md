@@ -19,6 +19,45 @@ réserve.
 
 ---
 
+## Comment relire leur extension — marche à suivre exacte
+
+**Aramis n'a rien à fournir.** Le `.xpi` est un téléchargement public ; le
+récupérer prend cinq secondes. Trois pièges valent d'être écrits, ils coûtent
+chacun un aller-retour :
+
+1. **Le slug porte un accent** : `le-troc-futé`, à encoder `le-troc-fut%C3%A9`
+   dans l'URL de l'API.
+2. **Sans en-tête `User-Agent`, addons.mozilla.org répond 503.**
+3. Le `.xpi` est une **archive ZIP** ordinaire.
+
+```bash
+DIR=$(mktemp -d) && cd "$DIR"
+curl -s -H "User-Agent: Mozilla/5.0" \
+  "https://addons.mozilla.org/api/v5/addons/addon/le-troc-fut%C3%A9/?lang=fr" \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["current_version"]["file"]["url"])' \
+  | xargs -I{} curl -sL -H "User-Agent: Mozilla/5.0" {} -o troc.xpi
+unzip -q troc.xpi -d ext && ls ext
+```
+
+**Inventaire relevé le 09/09/2026 (version 2.0.9), pour savoir quoi ouvrir :**
+
+| Fichier | Taille | Lu le 09/09 ? |
+|---|---|---|
+| `content-human-actions.js` | 59 Ko | partiellement — prix + table des matières |
+| `background.js` | 37 Ko | **non** |
+| `rules/vinted-headers.json` | 22 Ko | **non** |
+| `content.js` | 8,3 Ko | **non** |
+| `manifest.json` | 3,3 Ko | oui |
+| `content-interceptor.js` | 2,9 Ko | **non** — c'est là que vit l'interception XHR (rang 1) |
+| `content-always-focus.js` | 1,6 Ko | oui |
+| `timer-worker.js` | 1,2 Ko | oui |
+
+⚠️ **Supprimer le dossier après lecture** (`rm -rf "$DIR"`), et ne jamais
+committer leur code dans ce dépôt : le lire est légitime, le redistribuer ne
+l'est pas. On en ressort des **faits sur Vinted**, comme ce document.
+
+---
+
 ## 🎯 OBJECTIF FIXÉ PAR ARAMIS : **9 / 10 MINIMUM**
 
 Consigne du 09/09/2026 : se rapprocher le plus possible de leur fonctionnement

@@ -74,10 +74,14 @@ dans `content-human-actions.js` la fonction du prix plus la table des matières.
 **N'ont pas été analysés** : `background.js` (37 Ko), `content.js`,
 `content-interceptor.js`, `rules/vinted-headers.json` (22 Ko).
 
-**Premier travail pour viser 9/10 sérieusement : finir cette lecture.** Le
-`.xpi` se retélécharge publiquement depuis addons.mozilla.org (`le-troc-futé`).
-**Ne recopier aucune ligne** — consigner des faits sur Vinted, comme les deux
-documents existants.
+**Premier travail pour viser 9/10 sérieusement : finir cette lecture.**
+Aramis n'a rien à fournir : le `.xpi` est un téléchargement public. **La marche
+à suivre exacte — commande, pièges, et inventaire de leurs 8 fichiers avec ce
+qui a été lu ou non — est en tête de**
+`docs/audits/2026-09-09-ecart-avec-le-troc-fute.md`.
+
+**Ne recopier aucune ligne**, et supprimer le dossier après lecture : le lire est
+légitime, le redistribuer ne l'est pas.
 
 ---
 
