@@ -11,6 +11,21 @@
 // worker qu'une fois l'heure venue. Ce script n'a donc plus de compte à
 // rebours — quand il s'exécute, c'est qu'il est l'heure.
 
+// Injecté dans le monde de la PAGE, le plus tôt possible : ce script répond
+// « visible » aux questions que Vinted se pose sur l'onglet, qui est ouvert
+// en arrière-plan. Depuis le monde isolé, redéfinir `document.hidden`
+// n'aurait aucun effet sur le React de Vinted — cf. l'en-tête du fichier.
+(function injecterVisibilite() {
+  try {
+    const script = document.createElement("script");
+    script.src = browser.runtime.getURL("page-visible.js");
+    (document.head || document.documentElement).appendChild(script);
+    script.remove();
+  } catch (err) {
+    console.warn("[myflip-vinted] injection de page-visible.js impossible", err);
+  }
+})();
+
 const ORDRE_ATTENDU_MS = 10_000;
 
 // Dernière étape annoncée au badge. C'est la seule chose qui dise QUEL champ a
