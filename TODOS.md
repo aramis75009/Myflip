@@ -99,6 +99,11 @@ un vendeur Pro individuel (détail dans le spec). Piste 1 (copier-tout) reste
 non tentée et a été auto-approuvée comme ajout quasi gratuit au même spec —
 voir la Decision Audit Trail du fichier.
 
+**Mise à jour du 08/09/2026.** Piste 2 est faite : l'extension remplit
+désormais tout le formulaire Vinted dans l'ordre imposé et va jusqu'au clic
+« Sauvegarder le brouillon » (jamais « Ajouter »). Détail des décisions :
+`docs/superpowers/specs/2026-09-07-vinted-remplissage-auto-design.md`.
+
 ---
 
 ## Écarté — ne pas y revenir
@@ -229,9 +234,10 @@ de file/message générique pour ne pas fermer cette porte, sans l'implémenter.
 ## P3 · Panneau de file d'attente et notification dans l'extension Vinted
 
 **Quoi.** Deux améliorations UI de confort sur l'extension : un mini-panneau
-listant les onglets Vinted en attente de remplissage (au-delà du compte à
-rebours par onglet), et une notification sonore/visuelle quand un délai se
-termine.
+listant les articles encore en file (le délai s'écoule avant l'ouverture de
+chaque onglet, pas dans un onglet déjà ouvert — rien n'en montre la
+progression aujourd'hui), et une notification sonore/visuelle quand un délai
+se termine.
 
 **Pourquoi.** Candidats d'expansion (revue CEO du 18/08/2026, scan de
 délice) — utiles surtout dans les sessions à plusieurs articles (5-10 clics
@@ -240,3 +246,75 @@ délice) — utiles surtout dans les sessions à plusieurs articles (5-10 clics
 **Effort.** Humain ~2-3 h / Claude Code ~30 min chacun.
 
 **Effort.** Humain ~1 j / Claude Code ~30 min.
+
+---
+
+- [ ] Vinted : première publication réelle en brouillon — vérifier le prix du
+      brouillon créé (cf. extension-vinted/README.md).
+- [ ] Vinted : décider si l'on passe un jour au clic « Ajouter » (publication
+      réelle). Hors périmètre tant que le brouillon n'a pas tourné plusieurs
+
+
+## P2 · Suites du chantier « prix dans le prompt, délai en pop-up » — livré le 08/09/2026
+
+Plan : `docs/superpowers/plans/2026-09-08-prix-prompt-delai-popup.md`.
+Deux choses ont été différées par le cadrage, notées ici pour ne pas les perdre :
+
+- [ ] **La matière, la taille et la catégorie Vinted dans le prompt.** Décision
+      du 08/09 : le prix seul pour l'instant. Le reste continue de venir de
+      `lib/vintedMapping.ts`. La catégorie pose un problème propre — la rendre
+      éditable obligerait à connaître les identifiants Vinted par cœur, donc
+      elle demanderait une liste déroulante alimentée par un relevé.
+- [ ] **Les délais en secondes.** Écartés explicitement : minutes entières.
+      À rouvrir seulement si un essai réel montre que la minute est trop grossière.
+
+## P2 · Voyant « connecté à Vinted » — relevé le 08/09/2026
+
+**Quoi.** Un écran qui dit, avant de lancer quoi que ce soit : extension
+installée ✓, session Vinted détectée ✓. Sa place naturelle est `/compte`, dans
+la section que ce chantier vient d'y vider.
+
+**Pourquoi.** Le concurrent Le Troc Futé ouvre son parcours par une page
+« Connexion Vinted » qui affiche « Connexion Vinted détectée ». Ce n'est PAS
+une autorisation façon OAuth — Vinted n'en propose aucune à un tiers — et sa
+capture d'écran le dit elle-même : le service repose sur **une extension
+Firefox** (« Vérifiez que l'extension dispose des autorisations nécessaires »,
+« Version actuellement installée : 2.0.9 »), plus une session Vinted ouverte
+dans le navigateur. C'est exactement la mécanique de MyFlip.
+
+**Donc rien à construire côté connexion.** Ce qui manque n'est pas une
+capacité, c'est un **retour visible** : aujourd'hui on lance et on espère.
+C'est le même défaut que les pannes muettes corrigées par ce chantier.
+
+⚠️ Aramis a écarté le 08/09/2026 l'hypothèse d'un fonctionnement navigateur
+fermé chez le concurrent : il n'y a pas d'écart de capacité entre les deux
+produits, seulement d'affichage. Ne pas rouvrir ce point.
+
+**Ce que ça demande.** `extensionPresente()` existe déjà
+(`app/mise-en-vente/_publierVinted.ts`) pour le premier voyant. Le second
+— « session Vinted détectée » — demande que l'extension regarde vinted.fr, ce
+qu'aucune permission actuelle ne couvre : `host_permissions` s'arrête à
+`https://www.vinted.fr/items/new*`.
+
+## P3 · Défauts mineurs connus, laissés en l'état après la revue finale
+
+Aucun ne bloque la fusion ; tous sont documentés avec leur raison.
+
+- [ ] `content-vinted.js` — la frontière entre `echec-selecteurs` et
+      `succes-partiel` n'est pas strictement « rien n'a été commité » : un id de
+      radio introuvable APRÈS l'ouverture d'un panneau est classé
+      `succes-partiel`. Les deux mènent au même traitement côté worker, donc
+      l'écart est cosmétique.
+- [ ] `file.js` — avec plusieurs entrées `echouee` ou `en-cours` simultanées,
+      `.find()` prend la première du tableau et non la plus ancienne par `ts`.
+      L'invariant « un seul article en vol » rend le cas improbable.
+- [ ] `background.js` — si le worker meurt entre `browser.tabs.create()` et
+      l'écriture du `tabId`, un onglet reste non tracé et la reprise au réveil
+      ne le rattrape pas. Fenêtre de quelques millisecondes.
+- [ ] `_publierVinted.test.ts` — `toEqual` ne distingue pas une clé `vinted`
+      absente d'une clé à `undefined`. Il faudrait `toStrictEqual`.
+- [ ] L'éligibilité d'une fiche est définie à trois endroits (`page.tsx` avec
+      quatre conditions, `ExportAnnonces.tsx` avec trois, puis
+      `couleurManquante`). Inoffensif tant que `generation.phase === "ok"`
+      implique `article !== null`.
+      fois sans surprise.

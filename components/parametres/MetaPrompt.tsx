@@ -58,6 +58,9 @@ export default function MetaPrompt() {
         marque: marque.trim() || null,
         categorie: categorie.trim() || null,
         contenu,
+        // Ce générateur ne propose pas de champ prix : le modèle créé n'en
+        // porte pas, quitte à ce qu'Aramis le renseigne ensuite depuis /parametres.
+        prixReference: null,
         estDefaut: false,
       });
       toast.success("Modèle enregistré.");

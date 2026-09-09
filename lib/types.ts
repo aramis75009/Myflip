@@ -44,6 +44,8 @@ export type PromptTemplateDTO = {
   categorie: string | null;
   contenu: string;
   estDefaut: boolean;
+  /** Prix pré-rempli dans le QCM de mise en vente. `null` = ce prompt n'en porte pas. */
+  prixReference: number | null;
   createdAt: string; // ISO
   updatedAt: string; // ISO
 };

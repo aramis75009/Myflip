@@ -222,6 +222,14 @@ describe("pré-remplissage du QCM depuis l'article", () => {
   });
 });
 
+describe("champ prix du QCM", () => {
+  it("met à jour le champ prix comme n'importe quel autre champ", () => {
+    let e = etatInitial("f0");
+    e = reducerMev(e, { type: "qcm", id: "f0", champ: "prix", valeur: "22" });
+    expect(e.fiches[0].qcm.prix).toBe("22");
+  });
+});
+
 describe("prompt par article", () => {
   it("chaque fiche porte son propre promptId", () => {
     let e = etatA(2);
@@ -279,5 +287,22 @@ describe("sélecteurs", () => {
     };
     const sans = { ...ficheVide("b"), sku: "LAC3", article: article("LAC3") };
     expect(dejaAnnonces([avec, sans])).toEqual(["PRL1"]);
+  });
+});
+
+describe("qcm/couleurs", () => {
+  it("accepte un tableau d'ids de couleur", () => {
+    const depart = etatInitial("f1");
+    const apres = reducerMev(depart, {
+      type: "qcm",
+      id: "f1",
+      champ: "couleurs",
+      valeur: [1, 3],
+    });
+    expect(apres.fiches[0].qcm.couleurs).toEqual([1, 3]);
+  });
+
+  it("part d'un tableau vide", () => {
+    expect(etatInitial("f1").fiches[0].qcm.couleurs).toEqual([]);
   });
 });

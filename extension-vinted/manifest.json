@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "MyFlip → Vinted",
+  "version": "1.1.0",
+  "description": "Pré-remplit un brouillon Vinted depuis une annonce générée dans MyFlip.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "myflip-vinted@aramis.local",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": { "required": ["none"] }
+    }
+  },
+  "permissions": ["tabs", "alarms"],
+  "host_permissions": [
+    "https://myflip-app.vercel.app/*",
+    "http://localhost:3000/*",
+    "https://www.vinted.fr/items/new*"
+  ],
+  "background": {
+    "scripts": ["background.js"],
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://myflip-app.vercel.app/*",
+        "http://localhost:3000/*"
+      ],
+      "js": ["content-myflip.js"]
+    },
+    {
+      "matches": ["https://www.vinted.fr/items/new*"],
+      "js": ["formulaire.js", "content-vinted.js"]
+    }
+  ]
+}

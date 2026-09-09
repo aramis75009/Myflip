@@ -9,6 +9,7 @@
 
 import { useState } from "react";
 import { AlertTriangle, ArrowRight, Check, Copy, Download } from "lucide-react";
+import { pickVintedMapping } from "@/lib/vintedMapping";
 import type { ArticleEnCours } from "../_reducer";
 import { cardCls, labelCls } from "../_ui";
 
@@ -18,6 +19,8 @@ type Props = {
   enregistrementEnCours: boolean;
   onEnregistrer: (id: string, statut: string) => void;
   onEnregistrerTout: (statut: string) => void;
+  onPublierVinted: (id: string) => void;
+  onPublierVintedTout: () => void;
   onEditerAnnonce: (
     id: string,
     champ: "titre" | "description" | "motsCles",
@@ -32,6 +35,8 @@ export default function ExportAnnonces({
   enregistrementEnCours,
   onEnregistrer,
   onEnregistrerTout,
+  onPublierVinted,
+  onPublierVintedTout,
   onEditerAnnonce,
   onTelecharger,
 }: Props) {
@@ -66,6 +71,19 @@ export default function ExportAnnonces({
           >
             En vente
           </button>
+          {generees.some(
+            (f) =>
+              pickVintedMapping(f.qcm.marque, f.qcm.categorie) !== null &&
+              f.qcm.couleurs.length > 0,
+          ) && (
+            <button
+              disabled={enregistrementEnCours}
+              onClick={onPublierVintedTout}
+              className="inline-flex min-h-[40px] items-center rounded-xl bg-[#09B1BA] px-4 text-[13px] font-bold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50"
+            >
+              Tout mettre en brouillon sur Vinted
+            </button>
+          )}
           {enregistrementEnCours && (
             <span className="font-mono text-[11px] text-[var(--faint)]">
               enregistrement en série…
@@ -78,6 +96,8 @@ export default function ExportAnnonces({
         const sku = f.article?.sku ?? f.sku;
         const annonceComplete = `${f.annonce.description}\n\n${f.annonce.motsCles}\n\n${sku}`;
         const doublon = doublons.has(f.sku.trim().toUpperCase());
+        const mapping = pickVintedMapping(f.qcm.marque, f.qcm.categorie);
+        const couleurManquante = mapping !== null && f.qcm.couleurs.length === 0;
         return (
           <div key={f.id} className={`${cardCls} p-5 md:p-6`}>
             <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -201,20 +221,40 @@ export default function ExportAnnonces({
                   </div>
                 </div>
 
-                <a
-                  href="https://www.vinted.fr/items/new"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2.5 rounded-[14px] bg-[#09B1BA] px-4 py-3 transition-transform hover:-translate-y-0.5"
+                {/* `<button>`, pas `<a target="_blank">` : un lien ouvrirait
+                    l'onglet Vinted AU CLIC, avant que le PATCH asynchrone ait
+                    résolu. Un échec produirait quand même un onglet, orphelin
+                    côté extension — cf. _publierVinted.ts. */}
+                <button
+                  disabled={enregistrementEnCours || couleurManquante}
+                  onClick={() => onPublierVinted(f.id)}
+                  className="flex w-full items-center gap-2.5 rounded-[14px] bg-[#09B1BA] px-4 py-3 transition-transform hover:-translate-y-0.5 disabled:opacity-50"
                 >
                   <span className="flex h-8 w-8 flex-none items-center justify-center rounded-[9px] bg-white/20 font-grotesk text-[15px] font-extrabold text-white">
                     V
                   </span>
-                  <span className="text-[13px] font-bold text-white">
-                    Publier sur Vinted
+                  <span className="text-left text-[13.5px] font-bold leading-tight text-white">
+                    {couleurManquante ? "Choisis une couleur" : "Publier sur Vinted"}
                   </span>
                   <ArrowRight className="ml-auto h-4 w-4 flex-none text-white" strokeWidth={2.3} />
-                </a>
+                </button>
+
+                <button
+                  onClick={() =>
+                    copier(
+                      `${f.id}-tout`,
+                      `${f.annonce.titre}\n\n${f.annonce.description}\n\n${f.annonce.motsCles}`
+                    )
+                  }
+                  className="inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-surface text-[13px] font-semibold text-[var(--ink2)] transition-colors hover:border-[var(--border-strong)]"
+                >
+                  {copie === `${f.id}-tout` ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                  Copier tout
+                </button>
               </div>
             </div>
           </div>

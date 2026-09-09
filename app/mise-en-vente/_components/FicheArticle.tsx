@@ -10,7 +10,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FileText, Plus, RotateCcw, RotateCw, Upload, X, ZoomIn } from "lucide-react";
 import { ETATS, MATIERES_SUGGESTIONS, TAILLES } from "@/lib/listingOptions";
+import { pickPrompt } from "@/lib/promptSelect";
 import type { PromptTemplateDTO } from "@/lib/types";
+import { COULEURS_VINTED } from "@/lib/vintedReferentiels";
+import { pickVintedMapping } from "@/lib/vintedMapping";
 import { fichiersImages } from "../_fichiers";
 import {
   MAX_PHOTOS,
@@ -32,6 +35,7 @@ const MARQUES_CHIPS = [
   "Adidas",
   "Dickies",
   "Helly Hansen",
+  "Nike",
 ];
 
 const MARQUES_LIST = [
@@ -42,6 +46,7 @@ const MARQUES_LIST = [
 
 const CATEGORIES_LIST = [
   "Polo", "Pull", "Chemise", "Sweat", "Veste", "Short", "Jogging", "Jean", "Bermuda",
+  "Sac à dos",
 ];
 
 /**
@@ -64,7 +69,7 @@ type Props = {
   onRotation: (photoId: string, delta: number) => void;
   onSelection: (photoId: string) => void;
   onZoom: (photoId: string) => void;
-  onQcm: (champ: keyof Qcm, valeur: string | boolean) => void;
+  onQcm: (champ: keyof Qcm, valeur: string | boolean | number[]) => void;
   onPrompt: (promptId: string | null) => void;
   montrerChoixPrompt: boolean;
   onBasculerChoixPrompt: () => void;
@@ -118,6 +123,62 @@ export default function FicheArticle({
     return () => window.removeEventListener("paste", onPaste);
   }, [active]);
 
+  // Le mapping Vinted résolu pour CETTE fiche. Sa présence arme le pilote
+  // automatique de l'extension et conditionne l'affichage de la carte Vinted.
+  const mappingVinted = useMemo(
+    () => pickVintedMapping(qcm.marque, qcm.categorie),
+    [qcm.marque, qcm.categorie],
+  );
+
+  // Le prompt retenu pour CETTE fiche. Se résout comme côté serveur
+  // (app/api/listings/generate/route.ts) : le choix manuel s'il existe, sinon
+  // la cascade marque + catégorie de pickPrompt(). C'est ce prompt qui porte
+  // désormais le prix de référence — la table PrixReference a disparu, et avec
+  // elle la seconde cascade qui la lisait, calque littéral de celle-ci.
+  const promptRetenu = useMemo(
+    () =>
+      prompts.find((p) => p.id === fiche.promptId) ??
+      pickPrompt(prompts, qcm.marque || null, qcm.categorie || null),
+    [prompts, fiche.promptId, qcm.marque, qcm.categorie],
+  );
+
+  // Prix suggéré.
+  //
+  // Ce composant n'existe QUE quand `fiche.article` est résolu (page.tsx ne le
+  // monte pas avant) : cet effet ne peut donc jamais tourner sur une fiche pas
+  // encore rattachée à un article, et ne verrouille jamais un prix par défaut
+  // avant que marque/catégorie soient réellement connues.
+  //
+  // Invariant INCHANGÉ : ne JAMAIS écraser un `qcm.prix` non vide, qu'il vienne
+  // d'une saisie manuelle ou d'un pré-remplissage précédent — une fois posé, le
+  // champ devient la source de vérité et cesse d'être suivi.
+  const onQcmRef = useRef(onQcm);
+  onQcmRef.current = onQcm;
+  useEffect(() => {
+    if (qcm.prix !== "") return;
+    const prix = promptRetenu?.prixReference;
+    if (prix == null) return;
+    onQcmRef.current("prix", String(prix));
+  }, [promptRetenu, qcm.prix]);
+
+  // Une catégorie Vinted sans champ taille (les sacs, par exemple) : la carte
+  // Taille est masquée, mais `fichePrete()` l'exige toujours. On pose
+  // « Unique » pour que la fiche reste générable sans relâcher une garde qui
+  // protège toutes les autres catégories.
+  useEffect(() => {
+    if (!mappingVinted || mappingVinted.aUneTaille) return;
+    if (qcm.taille !== "Unique") onQcmRef.current("taille", "Unique");
+  }, [mappingVinted, qcm.taille]);
+
+  // Matières par défaut du mapping — posées seulement si RIEN n'a été choisi.
+  // Ne jamais écraser une saisie : même invariant que le prix suggéré.
+  useEffect(() => {
+    if (!mappingVinted) return;
+    if (qcm.matiere !== "" || qcm.matiere2 !== "") return;
+    onQcmRef.current("matiere", mappingVinted.materiauxDefaut[0] ?? "");
+    onQcmRef.current("matiere2", mappingVinted.materiauxDefaut[1] ?? "");
+  }, [mappingVinted, qcm.matiere, qcm.matiere2]);
+
   // Glisser-déposer. Sans `preventDefault` sur `dragover`, le navigateur refuse
   // le dépôt et se contente d'ouvrir le fichier à la place de la page — il
   // n'existe pas de « zone de dépôt » par défaut.
@@ -170,6 +231,22 @@ export default function FicheArticle({
         : [...matieres, m];
     onQcm("matiere", next[0] ?? "");
     onQcm("matiere2", next[1] ?? "");
+  }
+
+  /**
+   * Vinted plafonne la couleur à 2 — et au-delà de la limite il ne refuse
+   * PAS le clic : il évince silencieusement la plus ancienne sélection
+   * (FIFO, cf. docs/audits/…-nike-backpack.md §5). On refuse ici plutôt que
+   * de laisser Vinted décider à notre place de quelle couleur perdre.
+   */
+  function basculerCouleur(id: number) {
+    const actuelles = qcm.couleurs;
+    if (actuelles.includes(id)) {
+      onQcm("couleurs", actuelles.filter((x) => x !== id));
+      return;
+    }
+    if (actuelles.length >= 2) return;
+    onQcm("couleurs", [...actuelles, id]);
   }
 
   return (
@@ -382,18 +459,22 @@ export default function FicheArticle({
         </div>
 
         <div className={`${cardCls} p-5 md:px-6`}>
-          <ChampRequis label="Taille" ok={!!qcm.taille}>
-            {TAILLES.map((t) => (
-              <Chip
-                key={t}
-                value={t}
-                active={qcm.taille === t}
-                onClick={() => onQcm("taille", qcm.taille === t ? "" : t)}
-              />
-            ))}
-          </ChampRequis>
+          {(!mappingVinted || mappingVinted.aUneTaille) && (
+            <>
+              <ChampRequis label="Taille" ok={!!qcm.taille}>
+                {TAILLES.map((t) => (
+                  <Chip
+                    key={t}
+                    value={t}
+                    active={qcm.taille === t}
+                    onClick={() => onQcm("taille", qcm.taille === t ? "" : t)}
+                  />
+                ))}
+              </ChampRequis>
 
-          <div className="my-4 h-px bg-[var(--bg)]" />
+              <div className="my-4 h-px bg-[var(--bg)]" />
+            </>
+          )}
 
           <ChampRequis label="État" ok={!!qcm.etat}>
             {ETATS.map((s) => (
@@ -465,6 +546,88 @@ export default function FicheArticle({
               ))}
             </select>
           )}
+        </div>
+
+        {mappingVinted && (
+          <div className={`${cardCls} p-5 md:px-6`}>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className={labelCls}>Vinted — pilote automatique</span>
+              <span className="rounded-full bg-[var(--pos-soft)] px-2 py-0.5 text-[11px] font-bold text-[var(--pos)]">
+                armé
+              </span>
+            </div>
+
+            {/* Ce que l'extension enverra sans rien demander. Affiché parce
+                qu'une valeur figée invisible est une valeur qu'on découvre
+                sur l'annonce publiée. */}
+            <p className="mt-2.5 font-mono text-[12px] text-[var(--faint-2)]">
+              {mappingVinted.rechercheCategorie} · {mappingVinted.filAriane} ·{" "}
+              {mappingVinted.marque} · colis Petit · unisexe
+            </p>
+
+            <div className="mt-4">
+              <div className="flex items-center gap-2.5">
+                <label className="text-[12.5px] font-bold tracking-[0.03em] text-[var(--ink)]">
+                  Couleur
+                </label>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                    qcm.couleurs.length > 0
+                      ? "bg-[var(--pos-soft)] text-[var(--pos)]"
+                      : "bg-[var(--neg-soft)] text-[var(--neg)]"
+                  }`}
+                >
+                  {qcm.couleurs.length > 0 ? `${qcm.couleurs.length} / 2` : "requis"}
+                </span>
+              </div>
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                {COULEURS_VINTED.map((c) => {
+                  const active = qcm.couleurs.includes(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => basculerCouleur(c.id)}
+                      aria-pressed={active}
+                      className={`inline-flex min-h-[44px] items-center gap-2 rounded-xl border-[1.5px] px-3 text-[13px] font-semibold transition-all ${
+                        active
+                          ? "border-[var(--acc)] bg-[var(--acc)] text-[var(--acc-ink)] shadow-[var(--shadow)]"
+                          : "border-[var(--border)] bg-surface text-[var(--ink2)] hover:border-[var(--border-strong)]"
+                      }`}
+                    >
+                      <span
+                        aria-hidden
+                        className="h-3.5 w-3.5 flex-none rounded-full border border-[var(--border-strong)]"
+                        style={
+                          c.hex
+                            ? { background: c.hex }
+                            : {
+                                background:
+                                  "conic-gradient(#e11,#fb0,#2b2,#09c,#71d,#e11)",
+                              }
+                        }
+                      />
+                      {c.libelle}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className={`${cardCls} p-5 md:px-6`}>
+          <label className={labelCls}>Prix suggéré</label>
+          <input
+            type="number"
+            min={0}
+            step={0.5}
+            inputMode="decimal"
+            value={qcm.prix}
+            onChange={(e) => onQcm("prix", e.target.value)}
+            placeholder="0,00"
+            className={`${inputCls} mt-2 font-mono`}
+          />
         </div>
       </div>
     </div>

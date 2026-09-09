@@ -17,6 +17,7 @@ import { ArrowLeft, ArrowRight, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { useGenerateListing, usePrompts, useUpdateArticle } from "@/lib/hooks";
 import { pickPrompt } from "@/lib/promptSelect";
+import { pickVintedMapping } from "@/lib/vintedMapping";
 import {
   blobToBase64,
   compressForApi,
@@ -26,19 +27,31 @@ import {
 } from "@/lib/imageProcessing";
 import type { ArticleDTO } from "@/lib/types";
 import { Eyebrow } from "@/components/console";
+import DialogueDelaiVinted from "./_components/DialogueDelaiVinted";
 import EtapeSku from "./_components/EtapeSku";
 import ExportAnnonces from "./_components/ExportAnnonces";
 import FicheArticle from "./_components/FicheArticle";
 import FileGeneration from "./_components/FileGeneration";
 import RailArticles from "./_components/RailArticles";
 import { descripteurBarre } from "./_barreAction";
+import {
+  DELAI_PAR_DEFAUT,
+  ecrireDelai,
+  lireDelai,
+  type DelaiVinted,
+} from "./_delaiVinted";
 import { ecrire, effacer, lire } from "./_persistance";
+import {
+  extensionPresente,
+  publierVinted as orchestrerPublicationVinted,
+} from "./_publierVinted";
 import {
   etatInitial,
   fichePrete,
   MAX_PHOTOS,
   reducerMev,
   skuEnDoublon,
+  type ArticleEnCours,
   type Photo,
 } from "./_reducer";
 import { btnGhost, cardCls } from "./_ui";
@@ -79,6 +92,11 @@ export default function MiseEnVentePage() {
   const [saveEnCours, setSaveEnCours] = useState(false);
   const [zoom, setZoom] = useState<{ ficheId: string; photoId: string } | null>(null);
   const [choixPrompt, setChoixPrompt] = useState(false);
+  // Ce que le pop-up de délai est en train de demander, ou null s'il est fermé.
+  const [demandeDelai, setDemandeDelai] = useState<
+    { cible: "tout" } | { cible: "fiche"; id: string } | null
+  >(null);
+  const [delaiInitial, setDelaiInitial] = useState<DelaiVinted>(DELAI_PAR_DEFAUT);
 
   const { data: prompts = [] } = usePrompts();
   const generate = useGenerateListing();
@@ -346,8 +364,15 @@ export default function MiseEnVentePage() {
   // deux enregistrements qui se chevauchent, et l'échec du premier efface
   // l'update optimiste du second. Sérialiser ici rend l'instantané correct,
   // sans toucher à un hook partagé par /stock et /a-comptabiliser.
-  async function enregistrer(ids: string[], statut: string) {
+  // Renvoie `true` si TOUS les ids demandés ont été enregistrés avec succès.
+  // Les appelants existants (`onEnregistrer`, `onEnregistrerTout`) ignorent
+  // cette valeur via `void enregistrer(...)` — le comportement observable
+  // pour eux ne change pas. `publierVinted` l'utilise, lui, pour décider si
+  // l'onglet Vinted doit s'ouvrir : ne JAMAIS retirer cette valeur de retour
+  // sans vérifier ce que ça casserait côté extension (cf. _publierVinted.ts).
+  async function enregistrer(ids: string[], statut: string): Promise<boolean> {
     setSaveEnCours(true);
+    const reussites = new Set<string>();
     for (const id of ids) {
       const f = etatRef.current.fiches.find((x) => x.id === id);
       if (!f?.article) continue;
@@ -358,6 +383,7 @@ export default function MiseEnVentePage() {
             titreAnnonce: f.annonce.titre,
             descriptionAnnonce: f.annonce.description,
             motsClesAnnonce: f.annonce.motsCles,
+            prixVente: f.qcm.prix ? Number(f.qcm.prix) : undefined,
             statut,
           },
           // `statut` déclenche quatre invalidations par patch : à cinq
@@ -366,6 +392,7 @@ export default function MiseEnVentePage() {
           differerInvalidation: true,
         });
         dispatch({ type: "enregistre", id, statut });
+        reussites.add(id);
       } catch (err) {
         dispatch({
           type: "enregistrement/echec",
@@ -381,6 +408,93 @@ export default function MiseEnVentePage() {
       queryClient.invalidateQueries({ queryKey: [cle] });
     }
     setSaveEnCours(false);
+    return ids.every((id) => reussites.has(id));
+  }
+
+  // ── Publier sur Vinted ──────────────────────────────────────────────────
+  // Le PATCH avant tout, l'événement ensuite — et seulement si le PATCH a
+  // réussi. L'orchestration (garde succès/échec) est une fonction PURE dans
+  // _publierVinted.ts, testée sans DOM ; ici on ne branche que le vrai effet
+  // de bord (événement DOM). C'est l'extension qui ouvre l'onglet Vinted en
+  // réaction à l'événement — plus la page.
+  async function publierVinted(f: ArticleEnCours, delai: DelaiVinted) {
+    const ok = await orchestrerPublicationVinted(
+      f,
+      delai,
+      (id, statut) => enregistrer([id], statut),
+      (detail) => window.dispatchEvent(new CustomEvent("myflip:publier-vinted", { detail })),
+    );
+    // Sans extension, personne n'ouvrira l'onglet : on le fait, comme avant.
+    // Le popup peut être bloqué (on sort d'un await) — c'est le prix du repli,
+    // et il ne concerne que le cas « extension non installée ».
+    if (ok && !extensionPresente()) {
+      window.open("https://www.vinted.fr/items/new", "_blank", "noopener,noreferrer");
+    }
+    return ok;
+  }
+
+  // Toutes les fiches éligibles, EN SÉRIE. Le parallèle est exclu pour la même
+  // raison que l'enregistrement groupé (instantané du cache dans onMutate),
+  // et parce que N événements émis d'un coup produiraient N onglets d'un coup
+  // côté extension — exactement ce que l'ordonnanceur cherche à éviter.
+  async function publierVintedTout(delai: DelaiVinted) {
+    const eligibles = etatRef.current.fiches.filter(
+      (f) =>
+        f.generation.phase === "ok" &&
+        f.article !== null &&
+        pickVintedMapping(f.qcm.marque, f.qcm.categorie) !== null &&
+        f.qcm.couleurs.length > 0,
+    );
+    for (const f of eligibles) {
+      // `f` est un instantané pris au clic : si la fiche n+2 est éditée
+      // pendant que la chaîne traite la fiche n, ce texte est périmé.
+      // `enregistrer()` relit déjà l'état frais de son côté (etatRef.current)
+      // et patche la base avec le texte à jour — la fiche envoyée à
+      // l'extension doit donc être relue fraîche elle aussi, sous peine que
+      // la base et le formulaire Vinted rempli par l'extension divergent
+      // silencieusement.
+      const fraiche = etatRef.current.fiches.find((x) => x.id === f.id);
+      // Disparue du lot pendant la chaîne (retirée par l'utilisateur), ou
+      // encore présente mais sans `article` : ressaisir le SKU à l'étape 1
+      // remet `article` à `null` sans changer l'`id` ni `generation.phase`.
+      // Dans les deux cas ce n'est pas un échec de publication, on passe à
+      // la suivante sans arrêter la chaîne — même garde que `enregistrer()`
+      // plus haut dans ce fichier.
+      if (!fraiche?.article) continue;
+      const ok = await publierVinted(fraiche, delai);
+      if (!ok) {
+        toast.error(`${fraiche.article!.sku} : mise en file impossible, chaîne arrêtée.`, {
+          duration: 8000,
+        });
+        return;
+      }
+    }
+  }
+
+  // ── Le pop-up de délai ──────────────────────────────────────────────────
+  // `lireDelai()` touche `localStorage` : appelée AU CLIC, jamais au rendu —
+  // ce composant est aussi rendu côté serveur, où `window` n'existe pas. La
+  // valeur est rangée dans un état pour que sa RÉFÉRENCE reste stable tant que
+  // le dialogue est ouvert : il réinitialise ses champs quand `initial` change,
+  // et un objet recréé à chaque rendu effacerait la saisie à chaque frappe.
+  function ouvrirDialogueDelai(cible: { cible: "tout" } | { cible: "fiche"; id: string }) {
+    setDelaiInitial(lireDelai());
+    setDemandeDelai(cible);
+  }
+
+  function confirmerDelai(delai: DelaiVinted) {
+    const cible = demandeDelai;
+    setDemandeDelai(null);
+    if (!cible) return;
+    // Retenu pour le prochain lancement, dans le navigateur — pas en base :
+    // ça n'a pas à survivre à un changement de machine.
+    ecrireDelai(delai);
+    if (cible.cible === "tout") {
+      void publierVintedTout(delai);
+      return;
+    }
+    const f = etatRef.current.fiches.find((x) => x.id === cible.id);
+    if (f) void publierVinted(f, delai);
   }
 
   // ── Barre d'action ──────────────────────────────────────────────────────
@@ -549,6 +663,8 @@ export default function MiseEnVentePage() {
                 statut,
               )
             }
+            onPublierVinted={(id) => ouvrirDialogueDelai({ cible: "fiche", id })}
+            onPublierVintedTout={() => ouvrirDialogueDelai({ cible: "tout" })}
             onEditerAnnonce={(id, champ, valeur) =>
               dispatch({ type: "annonce", id, champ, valeur })
             }
@@ -587,6 +703,15 @@ export default function MiseEnVentePage() {
           />
         </div>
       )}
+
+      {/* Délai anti-ban — demandé avant que le moindre article ne parte. */}
+      <DialogueDelaiVinted
+        open={demandeDelai !== null}
+        initial={delaiInitial}
+        libelleAction={demandeDelai?.cible === "tout" ? "Lancer le lot" : "Lancer le brouillon"}
+        onAnnuler={() => setDemandeDelai(null)}
+        onConfirmer={confirmerDelai}
+      />
 
       {/* Barre d'action collante */}
       {/* `bottom-[68px]` sous 768 px : le dock mobile occupe déjà le bas de

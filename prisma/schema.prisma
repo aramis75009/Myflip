@@ -251,6 +251,11 @@ model PromptTemplate {
   categorie String? // critère de correspondance ; null = toutes les catégories
   contenu   String   @db.Text // prompt avec placeholders {marque} {categorie} {taille} {etat} {matiere} {sku}
   estDefaut Boolean  @default(false) // prompt de repli si aucune correspondance
+  // Prix pré-rempli dans le QCM de mise en vente ; null = ce prompt n'en porte
+  // pas. `Float?` et non `Decimal` : c'est la forme qu'avait PrixReference.prix,
+  // et la valeur ne sert qu'à remplir un <input> — elle n'entre dans aucun
+  // calcul monétaire.
+  prixReference Float?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -9,194 +9,227 @@ Le mode d'emploi complet est dans [`AGENTS.md`](AGENTS.md), section
 
 ---
 
-# Passation — 2026-09-03 · Audit du chantier Vinted, correctifs, rangement de `main`
+# Passation — 2026-09-09 · Le prix dans le prompt, le délai dans un pop-up
 
 | | |
 |---|---|
 | **Agent** | Claude Code (Opus 5) + Aramis |
-| **Branches** | `main` (rangement + audit), `worktree-extension-vinted` (correctifs) |
-| **Commits** | `main` : `4f76dc7`, `7f24cd5`, `6545684`, `cd8e9dc`, merge `3f414aa` · branche : `51505fb` |
+| **Branche** | `worktree-extension-vinted`. **14 commits d'avance sur `origin`, non poussés.** `main` intouché. |
+| **Commits** | `2368cc6` → `c2a9dee`, 13 commits |
+| **Plan** | `docs/superpowers/plans/2026-09-08-prix-prompt-delai-popup.md` |
+| **Spec** | `docs/superpowers/specs/2026-09-08-prix-prompt-delai-popup-design.md` |
 
 ## Goal — l'objectif
 
-Aramis a demandé un audit de `/mise-en-vente` et de « ce qui a été commencé »
-sur l'extension, pour alimenter une IA qui concevrait ensuite l'architecture
-de l'intégration Vinted.
-
-**La prémisse était périmée de trois semaines.** La conception existait déjà
-(design 902 l. + plan 1795 l., passés par `/autoplan`), et l'extension était
-implémentée à ~90 % — mais tout vivait sur `worktree-extension-vinted`, une
-branche **poussée nulle part**, avec les documents de design non commités sur
-`main`. Depuis `main`, le chantier était invisible.
-
-L'objectif est donc devenu : dire l'état réel, sauver ce qui n'était pas
-sauvé, refermer ce qui pouvait l'être, ranger le reste.
+Déplacer deux réglages mal placés : le prix de référence rejoint le prompt qui
+le concerne, et la fourchette de délai anti-ban se choisit dans un pop-up au
+lancement d'un lot — au lieu d'être un réglage de compte que l'extension allait
+lire dans le DOM de `/compte`.
 
 ## Current state — ce qui a été fait
 
-**Audit** : `docs/audits/2026-09-03-etat-chantier-vinted.md`, sur `main`.
-Cartographie de `/mise-en-vente` (génération, statuts, champs, écarts avec un
-formulaire Vinted), état réel de l'extension, et douze risques dont chacun
-porte sa mention `CORRIGÉ` ou `OUVERT`.
+**Les deux déplacements sont livrés.** Le plan de 8 tâches est exécuté, chaque
+tâche relue par un agent frais, plus une revue finale de branche. Trois tâches
+ont demandé une ronde de correction ; la revue finale en a déclenché une
+quatrième, sur huit points.
 
-**Correctifs** (commit `51505fb` sur la branche). `web-ext lint` renvoyait
-**2 erreurs bloquantes** : `web-ext sign` n'aurait jamais produit de `.xpi`
-installable, l'extension était inutilisable à 100 %.
+- `PromptTemplate.prixReference` existe. La table `PrixReference`, sa route
+  `/api/prix`, `lib/pickPrix.ts` et `lib/prixServer.ts` ont disparu.
+  `pickPrompt()` est désormais la seule cascade — les deux étaient un calque
+  littéral l'une de l'autre.
+- Le champ « Prix de référence (€) » est dans le formulaire de prompt de
+  `/parametres`, à la création **et** à la modification. La fiche article le
+  pré-remplit depuis le prompt retenu, sans jamais écraser un prix déjà saisi.
+- Un pop-up demande le délai au clic sur « Tout mettre en brouillon sur
+  Vinted » **et** sur « Publier sur Vinted » d'une fiche seule. Délai fixe ou
+  fourchette, minutes entières, dernier réglage retenu dans le `localStorage`,
+  défaut 2–5 min.
+- Le délai voyage dans la charge utile de l'événement ; **chaque entrée de file
+  porte le sien**. La section « Extension Vinted » de `/compte` et les deux
+  colonnes `delaiVinted*` ont disparu, avec toute la lecture du DOM.
 
-- `background` ne déclarait que `service_worker`, la forme Chrome de MV3.
-  Firefox l'ignore et ne chargeait donc **aucun** script d'arrière-plan :
-  pas de file, pas d'appariement, et `content-vinted.js` traitait le worker
-  injoignable en « état neutre » silencieux. Le manifest déclare maintenant
-  `scripts` (utilisée par Firefox) **et** `service_worker` (gardée pour un
-  portage Chrome ultérieur).
-- `gecko_android.strict_min_version` valait `null` là où le schéma exige une
-  chaîne. Android étant hors scope, la clé est retirée.
-- `data_collection_permissions` ajoutée (Mozilla l'exige désormais), ce qui
-  monte le plancher à Firefox 140.
-- Les photos ne circulent plus en `Blob` mais en `{ type, buffer }`.
-- Le remplissage des champs passe par le setter natif du prototype.
-- Le badge se construit noeud par noeud, plus d'`innerHTML`.
+**Ce qui n'a PAS été fait, alors qu'on pourrait le croire :**
 
-**Rangement de `main`** : `AGENTS.md`, `HANDOFF.md`, `docs/handoffs/` et la
-mise à jour de `TODOS.md` étaient non suivis. `.gitignore` ignore désormais
-`.env*` et `.claude/worktrees/`. `git status` est propre.
+- **Rien n'a jamais tourné dans un navigateur.** Le pop-up, le champ prix, le
+  pré-remplissage, la traversée de l'événement vers l'extension : aucun n'a été
+  exécuté une seule fois. `tsc`, `vitest` et `web-ext lint` n'en disent rien.
+- **`background.js` et `content-myflip.js` ne sont ni typés ni testés**, et ne
+  peuvent pas l'être : `tsconfig.json` n'inclut que `**/*.ts` / `**/*.tsx`, et
+  vitest ne collecte que `extension-vinted/**/*.test.js`. Ce sont pourtant les
+  deux fichiers qui portent `premier` et `delai` de bout en bout.
+- **Le prix d'un vrai brouillon Vinted n'a toujours jamais été vérifié.** Ce
+  chantier change la *source* du prix, pas sa frappe : il ne réduit pas ce
+  risque et ne l'aggrave pas.
 
 ## Decisions — choix critiques ou irréversibles
 
-- **`worktree-extension-vinted` est poussée sur `origin`, mais PAS fusionnée.**
-  Deux raisons : `vercel.json` lance `prisma generate`, **pas**
-  `migrate deploy`, donc fusionner déploierait du code interrogeant une table
-  `PrixReference` absente de la production ; et le bouton « Publier » change de
-  nature (d'un `<a target="_blank">` à un `<button>` qui PATCH puis
-  `window.open()`) sans avoir jamais tourné dans un navigateur.
+**La table `PrixReference` était VIDE sur dev — 0 ligne.** La spec §4.2
+l'annonçait peuplée et exigeait un report manuel des prix avant la migration.
+Vérifié deux fois sur l'endpoint dev `ep-autumn-morning-asmqan0o`, avec 16
+prompts et 14 comptes au même instant : ce n'était pas un problème de
+connexion. Le relevé daté vit dans
+`docs/audits/2026-09-08-prix-reference-avant-migration.md`. **Il n'y a donc rien
+à ressaisir.**
 
-- **Les photos passent en `ArrayBuffer`, décision de fond.** Le spike qui
-  devait valider le transport des `Blob` (Task 10 du plan) n'a jamais été fait,
-  alors qu'un commentaire de `content-myflip.js` affirmait son résultat. Plutôt
-  que de documenter l'inconnu, il est supprimé : `ArrayBuffer` est
-  structured-cloneable sans réserve à travers le messaging et IndexedDB.
+**La production n'a jamais eu cette table** — elle n'a appliqué aucune des trois
+migrations. Il n'y a rien à y relever et rien à y perdre.
 
-- **Deux copies périmées supprimées de `main`.** Les fichiers non suivis
-  `docs/superpowers/{plans,specs}/2026-08-18-extension-vinted*.md` doublonnaient
-  des fichiers commités sur la branche. Celle du plan était la **périmée** :
-  elle portait encore l'appariement par rang que `10691f9` a remplacé par
-  l'ordre causal. Les committer aurait figé un bug déjà corrigé et garanti un
-  conflit add/add. Elles reviendront avec la fusion de la branche.
+**Le critère du « premier article » de la spec §5.4 était faux, et le plan l'a
+remplacé.** La spec proposait « aucune entrée en-cours et aucune entrée avec
+`cibleMs` ». Or une entrée réussie est **supprimée** de la base : juste après le
+premier succès, la file retombe exactement dans cet état, et tout le lot serait
+parti sans délai. Le drapeau `premier` est désormais posé **à la mise en file**,
+quand la file est vide, et `prochaineAction` ne fait que le lire.
 
-- **L'URL du remote `origin` est corrigée** en
-  `https://github.com/aramis75009/Myflip.git`. Elle pointait sur
-  `compta-polos.git` ; GitHub redirigeait, donc git marchait, mais `gh` et les
-  URL de PR échouaient. Le remote `alex` n'a pas été touché.
+⚠️ **Conséquence à connaître : publier les articles UN PAR UN, en laissant la
+file se vider entre chaque, marque chacun `premier: true` — donc aucun délai
+n'est jamais appliqué.** C'est la règle décidée, elle est correcte, mais elle
+rend le garde-fou inerte sur ce parcours. Le délai ne joue qu'en lot groupé.
 
-- **R12 laissé ouvert volontairement.** `window.open()` s'exécute après un
-  `await` réseau et perd donc l'activation utilisateur (~5 s chez Firefox) :
-  l'onglet s'ouvre sur une connexion rapide et le popup est bloqué sur une
-  lente. Les issues (ouvrir puis fermer si échec, ou naviguer un onglet déjà
-  ouvert) sont des choix de conception qui reviennent à Aramis.
+**Une course a été trouvée et corrigée (`056e0fe`), introduite par ce
+chantier.** `premier` est une décision *lue puis écrite*, et le handler de mise
+en file n'était pas sérialisé. La page n'attend pas l'extension : son
+`dispatchEvent` est synchrone et rend la main avant que le content script ait
+converti ses photos. Deux articles pouvaient donc se croire tous deux premiers
+et ouvrir deux onglets d'un coup. Une seconde chaîne de sérialisation
+(`chaineFile`, sur le modèle de `chaineAvancer`) referme la fenêtre.
+
+**Un délai absent ou abîmé ne retombe JAMAIS sur zéro** mais sur 2–5 min
+(`DELAI_REPLI`). L'ancien code refusait de planifier, ce qui produisait un
+arrêt muet ; un repli prudent le remplace.
+
+**Le commentaire de `migration.sql:15` est faux et le reste.** Il affirme que la
+table « est peuplée sur dev ». Prisma enregistre une somme de contrôle des
+fichiers de migration appliqués : l'éditer ferait échouer `migrate status` et
+`migrate deploy` sur dev. La vérité est portée par le fichier d'audit voisin.
+Décision confirmée par la revue finale.
+
+**`scripts/exporter-prix-reference.ts` a été créé puis supprimé** dans le même
+chantier : `tsconfig.json` le typait, et il interrogeait un modèle Prisma
+disparu. Sa sortie, elle, est committée.
 
 ## Changed — fichiers et composants
 
-Sur `worktree-extension-vinted` (`51505fb`) : `extension-vinted/manifest.json`,
-`content-myflip.js`, `content-vinted.js`, `background.js`, `README.md`.
-
-Sur `main` : `docs/audits/2026-09-03-etat-chantier-vinted.md` (nouveau),
-`AGENTS.md`, `HANDOFF.md`, `docs/handoffs/*`, `TODOS.md`, `.gitignore`.
+| Fichier | Nature |
+|---|---|
+| `prisma/schema.prisma` | `PromptTemplate.prixReference Float?` ; modèle `PrixReference` et colonnes `delaiVinted*` supprimés |
+| `prisma/migrations/20260908120000_prix_dans_prompt_delai_par_lot/` | Créé — **écrit à la main**, appliqué sur dev par `migrate deploy` |
+| `lib/promptSelect.ts` + test | `prixReferenceDepuisSaisie()` ; **`promptSelect.test.ts` créé** — la cascade n'avait aucun test |
+| `lib/pickPrix.ts`, `lib/pickPrix.test.ts`, `lib/prixServer.ts` | **Supprimés** |
+| `app/api/prix/**` | **Supprimé** (route + handlers `[id]`) |
+| `app/api/prompts/**` | Acceptent et valident `prixReference` |
+| `app/api/user/settings/route.ts` | Le bloc de validation du délai disparaît |
+| `components/compte/ExtensionVinted.tsx` | **Supprimé**, avec sa section dans `/compte` |
+| `app/parametres/page.tsx` | Champ prix dans le formulaire de prompt ; bloc « Prix de référence » retiré |
+| `app/mise-en-vente/_delaiVinted.ts` + test | Créé — type, défaut, normalisation, validation. 16 tests |
+| `app/mise-en-vente/_components/DialogueDelaiVinted.tsx` | Créé — le pop-up. Aucune logique : il branche le module pur |
+| `app/mise-en-vente/_publierVinted.ts` + test | `DetailPublicationVinted.delai` ; `publierVinted()` à 4 arguments |
+| `app/mise-en-vente/page.tsx` | Le pop-up s'ouvre avant toute publication ; le délai descend jusqu'à l'événement |
+| `app/mise-en-vente/_components/FicheArticle.tsx` | Le pré-remplissage du prix lit le prompt retenu |
+| `extension-vinted/file.js` + test | `estPremiereEntree()`, `delaiDeLEntree()`, `DELAI_REPLI` ; `prochaineAction` rend `immediat` |
+| `extension-vinted/background.js` | `lireDelaiRegle()` supprimée ; délai lu sur l'entrée ; mise en file sérialisée |
+| `extension-vinted/content-myflip.js` | Transmet `delai` ; **toute la lecture du DOM de `/compte` supprimée** (−167 lignes) |
+| `extension-vinted/manifest.json` | Permission `storage` retirée ; version `1.1.0` |
 
 ## Validations — passants / échoués / non lancés
 
-| Commande | Résultat |
-|---|---|
-| `npx vitest run` | ✅ **145/145** (14 fichiers) |
-| `npx tsc --noEmit` | ✅ propre |
-| `npx web-ext lint --self-hosted` | ✅ **0 erreur** (contre 2 avant), 2 avertissements voulus et documentés |
-| `npm run build` | ⏭️ **non lancé** — un `next dev` tournait (celui du projet `brief`), invariant `AGENTS.md` |
-| Chargement dans Firefox réel | ⏭️ **non fait** — demande un navigateur |
-| Vérification sur `vinted.fr` | ⏭️ **non fait** — revient à Aramis |
+**Passants**, lancés sur le HEAD de branche :
+
+```
+$ npx tsc --noEmit
+(aucune sortie, exit 0)
+
+$ npx vitest run
+ Test Files  17 passed (17)
+      Tests  213 passed (213)
+
+$ cd extension-vinted && npx web-ext lint --self-hosted
+errors          0
+warnings        2
+```
+
+Les 2 avertissements sont ceux de la baseline, documentés dans
+`extension-vinted/README.md`. Le total de tests passe de 177 à 213.
+
+**Échoués** : aucun.
+
+**NON LANCÉS — c'est ici qu'il faut regarder en premier :**
+
+- **Toute exécution navigateur.** Voir « Current state ».
+- **`npm run build`** — interdit tant qu'un `npm run dev` tourne.
+- **Le prix sur un vrai brouillon.**
 
 ## Blockers — ce qui bloque
 
-Rien côté agent. Les trois points restants demandent tous un navigateur ou une
-décision d'Aramis : relever le DOM de `vinted.fr/items/new` (R3), trancher R12,
-et appliquer les deux migrations Prisma en production avant toute fusion.
+⚠️ **UN DÉFAUT CRITIQUE PRÉEXISTANT, NON CORRIGÉ, QUI FAUSSERA LA LECTURE DU
+PREMIER ESSAI.** Documenté sur `main` dans
+`docs/audits/2026-09-04-revue-finale-lane-a.md`, découvert en fusionnant.
 
-## Revue finale — Lane A RENDUE, Lane B JAMAIS FAITE
+`Article.prixVente` **n'est jamais enregistré** : `/api/articles/[id]` appelle
+`deriveVente()` (`lib/calc.ts`) et écrase `data.prixVente` sans condition, or
+`deriveVente()` rend `prixVente: null` pour tout statut différent de « Vendu ».
+`enregistrer()` n'envoie jamais que « Brouillon » ou « En vente ». Le prix est
+donc systématiquement remis à `null`, la route répond 200, et l'update
+optimiste l'affiche quand même à l'écran.
 
-**Lane A (MyFlip) : rapport rendu**, dans
-`docs/audits/2026-09-04-revue-finale-lane-a.md`. Verdict : *fusionnable avec
-corrections*. Un constat critique (C1), sept importants, une quinzaine de
-mineurs, et l'infrastructure jugée saine.
+**Conséquence à l'essai** : le brouillon Vinted **recevra** le prix — le
+`CustomEvent` lit `f.qcm.prix` en mémoire, pas la base — mais le prix restera
+introuvable dans `/stock`. Un prix absent du stock après publication n'est
+**pas** une régression de ce chantier.
 
-**C1 — le prix n'est jamais enregistré.** `deriveVente()` renvoie
-`prixVente: null` pour tout statut différent de `Vendu`, et
-`app/api/articles/[id]/route.ts:117` écrit cette valeur sans condition.
-`enregistrer()` n'envoie que « Brouillon » ou « En vente ». Vérifié
-indépendamment ; `deriveVente` n'a aucun test. Troisième panne silencieuse de
-la branche, passée à travers six filets parce que le design affirme le
-contraire (spec ligne 66). **La correction demande une décision** : le
-comportement préexiste sur `main`, la branche donne juste un second sens à la
-colonne — voir le rapport.
+Ce n'est pas réparable sans une décision produit, posée par l'audit : soit
+`prixVente` porte deux sens (prix d'annonce **et** prix de vente) et
+`deriveVente` doit cesser de l'effacer, soit le prix d'annonce mérite sa propre
+colonne. À trancher avec Aramis, hors de ce chantier.
 
-**Lane B (le dossier `extension-vinted/`) n'a jamais été relue.** Son
-relecteur a été interrompu alors qu'il vérifiait empiriquement le timing de
-`pairing.js`. Recette de relance :
 
-1. Lire `~/.claude/plugins/cache/claude-plugins-official/superpowers/6.3.0/skills/requesting-code-review/code-reviewer.md`
-   (le `scripts/review-package` cité par la passation du 19/08 **n'existe
-   plus** dans cette version du skill — construire le contexte à la main).
-2. Dispatcher un subagent `general-purpose` sur le modèle le plus capable, en
-   lecture seule, chemin `extension-vinted` (1156 l., 8 fichiers), base
-   `ed917d6` head `52dad5e`. Points chauds : `pairing.js`, déjà réécrit deux
-   fois et seule pièce testée — les 5 tests couvrent-ils les vrais modes de
-   panne ou le chemin heureux ; le cycle de vie event page MV3 (`reconcile()`
-   est async et appelable en concurrence depuis `tabs.onCreated` ET
-   `onMessage`) ; l'attente de plusieurs minutes dans `init()` de
-   `content-vinted.js` ; les fuites d'object URL.
-3. Lui donner les deux audits à lire d'abord en listant ce qui est déjà connu,
-   et exiger une section **« ce que l'audit a manqué »** — sinon il redécouvre
-   l'existant à plein tarif.
-4. Lui dire que **trois défauts à panne silencieuse ont déjà traversé toutes
-   les revues précédentes de cette branche**. Un relecteur à qui on annonce du
-   code propre trouve moins.
+⚠️ **Pour fusionner dans `main` : appliquer les trois migrations en production
+AVANT la fusion, jamais après.** `vercel.json` s'arrête à `prisma generate`.
+Fusionner d'abord déploie du code qui interroge `PromptTemplate.prixReference`,
+colonne absente en production → `GET /api/prompts` en 500, `/parametres` et le
+pré-remplissage de `/mise-en-vente` tombent. **Ça donne une page vide, pas une
+erreur.** Les trois migrations en attente s'enchaînent proprement : la table
+`PrixReference` y est créée puis détruite, chaque fichier étant atomique.
+
+**La branche n'est pas poussée.** 14 commits d'avance sur `origin/worktree-extension-vinted` — les 13 du chantier, plus cette passation.
+
+**Pour tester : rien ne bloque.** La migration est déjà appliquée sur dev.
+
+⚠️ **Le test se fait en local, pas sur `myflip-app.vercel.app`** — l'URL de
+production tourne sur `main`, qui ne contient rien de ce chantier.
+
+1. `npm run dev` depuis la racine du worktree, travailler sur
+   `http://localhost:3000`.
+2. Charger l'extension : `about:debugging` → « Ce Firefox » → **Charger un
+   module temporaire** → `extension-vinted/manifest.json`.
+3. Dans `/parametres`, ouvrir un prompt et lui donner un prix de référence.
+   **Plus rien à régler dans `/compte`** : la section a disparu.
+4. Dans `/mise-en-vente` : un SKU, des photos, marque « Nike », catégorie
+   « Sac à dos », une couleur, puis générer.
+5. **Lancer un LOT GROUPÉ, pas un article seul** — c'est le seul parcours où le
+   délai s'applique (cf. Decisions). Le pop-up s'ouvre : mettre **délai fixe,
+   0 minute** pour ne pas attendre.
+6. **Ouvrir le brouillon créé dans Vinted et regarder le prix.** C'est le point
+   de tout l'essai.
 
 ## Next — la prochaine action
 
-**Ne pas fusionner `worktree-extension-vinted` avant ces quatre points.**
+**Le premier passage réel dans un navigateur**, selon la marche ci-dessus. Rien
+d'autre ne devrait être entrepris avant : douze commits de logique n'ont jamais
+vu un DOM.
 
-1. **Trancher la sémantique de `prixVente` (C1) et ajouter un test sur
-   `deriveVente`.** Bloquant : sans ça le prix d'annonce n'existe pas en base.
-2. **Corriger I1, I2, I3** — les trois pannes silencieuses restantes de Lane A,
-   dont I2 : après restauration de session, « Publier » produit une annonce
-   Vinted **sans aucune photo** et ne le signale pas.
-3. **Faire relire Lane B** (recette ci-dessus).
-4. **Relever le DOM réel de `vinted.fr/items/new`** (R3) : les sélecteurs
-   `[data-testid="title--input"]`, `input[name="title"]`,
-   `[data-testid="price-input--input"]`, `input[type="file"]` sont des
-   hypothèses, personne n'a jamais ouvert la page. Demande un navigateur, donc
-   revient à Aramis.
-5. **Trancher R12** : `window.open()` s'exécute après un `await` réseau et perd
-   l'activation utilisateur (~5 s chez Firefox). Marche sur connexion rapide,
-   popup bloqué sur une lente. Deux issues possibles — ouvrir l'onglet au clic
-   puis le fermer si le PATCH échoue, ou naviguer un onglet déjà ouvert. Choix
-   de conception, pas une ligne à changer.
-6. **Appliquer les migrations `PrixReference` et `delai_vinted` en
-   production**, `vercel.json` ne le fait pas (voir Decisions).
+Ensuite, dans l'ordre : appliquer les migrations en production, puis fusionner.
 
-### Commandes de reprise
+Le chantier suivant est cadré dans `TODOS.md` : **le voyant « connecté à
+Vinted »**. Relevé en comparant MyFlip au concurrent Le Troc Futé, dont la page
+« Connexion Vinted » repose — sa propre capture le dit — sur une extension
+Firefox et une session Vinted ouverte, exactement comme MyFlip. Il n'y a donc
+pas de connexion à construire : il manque un **retour visible**. Aramis a
+écarté le 08/09/2026 l'hypothèse d'un fonctionnement navigateur fermé chez le
+concurrent ; ne pas rouvrir ce point.
 
-```bash
-cd "SAAS perso my flip"
-git fetch origin
-git log --oneline main..worktree-extension-vinted     # 23 commits
-git diff main..worktree-extension-vinted --stat        # 5091 insertions
-
-cd .claude/worktrees/extension-vinted
-npx vitest run                                         # 145/145 attendus
-npx tsc --noEmit                                       # propre attendu
-cd extension-vinted && npx web-ext lint --self-hosted  # 0 erreur, 2 warnings voulus
-```
-
-État git au moment de cette passation : `main` propre et poussée (`ed917d6`),
-branche poussée (`52dad5e`), rien en attente, `git status` vide.
+⚠️ **Cette passation n'est pas passée par une relecture indépendante**, contrairement
+au reste du chantier : elle a été écrite par le contrôleur en fin de session.
 
 ---
 
@@ -204,6 +237,8 @@ branche poussée (`52dad5e`), rien en attente, `git status` vide.
 
 | Date | Sujet | Agent | Fiche |
 |---|---|---|---|
-| 2026-09-03 | Audit du chantier Vinted, correctifs, rangement de `main` | Claude Code (Opus 5) | *(passation courante)* |
+| 2026-09-09 | Le prix dans le prompt, le délai dans un pop-up | Claude Code (Opus 5) | *(passation courante)* |
+| 2026-09-08 | Remplissage Vinted livré, prochain chantier cadré | Claude Code (Opus 5) | [fiche](docs/handoffs/2026-09-08-remplissage-vinted-livre.md) |
+| 2026-09-03 | Audit du chantier Vinted, correctifs, rangement de `main` | Claude Code (Opus 5) | [fiche](docs/handoffs/2026-09-03-audit-chantier-vinted.md) |
 | 2026-08-19 | Extension Vinted — 16 tâches implémentées, revue finale restante | Claude Code (Sonnet 5) | [fiche](docs/handoffs/2026-08-19-extension-vinted-implementation.md) |
 | 2026-08-18 | Extension Vinted, design en cours | Claude Code (Sonnet 5) | [fiche](docs/handoffs/2026-08-18-extension-vinted-design.md) |

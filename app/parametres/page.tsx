@@ -14,6 +14,7 @@ import {
   useUpdatePrompt,
 } from "@/lib/hooks";
 import type { PromptTemplateDTO } from "@/lib/types";
+import { prixReferenceDepuisSaisie } from "@/lib/promptSelect";
 import { euros } from "@/lib/calc";
 import { libelleModele } from "@/lib/modelesIA";
 import { useIdentite } from "@/lib/useIdentite";
@@ -72,6 +73,7 @@ type FormState = {
   marque: string;
   categorie: string;
   contenu: string;
+  prix: string;
   estDefaut: boolean;
 };
 
@@ -80,6 +82,7 @@ const emptyForm = (): FormState => ({
   marque: TOUTES,
   categorie: TOUTES,
   contenu: "",
+  prix: "",
   estDefaut: false,
 });
 
@@ -191,6 +194,7 @@ export default function PromptsPage() {
       marque: p.marque ?? TOUTES,
       categorie: p.categorie ?? TOUTES,
       contenu: p.contenu,
+      prix: p.prixReference != null ? String(p.prixReference) : "",
       estDefaut: p.estDefaut,
     });
     setError(null);
@@ -200,11 +204,14 @@ export default function PromptsPage() {
   async function submit() {
     if (!form.nom.trim()) return setError("Le nom est requis.");
     if (!form.contenu.trim()) return setError("Le contenu est requis.");
+    const prix = prixReferenceDepuisSaisie(form.prix);
+    if (!prix.ok) return setError("Le prix doit être un nombre supérieur à 0, ou vide.");
     const input: PromptInput = {
       nom: form.nom.trim(),
       marque: form.marque === TOUTES ? null : form.marque,
       categorie: form.categorie === TOUTES ? null : form.categorie,
       contenu: form.contenu.trim(),
+      prixReference: prix.prix,
       estDefaut: form.estDefaut,
     };
     try {
@@ -376,6 +383,9 @@ export default function PromptsPage() {
                 <span className={chipCls}>
                   {selected.categorie ?? "Toutes catégories"}
                 </span>
+                {selected.prixReference != null && (
+                  <span className={chipCls}>{euros(selected.prixReference)}</span>
+                )}
                 {selected.estDefaut && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--acc)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--acc-ink)]">
                     <Check className="h-3 w-3" strokeWidth={2.6} />
@@ -450,6 +460,23 @@ export default function PromptsPage() {
                 ))}
               </datalist>
             </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Prix de référence (€)</label>
+            <input
+              type="number"
+              inputMode="decimal"
+              min="0.5"
+              step="0.5"
+              value={form.prix}
+              onChange={(e) => setForm({ ...form, prix: e.target.value })}
+              placeholder="Facultatif — ex : 24"
+              className={inputCls}
+            />
+            <p className="mt-1.5 font-mono text-[10.5px] text-[var(--faint)]">
+              Pré-rempli dans le QCM de mise en vente quand ce prompt est retenu.
+            </p>
           </div>
 
           <div>
