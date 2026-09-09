@@ -84,14 +84,36 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
     const entree = entries.find((e) => e.entryId === msg.entryId);
     if (!entree) return;
 
+    if (msg.statut === "succes-verifie") {
+      // Le content script a LU la réponse de `POST /api/v2/item_upload/drafts`
+      // et le prix enregistré concorde. On ne déduit plus rien : on sait. La
+      // redirection vers /member/ arrivera peut-être derrière, elle ne trouvera
+      // plus d'entrée et ne fera rien — c'est voulu.
+      await deleteEntry(entree.entryId);
+      if (entree.tabId != null) {
+        await browser.tabs.remove(entree.tabId).catch(() => {
+          // L'onglet a pu être fermé à la main entre-temps : pas un échec.
+        });
+      }
+      await avancer();
+      return;
+    }
+
     if (msg.statut === "succes") {
-      // Le clic « Sauvegarder le brouillon » redirige vers /member/<id> : la
-      // confirmation arrive par tabs.onUpdated (plus bas), pas ici. Ce
-      // message dit seulement que le clic est parti.
+      // Remplissage allé au bout, mais la réponse de l'API n'a pas pu être
+      // lue (CSP, changement de transport…). REPLI sur l'ancienne détection :
+      // le clic redirige vers /member/<id>, et c'est tabs.onUpdated (plus bas)
+      // qui conclura. Ce message dit seulement que le clic est parti.
       return;
     }
     // Échec de remplissage : l'onglet reste OUVERT avec sa bannière, pour que
     // l'article puisse être terminé à la main, et la chaîne s'arrête.
+    //
+    // ⚠️ `prix-non-enregistre` passe aussi par ici, et c'est le seul cas où un
+    // brouillon EXISTE malgré l'échec : il porte le mauvais prix et devra être
+    // corrigé dans Vinted. Le message de la console le dit ; ne pas
+    // « rattraper » ce cas en consommant l'entrée, ce serait revenir à la
+    // panne muette du 08/09.
     entree.etat = "echouee";
     await saveEntry(entree);
     console.warn(`[myflip-vinted] chaîne suspendue sur ${entree.entryId} : ${msg.statut}`);
@@ -99,9 +121,18 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
   }
 });
 
-// Succès : la page a quitté /items/new pour le profil vendeur. C'est le seul
-// signal fiable — le toast de confirmation est emporté par la redirection
-// avant d'être observable (cf. audit 2026-09-08 §6).
+// Succès DÉDUIT : la page a quitté /items/new pour le profil vendeur.
+//
+// ⚠️ Ce n'est plus le chemin principal depuis le 09/09/2026, c'est le REPLI.
+// Le chemin normal est `succes-verifie` (plus haut), où le content script a lu
+// la réponse de l'API et sait ce qui a été enregistré. Celui-ci ne dit que
+// « quelque chose a été sauvegardé » — il ne connaît ni le prix ni le titre
+// retenus, et c'est exactement pour ça que le brouillon à 0,00 € a pu passer
+// inaperçu pendant un mois. Le garder reste utile : il rattrape le cas où
+// l'interception n'a pas pu se poser.
+//
+// Le toast de confirmation, lui, est emporté par la redirection avant d'être
+// observable (cf. audit 2026-09-08 §6).
 browser.tabs.onUpdated.addListener(async (tabId, infos) => {
   if (!infos.url) return;
   const entries = await getAllEntries();
