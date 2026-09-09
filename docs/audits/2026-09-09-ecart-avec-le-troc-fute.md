@@ -19,6 +19,20 @@ réserve.
 
 ---
 
+## 🎯 OBJECTIF FIXÉ PAR ARAMIS : **9 / 10 MINIMUM**
+
+Consigne du 09/09/2026 : se rapprocher le plus possible de leur fonctionnement
+est **la priorité du chantier**. 6/10 ne suffit pas. Les rangs 1 et 2 de la
+section « Pour monter à 9 » y suffisent à eux seuls.
+
+Raison : leur outil tourne depuis deux ans chez des clients payants sans se
+faire repérer par Vinted. C'est la seule preuve de terrain dont on dispose.
+
+⚠️ Une exception, une seule, détaillée plus bas : leur blocage des `blur` est
+inconditionnel et **ne doit pas** être imité.
+
+---
+
 ## Note de ressemblance, pour un remplissage fiable : **6 / 10**
 
 Notée sur les mécanismes qui servent à **remplir un brouillon sans se faire
