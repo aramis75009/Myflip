@@ -14,10 +14,51 @@ Le mode d'emploi complet est dans [`AGENTS.md`](AGENTS.md), section
 | | |
 |---|---|
 | **Agent** | Claude Code (Opus 5) + Aramis |
-| **Branche** | `vinted-champ-prix`, partie de `origin/main` (`a31f369`). **Non poussée. Non fusionnée.** 11 commits. |
+| **Branche** | `vinted-champ-prix`, partie de `origin/main` (`a31f369`). **Non poussée. Non fusionnée.** 13 commits + les modifications du 09/09 au soir, **non commitées**. |
 | **Commits** | `9763058` → HEAD (correctifs de code : `9763058`..`b1905b8`) |
 | **Plan** | `docs/superpowers/plans/2026-09-09-champ-prix-et-onglet-cache.md` |
 | **Spec** | `docs/audits/2026-09-09-champ-prix-vinted-diagnostic.md` |
+
+> ## ✅ 09/09/2026, session du soir — **9/10 atteint, non commité**
+>
+> Les **rangs 1 et 2 sont implémentés** (détail en fin de ce bandeau). Le
+> tableau ci-dessous décrit l'état d'AVANT cette session : il est conservé
+> parce qu'il porte le raisonnement, mais **ne pas le relire comme une liste
+> de choses à faire**.
+>
+> **Fichiers touchés, tous dans `extension-vinted/` :**
+> `interception.js` (nouveau, 350 l.), `interception.test.js` (nouveau,
+> 23 tests), `web-ext-config.mjs` (nouveau), `formulaire.js`,
+> `content-vinted.js`, `background.js`, `manifest.json` (→ 1.3.0), `README.md`.
+>
+> **Vérifié** : `npx vitest run extension-vinted/` → **48 tests, 0 échec** ;
+> `npx web-ext lint --self-hosted` → **0 erreur, 2 avertissements** (les deux
+> attendus et documentés).
+>
+> ⚠️ **Rien n'est commité** — `git status` le montre. Aramis n'avait pas
+> demandé de commit.
+>
+> ⚠️ **9/10 mesure la RESSEMBLANCE des mécanismes, pas le fonctionnement.**
+> Rien de tout ceci n'a tourné dans un navigateur. C'est le prochain geste, et
+> il revient à Aramis (compte jetable, depuis Windows).
+>
+> **Ce qui a changé, en une phrase par rang :**
+> - **Rang 1** — `interception.js` patche `XMLHttpRequest` (et `fetch`) dans le
+>   monde de la PAGE et relaie la réponse de `POST /api/v2/item_upload/drafts` ;
+>   `verifierBrouillonEnregistre()` compare le prix enregistré au prix demandé.
+>   Trois issues nouvelles : `succes-verifie`, `prix-non-enregistre`,
+>   `echec-api`. La détection par URL reste, en **repli**.
+> - **Rang 2** — `cliquerVraiment()` remplace les **sept** `.click()` :
+>   `mouseover → mousedown → (focus) → mouseup → el.click() → mouseout`.
+> - **Rang 3** — oscillateur Web Audio posé, **efficacité non prouvée** : il
+>   écrit son propre état dans `data-myflip-oscillateur`.
+> - **Rang 4** — non fait, volontairement : son rôle n'est toujours pas compris.
+>
+> **Deux affirmations de la passation précédente étaient fausses**, corrigées
+> dans l'audit d'écart : leur `content-interceptor.js` n'intercepte **que le
+> login OAuth**, et `waitForXHR` vit dans `content-human-actions.js`. Au
+> passage, un fait utile : ils ne patchent que XHR pour les brouillons, donc
+> **le formulaire Vinted passe bien par XHR**.
 
 # 🎯 L'OBJECTIF DE CE CHANTIER : PASSER DE 6/10 À **9/10 MINIMUM**
 
@@ -29,18 +70,18 @@ dans ses mécanismes, jamais dans son code. Leur outil tourne depuis deux ans ch
 des clients payants **sans se faire repérer par Vinted** ; c'est la seule preuve
 de terrain disponible, et Aramis connaît personnellement leur développeur.
 
-**Note actuelle : 6/10.** Le relevé complet, avec le détail de ce qui est aligné
+**Note avant cette session : 6/10 — après : 9/10.** Le relevé complet, avec le détail de ce qui est aligné
 et de ce qui manque, est dans
 [`docs/audits/2026-09-09-ecart-avec-le-troc-fute.md`](docs/audits/2026-09-09-ecart-avec-le-troc-fute.md).
 
 ## Le chemin vers 9/10, chiffré et ordonné
 
-| Rang | Ce qui manque | Gain | Note atteinte |
-|---|---|---|---|
-| **1** | **Lire la réponse de l'API Vinted** au lieu de deviner | **+2** | **8/10** |
-| **2** | **De vrais événements souris** au lieu de `HTMLElement.click()` | **+1** | **9/10** ✅ |
-| 3 | Oscillateur Web Audio anti-endormissement | +0,5 | 9,5/10 |
-| 4 | Règles sur les en-têtes réseau (rôle non analysé) | +0,5 | 10/10 |
+| Rang | Ce qui manquait | Gain | Note atteinte | État |
+|---|---|---|---|---|
+| **1** | **Lire la réponse de l'API Vinted** au lieu de deviner | **+2** | **8/10** | ✅ fait le 09/09 au soir |
+| **2** | **De vrais événements souris** au lieu de `HTMLElement.click()` | **+1** | **9/10** | ✅ fait le 09/09 au soir |
+| 3 | Oscillateur Web Audio anti-endormissement | +0,5 | 9,5/10 | ⚠️ posé, non prouvé |
+| 4 | Règles sur les en-têtes réseau (rôle non analysé) | +0,5 | 10/10 | ❌ non fait, exprès |
 
 **Les rangs 1 et 2 suffisent à atteindre l'objectif.**
 
