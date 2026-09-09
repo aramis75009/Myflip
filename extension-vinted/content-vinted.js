@@ -11,18 +11,82 @@
 // worker qu'une fois l'heure venue. Ce script n'a donc plus de compte à
 // rebours — quand il s'exécute, c'est qu'il est l'heure.
 
-// Injecté dans le monde de la PAGE, le plus tôt possible : ce script répond
-// « visible » aux questions que Vinted se pose sur l'onglet, qui est ouvert
-// en arrière-plan. Depuis le monde isolé, redéfinir `document.hidden`
-// n'aurait aucun effet sur le React de Vinted — cf. l'en-tête du fichier.
+/**
+ * Exécuté dans le contexte de la PAGE (via injecterVisibilite), pas dans le
+ * monde isolé du content script — ne référencer ni `browser`, ni aucune
+ * variable englobante : le corps de cette fonction est stringifié et rejoué
+ * dans un autre monde JS. Même contrainte, et même motif, que
+ * `patchHistoriquePage()` dans content-myflip.js.
+ */
+function forcerVisibilitePage() {
+  "use strict";
+
+  const mentir = (objet, propriete, valeur) => {
+    try {
+      Object.defineProperty(objet, propriete, {
+        get: () => valeur,
+        configurable: true,
+      });
+    } catch (e) {
+      // Une propriété non configurable, ou un navigateur qui refuse : on
+      // n'insiste pas. Le remplissage marchera peut-être quand même, et une
+      // exception ici casserait tout le reste du script.
+    }
+  };
+
+  mentir(document, "hidden", false);
+  mentir(document, "visibilityState", "visible");
+  try {
+    document.hasFocus = function () {
+      return true;
+    };
+  } catch (e) {
+    // Même raison que `mentir()` : un navigateur qui refuse ne doit pas
+    // emporter le reste du script avec lui.
+  }
+
+  // Les gestionnaires posés en propriété (`document.onvisibilitychange = …`)
+  // ne passent pas par addEventListener : les neutraliser séparément.
+  for (const prop of ["onvisibilitychange", "onblur"]) {
+    for (const cible of [document, window]) {
+      try {
+        Object.defineProperty(cible, prop, {
+          get: () => null,
+          set: () => {},
+          configurable: true,
+        });
+      } catch (e) {
+        // idem
+      }
+    }
+  }
+
+  // Et ceux posés par addEventListener : interceptés en phase de CAPTURE,
+  // donc avant d'atteindre leur cible.
+  for (const evenement of ["visibilitychange", "blur", "pagehide"]) {
+    const bloquer = (e) => e.stopImmediatePropagation();
+    document.addEventListener(evenement, bloquer, true);
+    window.addEventListener(evenement, bloquer, true);
+  }
+}
+
+/**
+ * Injecte le mensonge de visibilité dans le monde de la PAGE, de façon
+ * SYNCHRONE.
+ *
+ * `textContent` et non `src` : une balise `src` se charge de façon
+ * asynchrone, et rien ne garantirait alors qu'elle ait tourné avant le premier
+ * geste sur le formulaire. Un script inline s'exécute à l'insertion. C'est le
+ * motif déjà en place et documenté dans content-myflip.js.
+ */
 (function injecterVisibilite() {
   try {
     const script = document.createElement("script");
-    script.src = browser.runtime.getURL("page-visible.js");
+    script.textContent = `(${forcerVisibilitePage.toString()})();`;
     (document.head || document.documentElement).appendChild(script);
     script.remove();
   } catch (err) {
-    console.warn("[myflip-vinted] injection de page-visible.js impossible", err);
+    console.warn("[myflip-vinted] injection du mensonge de visibilité impossible", err);
   }
 })();
 

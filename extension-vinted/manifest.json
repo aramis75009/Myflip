@@ -31,12 +31,13 @@
     },
     {
       "matches": ["https://www.vinted.fr/items/new*"],
-      "js": ["formulaire.js", "content-vinted.js"]
+      "js": ["formulaire.js", "content-vinted.js"],
+      "run_at": "document_start"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["page-visible.js", "minuteur-worker.js"],
+      "resources": ["minuteur-worker.js"],
       "matches": ["https://www.vinted.fr/*"]
     }
   ]
