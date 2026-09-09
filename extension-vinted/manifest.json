@@ -38,7 +38,7 @@
   "web_accessible_resources": [
     {
       "resources": ["minuteur-worker.js"],
-      "matches": ["https://www.vinted.fr/*"]
+      "matches": ["https://www.vinted.fr/items/new*"]
     }
   ]
 }

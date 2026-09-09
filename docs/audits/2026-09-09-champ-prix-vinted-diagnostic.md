@@ -151,3 +151,12 @@ brouillon relu dans Vinted après coup.
 
 Il est également possible que le concurrent porte ces quatre parades sans que
 les quatre soient nécessaires — on ne voit pas ce qu'il a essayé et abandonné.
+
+**Le sélecteur du conteneur n'est pas confirmé.** `[data-testid="price-input"]`
+(utilisé par `taperPrix()` pour le clic d'ouverture) ne figure dans aucun des
+relevés DOM de ce dossier — contrairement à `[data-testid="price-input--input"]`
+(le champ lui-même, attesté par `2026-09-07-vinted-form-mapping.md`). Il vient
+de la lecture du concurrent le 09/09, jamais vérifié contre le DOM réel de
+Vinted. À confirmer au premier passage navigateur ; s'il est faux, le clic
+d'ouverture rate silencieusement (querySelector renvoie `null`, le `if
+(conteneur)` saute simplement l'étape) sans faire échouer la chaîne.

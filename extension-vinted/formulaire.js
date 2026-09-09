@@ -25,6 +25,14 @@ function obtenirMinuteur() {
   if (minuteurWorker !== null) return minuteurWorker;
   try {
     minuteurWorker = new Worker(browser.runtime.getURL("minuteur-worker.js"));
+    minuteurWorker.addEventListener("error", (err) => {
+      // Un worker qui se construit mais ne DÉMARRE pas (chargement refusé,
+      // CSP worker-src, erreur d'exécution) ne lève pas : il émet cet
+      // événement. Sans cette bascule, chaque pause suivante repartirait
+      // l'attendre en vain.
+      console.warn("[myflip-vinted] worker de minuterie en erreur : repli sur setTimeout", err);
+      minuteurWorker = false;
+    });
   } catch (err) {
     console.warn(
       "[myflip-vinted] worker de minuterie indisponible : les pauses seront bridées en arrière-plan",
@@ -54,8 +62,14 @@ function pause(ms) {
 
   const id = prochainIdPause++;
   return new Promise((resolve) => {
+    // Filet de sécurité. Une pause qui ne se résout jamais laisse l'entrée
+    // « en-cours », que file.js ne purge JAMAIS par TTL : la file entière
+    // s'arrête sans un mot, jusqu'à ce qu'Aramis ferme l'onglet à la main.
+    // Mieux vaut une pause trop longue qu'une chaîne bloquée.
+    const secours = setTimeout(resolve, ms + 2000);
     const surReponse = (e) => {
       if (e.data?.id !== id) return;
+      clearTimeout(secours);
       worker.removeEventListener("message", surReponse);
       resolve();
     };
@@ -191,9 +205,13 @@ async function taperTexte(el, texte) {
  * 2. La valeur est posée EN UNE FOIS. La frappe caractère par caractère
  *    n'était pas la parade — elle ne touche pas au problème de focus, et elle
  *    coûte cher dans un onglet bridé.
- * 3. Un vrai clic sur le conteneur encadre l'écriture. `el.blur()` natif ne
- *    produit un `focusout` que si le champ avait réellement le focus ; le clic
- *    le lui donne, puis le lui retire pour de bon.
+ * 3. Un vrai clic précède l'écriture, sur le conteneur. Il ne DÉPLACE pas le
+ *    focus lui-même — `HTMLElement.click()` ne le fait jamais, il n'émet ni
+ *    `pointerdown` ni `mousedown` — c'est `el.focus()` juste après qui s'en
+ *    charge ; le clic n'est là que pour ressembler à un geste utilisateur
+ *    avant ce focus. En sortie, la sortie du focus vise un AUTRE champ (voir
+ *    plus bas) : recliquer ce même conteneur — celui du prix — risquerait de
+ *    lui rendre le focus qu'on vient de lui retirer.
  */
 async function taperPrix(el, valeur) {
   const demande = String(valeur);
@@ -221,16 +239,26 @@ async function taperPrix(el, valeur) {
   // c'est pendant cette fenêtre qu'il transforme « 15 » en « 15,00 € ».
   await pauseAleatoire(300, 500);
 
-  // Le départ réel du focus, puis l'événement qui remonte. Les deux, parce
-  // qu'ils ne servent pas au même : `blur()` pour le navigateur, `focusout`
-  // pour React.
+  // Le focus était-il RÉEL ? Cette mesure départage les deux causes du
+  // diagnostic : `false` en onglet caché voudrait dire que la cause racine est
+  // l'onglet (fait n° 4) et non l'événement (fait n° 1). Elle coûte une ligne
+  // et rend le diagnostic falsifiable au premier passage navigateur.
+  const avaitLeFocus = document.activeElement === el;
+  console.info(`[myflip-vinted] prix : le champ avait le focus = ${avaitLeFocus}`);
   el.blur();
-  el.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+  // Le focusout synthétique SEULEMENT si `blur()` n'avait rien à émettre.
+  // Sinon on ferait commiter React une seconde fois, sur « 15,00 € » déjà
+  // reformaté — qu'un parseur naïf rend NaN, c'est-à-dire 0,00 €.
+  if (!avaitLeFocus) {
+    el.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+  }
   await pauseAleatoire(200, 300);
 
-  // Un vrai clic ailleurs : c'est ce qui déplace le focus pour de bon, là où
-  // un événement fabriqué ne fait que le prétendre.
-  if (conteneur) conteneur.click();
+  // Sortir le focus pour de bon, vers un AUTRE champ. `conteneur.click()` ne
+  // convenait pas deux fois : `HTMLElement.click()` ne déplace pas le focus,
+  // et le conteneur EST celui du prix — s'il enveloppe l'input, le cliquer
+  // lui rendrait le focus qu'on vient de lui retirer.
+  document.querySelector('[data-testid="description--input"]')?.focus();
   await pauseAleatoire(200, 400);
 
   // Vérification VOLONTAIREMENT FAIBLE, comme dans taperTexte : on teste que

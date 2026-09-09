@@ -64,10 +64,22 @@ function forcerVisibilitePage() {
   // Et ceux posés par addEventListener : interceptés en phase de CAPTURE,
   // donc avant d'atteindre leur cible.
   for (const evenement of ["visibilitychange", "blur", "pagehide"]) {
-    const bloquer = (e) => e.stopImmediatePropagation();
+    // Ne bloquer QUE ce qui vise la fenêtre ou le document. `blur` ne
+    // bouillonne pas, mais il CAPTURE : sans ce test, un stopImmediatePropagation
+    // posé ici empêcherait tout écouteur `blur` d'ÉLÉMENT de la page de se
+    // déclencher — y compris celui dont dépend le commit du champ prix si
+    // Vinted tourne en React 16, où onBlur dérive de `blur` et non de
+    // `focusout`. On casserait alors précisément ce qu'on répare.
+    const bloquer = (e) => {
+      if (e.target === window || e.target === document) e.stopImmediatePropagation();
+    };
     document.addEventListener(evenement, bloquer, true);
     window.addEventListener(evenement, bloquer, true);
   }
+
+  // Marqueur relu depuis le monde isolé : un attribut DOM traverse la
+  // frontière d'isolation, contrairement aux objets JS.
+  document.documentElement.dataset.myflipVisible = "1";
 }
 
 /**
@@ -85,6 +97,12 @@ function forcerVisibilitePage() {
     script.textContent = `(${forcerVisibilitePage.toString()})();`;
     (document.head || document.documentElement).appendChild(script);
     script.remove();
+
+    if (document.documentElement.dataset.myflipVisible !== "1") {
+      console.warn(
+        "[myflip-vinted] script inline rejeté (CSP de Vinted ?) : l'onglet reste « caché » pour la page, le prix peut repartir à 0,00 €",
+      );
+    }
   } catch (err) {
     console.warn("[myflip-vinted] injection du mensonge de visibilité impossible", err);
   }
@@ -129,7 +147,15 @@ async function init() {
     .catch((err) => console.error("[myflip-vinted]", err));
 }
 
-init();
+// `run_at: "document_start"` est là pour l'injection de visibilité, qui doit
+// précéder React. Le remplissage, lui, n'a aucune raison de démarrer avant que
+// le HTML soit parsé : ses délais d'attente partiraient plus tôt et
+// expireraient sur un formulaire simplement pas encore monté.
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init, { once: true });
+} else {
+  init();
+}
 
 /**
  * Remplit le formulaire dans l'ORDRE IMPOSÉ par Vinted : marque, état,
