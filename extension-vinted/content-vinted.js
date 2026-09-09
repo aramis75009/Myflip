@@ -160,10 +160,8 @@ async function remplir(entry, badge) {
     }
     if (!(await taperTexte(champDescription, entry.description))) return "succes-partiel";
 
-    // Le prix EN DERNIER, et frappé caractère par caractère : c'est le champ
-    // qui s'est déjà affiché rempli tout en valant 0.0 en base (audit
-    // 2026-09-08 §6). Aucune vérification depuis la page ne peut le
-    // démentir — seul le brouillon relu le dira.
+    // Le prix EN DERNIER, et par `taperPrix()` : ce champ valide au DÉPART du
+    // focus, pas à la frappe, et c'est ce qui l'avait fait partir à 0,00 €.
     direAuBadge(badge, "prix…");
 
     // ⚠️ Sans prix, on s'arrête AVANT toute frappe. `taperTexte(champ, "")`
@@ -186,7 +184,7 @@ async function remplir(entry, badge) {
       console.warn('[myflip-vinted] champ prix introuvable ([data-testid="price-input--input"])');
       return "succes-partiel";
     }
-    if (!(await taperTexte(champPrix, prixDemande))) return "succes-partiel";
+    if (!(await taperPrix(champPrix, prixDemande))) return "succes-partiel";
 
     direAuBadge(badge, "photos…");
     if (!injecterPhotos(entry.photos)) return "succes-partiel";

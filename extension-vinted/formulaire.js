@@ -125,6 +125,79 @@ async function taperTexte(el, texte) {
   return true;
 }
 
+/**
+ * Écrit le PRIX. Ce champ a sa propre fonction parce qu'il a sa propre
+ * mécanique — c'est le seul du formulaire qui valide au DÉPART du focus, et
+ * c'est ce qui a produit le brouillon à `0,00 €` du 2026-09-08.
+ *
+ * Trois différences avec `taperTexte()`, chacune motivée dans
+ * docs/audits/2026-09-09-champ-prix-vinted-diagnostic.md :
+ *
+ * 1. `focusout` — LA correction. Depuis React 17, `onBlur` est émulé depuis
+ *    `focusout`, écouté à la RACINE de l'application. `blur` ne remonte pas
+ *    l'arbre (par spécification) : un `blur` fabriqué et lancé sur le champ
+ *    n'atteint jamais cet écouteur, quoi qu'on mette dans `bubbles`. Le champ
+ *    ne valide donc jamais, garde l'affichage produit par `input`, et le
+ *    formulaire part avec zéro. Le titre survit à ça parce qu'il valide à la
+ *    frappe, pas au départ.
+ * 2. La valeur est posée EN UNE FOIS. La frappe caractère par caractère
+ *    n'était pas la parade — elle ne touche pas au problème de focus, et elle
+ *    coûte cher dans un onglet bridé.
+ * 3. Un vrai clic sur le conteneur encadre l'écriture. `el.blur()` natif ne
+ *    produit un `focusout` que si le champ avait réellement le focus ; le clic
+ *    le lui donne, puis le lui retire pour de bon.
+ */
+async function taperPrix(el, valeur) {
+  const demande = String(valeur);
+  // Même règle que taperTexte : un champ déjà rempli à la main ne s'écrase pas.
+  if (el.value && el.value.trim() !== "") return true;
+
+  const conteneur = document.querySelector('[data-testid="price-input"]');
+
+  if (conteneur) {
+    conteneur.click();
+    await pauseAleatoire(100, 200);
+  }
+  el.click();
+  el.focus();
+  await pauseAleatoire(100, 200);
+
+  // `focusin` remonte, contrairement à `focus` : c'est celui que React voit.
+  el.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+
+  ecrireValeur(el, demande);
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.dispatchEvent(new Event("change", { bubbles: true }));
+
+  // Laisser au champ le temps de reformater avant de lui retirer le focus :
+  // c'est pendant cette fenêtre qu'il transforme « 15 » en « 15,00 € ».
+  await pauseAleatoire(300, 500);
+
+  // Le départ réel du focus, puis l'événement qui remonte. Les deux, parce
+  // qu'ils ne servent pas au même : `blur()` pour le navigateur, `focusout`
+  // pour React.
+  el.blur();
+  el.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+  await pauseAleatoire(200, 300);
+
+  // Un vrai clic ailleurs : c'est ce qui déplace le focus pour de bon, là où
+  // un événement fabriqué ne fait que le prétendre.
+  if (conteneur) conteneur.click();
+  await pauseAleatoire(200, 400);
+
+  // Vérification VOLONTAIREMENT FAIBLE, comme dans taperTexte : on teste que
+  // le champ n'est pas resté vide, jamais l'égalité avec la valeur demandée —
+  // le champ reformate ce qu'on lui donne. Et rien de ce qui se lit depuis la
+  // page ne prouve le commit : seul le brouillon relu après coup le dit.
+  if (demande.trim() !== "" && String(el.value ?? "").trim() === "") {
+    console.warn(
+      `[myflip-vinted] prix sans effet sur ${decrireChamp(el)} : le champ est resté vide`,
+    );
+    return false;
+  }
+  return true;
+}
+
 /** De quoi nommer un champ dans un avertissement, sans supposer qu'il porte
  *  un `data-testid` (les champs de panneau n'en ont pas tous un). */
 function decrireChamp(el) {
