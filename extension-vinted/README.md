@@ -107,9 +107,9 @@ causes, toutes corrigées le 09/09 :
 3. **Le focus n'était pas réellement déplacé.** Un vrai clic sur le conteneur
    encadre désormais l'écriture.
 4. **L'onglet est caché.** Un onglet d'arrière-plan répond « je ne suis pas
-   visible » et voit ses minuteurs bridés à la seconde. `page-visible.js` lui
-   fait répondre l'inverse, depuis le monde de la page ; `minuteur-worker.js`
-   sort les pauses du bridage.
+   visible » et voit ses minuteurs bridés à la seconde. `forcerVisibilitePage()`
+   (dans `content-vinted.js`, injectée dans le monde de la page) lui fait
+   répondre l'inverse ; `minuteur-worker.js` sort les pauses du bridage.
 
 **La frappe caractère par caractère n'était pas la solution** et ne s'applique
 plus au prix : sa valeur est posée en une fois. Le titre et la description, eux,
