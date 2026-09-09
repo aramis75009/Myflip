@@ -282,12 +282,16 @@ git commit -m "fix: give the price field the focus sequence it validates on"
 
 ## Task 3: Faire croire à la page qu'elle est visible
 
+⚠️ **NOTE — DÉPASSÉ EN FIX ROUND 1** : Ce plan décrit une injection par `<script src browser.runtime.getURL(...)>` et une déclaration séparée dans `web_accessible_resources`. **Ce n'est pas ce qui a été livré.** La fonction `forcerVisibilitePage()` vit désormais dans `content-vinted.js` et s'injecte avec `script.textContent = \`(${forcerVisibilitePage.toString()})();\`` — le même pattern synchrone que `content-myflip.js`. Pourquoi : une injection par `<script src>` s'exécute de manière asynchrone, créant une course entre le chargement du script et la première écriture de formulaire. Le `textContent` garantit l'exécution immédiate. Historiquement, ce plan envisageait le premier ; pragmatiquement, le second a livré le résultat.
+
+---
+
 **Files:**
-- Create: `extension-vinted/page-visible.js`
-- Modify: `extension-vinted/content-vinted.js`, `extension-vinted/manifest.json`
+- ~~Create: `extension-vinted/page-visible.js`~~ *Créé directement dans `content-vinted.js`*
+- Modify: `extension-vinted/content-vinted.js`, ~~`extension-vinted/manifest.json`~~ *Le manifest n'a pas changé*
 
 **Interfaces:**
-- Produit : un fichier injecté dans le monde de la PAGE. N'expose rien ; il agit par effet de bord sur `document` et `window`.
+- Produit : une fonction `forcerVisibilitePage()` dans le monde isolé, injectée dans le monde de la PAGE. N'expose rien ; elle agit par effet de bord sur `document` et `window`.
 
 ⚠️ **Ce script DOIT tourner dans le monde de la page, pas dans le monde isolé du content script.** C'est le React de Vinted qu'il s'agit de convaincre, et il ne voit que les propriétés du monde de la page. Redéfinir `document.hidden` depuis un content script ne changerait rien pour lui — même piège que le `history.pushState` documenté dans `content-myflip.js`.
 

@@ -88,14 +88,32 @@ L'extension ne clique **jamais** « Ajouter » : rien n'est publié.
 
 ## Au premier passage, vérifie le prix
 
-Ouvre le brouillon créé dans Vinted et regarde le prix.
+Ouvre le brouillon créé dans Vinted et regarde le prix. **C'est le seul point
+que rien d'automatique ne peut prouver.**
 
-Lors du relevé du 08/09/2026, un brouillon a été enregistré avec `0,00 €`
-alors que le champ affichait « 15,00 € ». Le champ prix a une logique de
-validation que l'affichage ne reflète pas. L'extension le tape désormais
-caractère par caractère avec de vrais événements clavier, ce qui devrait
-suffire — mais **aucune vérification faite depuis la page ne peut le
-prouver**. Seul le brouillon relu le dit.
+Lors du relevé du 08/09/2026, un brouillon a été enregistré avec `0,00 €` alors
+que le champ affichait « 15,00 € ». Le diagnostic complet est dans
+`docs/audits/2026-09-09-champ-prix-vinted-diagnostic.md` ; en résumé, quatre
+causes, toutes corrigées le 09/09 :
+
+1. **Le mauvais événement.** Depuis React 17, `onBlur` est émulé depuis
+   `focusout`, écouté à la racine de l'application ; `blur` ne remonte pas
+   l'arbre et n'y arrive donc jamais. Le champ prix valide au DÉPART du focus —
+   sans ce signal, il gardait l'affichage et le formulaire partait à zéro. Le
+   titre survivait parce qu'il valide à la frappe.
+2. **Le séparateur décimal.** Le champ est en locale française : il veut
+   « 24,5 », pas « 24.5 ». La conversion se fait côté MyFlip, dans
+   `prixPourVinted()` — le seul maillon de la chaîne du prix qui soit testé.
+3. **Le focus n'était pas réellement déplacé.** Un vrai clic sur le conteneur
+   encadre désormais l'écriture.
+4. **L'onglet est caché.** Un onglet d'arrière-plan répond « je ne suis pas
+   visible » et voit ses minuteurs bridés à la seconde. `page-visible.js` lui
+   fait répondre l'inverse, depuis le monde de la page ; `minuteur-worker.js`
+   sort les pauses du bridage.
+
+**La frappe caractère par caractère n'était pas la solution** et ne s'applique
+plus au prix : sa valeur est posée en une fois. Le titre et la description, eux,
+continuent d'être frappés lettre à lettre.
 
 ## Si la chaîne s'arrête
 
