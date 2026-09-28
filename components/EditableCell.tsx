@@ -15,7 +15,7 @@ export default function EditableCell({
   value: string | number | null;
   display?: string;
   /** « select » : liste fermée, qui exige `options`. La valeur vide = « — ». */
-  type?: "text" | "number" | "select";
+  type?: "text" | "number" | "date" | "select";
   align?: "left" | "right" | "center";
   editable?: boolean;
   placeholder?: string;

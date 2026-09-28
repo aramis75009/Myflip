@@ -14,6 +14,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { STATUT_VENDU, STATUTS } from "@/lib/calc";
+import { STATUT_EN_VENTE, whereMiseEnVenteAuto } from "@/lib/dateMiseEnVente";
 import type { Prisma } from "@prisma/client";
 
 // ── Vue « article » exposée à Hermes ───────────────────────────────────────
@@ -95,11 +96,18 @@ const echec = (error: string, status = 400): ResultatStatut => ({
  * Les articles qui n'appartiennent pas à `userId` sont simplement ignorés :
  * `count` reflète ce qui a réellement changé, et rien ne révèle l'existence des
  * données d'autrui.
+ *
+ * `opts.dateMiseEnVente` : poser la date de mise en vente au passage en
+ * « En vente » (lib/dateMiseEnVente.ts). OPT-IN, et volontairement absent de
+ * l'appel Hermes (POST /api/hermes/stock/statut) : Aramis n'a pas encore
+ * décidé si l'agent doit la poser. L'activer là-bas = une option à passer, rien
+ * à réécrire.
  */
 export async function changerStatutArticles(
   userId: string,
   cible: CibleArticles,
   statut: string,
+  opts: { dateMiseEnVente?: boolean } = {},
 ): Promise<ResultatStatut> {
   const nouveau = String(statut ?? "").trim();
   if (!STATUTS.includes(nouveau as never)) return echec("Statut invalide.");
@@ -140,18 +148,33 @@ export async function changerStatutArticles(
   if (cibles.length === 0)
     return { ok: true, count: 0, statut: nouveau, skus: [] };
 
-  // Champs de vente remis à null (règle centrale si on quitte « Vendu »).
-  const res = await prisma.article.updateMany({
-    where: { id: { in: cibles.map((a) => a.id) }, userId },
-    data: {
-      statut: nouveau,
-      prixVente: null,
-      dateVente: null,
-      margeBrute: null,
-      margeNette: null,
-      coefficient: null,
-    },
-  });
+  const parId = { id: { in: cibles.map((a) => a.id) }, userId };
+
+  // Date de mise en vente AVANT le changement de statut : le filtre repère les
+  // articles qui passent vraiment en « En vente » à leur statut d'avant. Même
+  // transaction, pour qu'aucun des deux ne s'applique sans l'autre.
+  const poserDate = opts.dateMiseEnVente === true && nouveau === STATUT_EN_VENTE;
+  const ecritures = [
+    ...(poserDate
+      ? [prisma.article.updateMany({ where: whereMiseEnVenteAuto(parId), data: { dateMiseEnVente: new Date() } })]
+      : []),
+    // Champs de vente remis à null (règle centrale si on quitte « Vendu »).
+    // La date de mise en vente n'en fait pas partie : elle survit au retour en
+    // brouillon, c'est tout son intérêt.
+    prisma.article.updateMany({
+      where: parId,
+      data: {
+        statut: nouveau,
+        prixVente: null,
+        dateVente: null,
+        margeBrute: null,
+        margeNette: null,
+        coefficient: null,
+      },
+    }),
+  ];
+  const resultats = await prisma.$transaction(ecritures);
+  const res = resultats[resultats.length - 1];
 
   return {
     ok: true,

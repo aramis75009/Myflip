@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { aujourdhuiParis } from "@/lib/dateMiseEnVente";
 import { X } from "lucide-react";
 import { CANAUX } from "@/lib/canalColors";
 import { COMPTES_VENTE } from "@/lib/comptesVente";
@@ -10,8 +11,10 @@ import type { CompteVente } from "@/lib/types";
 // clair) habillée aux couleurs de la barre de sélection du Stock — fond sombre
 // #16261D, contrôles bg-white/10, action verte var(--pos).
 
+// Jour calendaire à Paris : en UTC, une vente saisie entre minuit et 2 h
+// serait pré-remplie à la veille.
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return aujourdhuiParis();
 }
 
 const LABEL = "mb-1.5 block text-[12.5px] font-semibold text-[#9FB2A7]";

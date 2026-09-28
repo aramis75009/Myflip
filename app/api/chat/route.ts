@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { STATUT_EN_VENTE, whereMiseEnVenteAuto } from "@/lib/dateMiseEnVente";
 import { prisma } from "@/lib/prisma";
 import { getUserId, unauthorized } from "@/lib/apiAuth";
 import { deriveVente, euros, STATUT_VENDU, STATUTS } from "@/lib/calc";
@@ -263,23 +264,34 @@ async function runMutation(
       coefficient: null,
     };
 
-    let count: number;
-    if (filtre.limit && filtre.limit > 0) {
-      const ids = await prisma.article.findMany({
-        where,
-        orderBy: { sku: "asc" },
-        take: filtre.limit,
-        select: { id: true },
-      });
-      const res = await prisma.article.updateMany({
-        where: { userId, id: { in: ids.map((a) => a.id) } },
-        data,
-      });
-      count = res.count;
-    } else {
-      const res = await prisma.article.updateMany({ where, data });
-      count = res.count;
-    }
+    // Cible effective : le filtre, ou ses `limit` premiers articles.
+    const cible =
+      filtre.limit && filtre.limit > 0
+        ? {
+            userId,
+            id: {
+              in: (
+                await prisma.article.findMany({
+                  where,
+                  orderBy: { sku: "asc" },
+                  take: filtre.limit,
+                  select: { id: true },
+                })
+              ).map((a) => a.id),
+            },
+          }
+        : where;
+
+    // Date de mise en vente posée AVANT le changement de statut, dans la même
+    // transaction : le filtre repère les articles qui passent vraiment en
+    // « En vente » à leur statut d'avant (cf. lib/dateMiseEnVente.ts).
+    const resultats = await prisma.$transaction([
+      ...(nouveau === STATUT_EN_VENTE
+        ? [prisma.article.updateMany({ where: whereMiseEnVenteAuto(cible), data: { dateMiseEnVente: new Date() } })]
+        : []),
+      prisma.article.updateMany({ where: cible, data }),
+    ]);
+    const count = resultats[resultats.length - 1].count;
 
     return `✓ ${count} article(s) passés au statut « ${nouveau} ».`;
   }

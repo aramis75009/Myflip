@@ -17,7 +17,7 @@ export async function PATCH(req: NextRequest) {
   try {
     const { ids, statut } = (await req.json()) as Body;
 
-    const res = await changerStatutArticles(userId, { ids }, statut ?? "");
+    const res = await changerStatutArticles(userId, { ids }, statut ?? "", { dateMiseEnVente: true });
     if (!res.ok)
       return NextResponse.json({ error: res.error }, { status: res.status });
 

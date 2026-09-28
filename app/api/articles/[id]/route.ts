@@ -4,6 +4,7 @@ import { getUserId, unauthorized, notFound } from "@/lib/apiAuth";
 import { deriveVente, STATUT_VENDU, STATUTS } from "@/lib/calc";
 import { toDTO } from "@/lib/serialize";
 import { parseCompteVentePatch } from "@/lib/comptesVente";
+import { dateMiseEnVenteAEcrire, parseDatePatch } from "@/lib/dateMiseEnVente";
 
 type PatchBody = {
   sku?: string;
@@ -17,6 +18,8 @@ type PatchBody = {
   prixAchat?: number;
   prixVente?: number | null;
   dateVente?: string | null;
+  /** Correction à la main de la première mise en ligne (« AAAA-MM-JJ » ou ISO). */
+  dateMiseEnVente?: string | null;
   canal?: string | null;
   titreAnnonce?: string | null;
   descriptionAnnonce?: string | null;
@@ -118,6 +121,19 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
         { status: 400 },
       );
     }
+
+    const saisie = parseDatePatch(body.dateMiseEnVente);
+    if (!saisie.ok)
+      return NextResponse.json({ error: "Date de mise en vente invalide." }, { status: 400 });
+    // Premier passage en « En vente » : date du jour. Une saisie à la main
+    // l'emporte, et une date déjà posée n'est jamais écrasée.
+    const miseEnVente = dateMiseEnVenteAEcrire({
+      statutAvant: existing.statut,
+      statut,
+      dateActuelle: existing.dateMiseEnVente,
+      ...(saisie.change ? { saisie: saisie.value } : {}),
+    });
+    if (miseEnVente !== undefined) data.dateMiseEnVente = miseEnVente;
 
     const derived = deriveVente({ statut, prixAchat, prixVente, dateVente });
 

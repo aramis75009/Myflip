@@ -9,6 +9,7 @@
 import type { Prisma } from "@prisma/client";
 import { naturalSort } from "@/lib/calc";
 import { COMPTES_VENTE } from "@/lib/comptesVente";
+import { jourParis } from "@/lib/dateMiseEnVente";
 import type { CompteVente } from "@/lib/types";
 
 /** Sacs Hipobuy de l'utilisateur ciblé (fournisseur « Hipobuy », casse libre). */
@@ -25,6 +26,7 @@ export const articleSacbaseSelect = {
   compteVente: true,
   prixVente: true,
   dateVente: true,
+  dateMiseEnVente: true,
 } satisfies Prisma.ArticleSelect;
 
 export type ArticleSacbaseRow = {
@@ -33,6 +35,7 @@ export type ArticleSacbaseRow = {
   compteVente: CompteVente | null;
   prixVente: number | null;
   dateVente: Date | null;
+  dateMiseEnVente: Date | null;
 };
 
 export type ArticleSacbase = {
@@ -42,14 +45,12 @@ export type ArticleSacbase = {
   prixVente: number | null;
   /** « AAAA-MM-JJ » en Europe/Paris, ou null. */
   dateVente: string | null;
+  /** Première mise en ligne, même format. SacBase en tire les jours en vente. */
+  dateMiseEnVente: string | null;
 };
 
-const FMT_PARIS = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" });
-
 /** Jour calendaire à Paris : une vente à 23 h 30 le 27/09 reste le 27/09. */
-export function jourParis(d: Date | null): string | null {
-  return d ? FMT_PARIS.format(d) : null;
-}
+export { jourParis };
 
 export function toArticleSacbase(a: ArticleSacbaseRow): ArticleSacbase {
   return {
@@ -58,6 +59,7 @@ export function toArticleSacbase(a: ArticleSacbaseRow): ArticleSacbase {
     compte: a.compteVente ?? null,
     prixVente: a.prixVente ?? null,
     dateVente: jourParis(a.dateVente),
+    dateMiseEnVente: jourParis(a.dateMiseEnVente),
   };
 }
 

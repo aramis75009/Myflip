@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { aujourdhuiParis } from "@/lib/dateMiseEnVente";
 import Modal from "./Modal";
 import { CANAUX } from "@/lib/canalColors";
 
+// Jour calendaire à Paris : en UTC, une vente saisie entre minuit et 2 h
+// serait pré-remplie à la veille.
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return aujourdhuiParis();
 }
 
 export default function SellModal({

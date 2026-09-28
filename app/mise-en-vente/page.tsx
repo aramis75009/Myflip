@@ -622,14 +622,14 @@ export default function MiseEnVentePage() {
                   }
                   montrerChoixPrompt={choixPrompt}
                   onBasculerChoixPrompt={() => setChoixPrompt((v) => !v)}
-                  onCompteVente={(compteVente) => {
+                  onPatchArticle={(patch) => {
                     const id = fiche.article?.id;
                     if (!id) return;
                     updateArticle.mutate(
-                      { id, patch: { compteVente } },
+                      { id, patch },
                       {
                         onSuccess: (a) => dispatch({ type: "article/maj", article: a }),
-                        onError: () => toast.error("Compte Vinted non enregistré."),
+                        onError: () => toast.error("Modification non enregistrée."),
                       },
                     );
                   }}

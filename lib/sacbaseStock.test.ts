@@ -51,9 +51,10 @@ describe("jourParis", () => {
 
 describe("reponseSacbase", () => {
   const rows = [
-    { sku: "SDN10", statut: "En vente", compteVente: "VINTED_SECOND" as const, prixVente: null, dateVente: null },
-    { sku: "SDN2", statut: "Vendu", compteVente: "VINTED_SECOND" as const, prixVente: 45, dateVente: new Date("2026-09-27T21:30:00.000Z") },
-    { sku: "SDN1", statut: "En livraison", compteVente: null, prixVente: null, dateVente: null },
+    { sku: "SDN10", statut: "En vente", compteVente: "VINTED_SECOND" as const, prixVente: null, dateVente: null, dateMiseEnVente: new Date("2026-09-25T08:00:00.000Z") },
+    // Mis en vente le 20/09 à 23 h 30 heure de Paris, vendu le 27/09 à 23 h 30.
+    { sku: "SDN2", statut: "Vendu", compteVente: "VINTED_SECOND" as const, prixVente: 45, dateVente: new Date("2026-09-27T21:30:00.000Z"), dateMiseEnVente: new Date("2026-09-20T21:30:00.000Z") },
+    { sku: "SDN1", statut: "En livraison", compteVente: null, prixVente: null, dateVente: null, dateMiseEnVente: null },
   ];
   const now = new Date("2026-09-29T14:02:11.000Z");
   const r = reponseSacbase(rows, now);
@@ -69,10 +70,11 @@ describe("reponseSacbase", () => {
   it("tri naturel des SKU (SDN2 avant SDN10)", () => {
     expect(r.articles.map((a) => a.sku)).toEqual(["SDN1", "SDN2", "SDN10"]);
   });
-  it("exactement les 5 clés du contrat, dates en jour Paris", () => {
-    for (const a of r.articles) expect(Object.keys(a).sort()).toEqual(["compte", "dateVente", "prixVente", "sku", "statut"]);
-    expect(r.articles[1]).toEqual({ sku: "SDN2", statut: "Vendu", compte: "VINTED_SECOND", prixVente: 45, dateVente: "2026-09-27" });
-    expect(r.articles[0]).toEqual({ sku: "SDN1", statut: "En livraison", compte: null, prixVente: null, dateVente: null });
+  it("exactement les 6 clés du contrat, dates en jour Paris", () => {
+    for (const a of r.articles)
+      expect(Object.keys(a).sort()).toEqual(["compte", "dateMiseEnVente", "dateVente", "prixVente", "sku", "statut"]);
+    expect(r.articles[1]).toEqual({ sku: "SDN2", statut: "Vendu", compte: "VINTED_SECOND", prixVente: 45, dateVente: "2026-09-27", dateMiseEnVente: "2026-09-20" });
+    expect(r.articles[0]).toEqual({ sku: "SDN1", statut: "En livraison", compte: null, prixVente: null, dateVente: null, dateMiseEnVente: null });
   });
 });
 

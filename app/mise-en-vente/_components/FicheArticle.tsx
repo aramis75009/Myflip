@@ -24,6 +24,7 @@ import {
 } from "../_reducer";
 import { Chip, cardCls, inputCls, labelCls } from "../_ui";
 import { COMPTES_VENTE, isCompteVente } from "@/lib/comptesVente";
+import { jourParis } from "@/lib/dateMiseEnVente";
 import type { CompteVente } from "@/lib/types";
 
 const AUTRE = "Autre…";
@@ -75,9 +76,9 @@ type Props = {
   onPrompt: (promptId: string | null) => void;
   montrerChoixPrompt: boolean;
   onBasculerChoixPrompt: () => void;
-  /** Enregistre le compte Vinted de l'article tout de suite (PATCH), sans
-   *  attendre l'enregistrement de l'annonce : SacBase le lit dès maintenant. */
-  onCompteVente: (compte: CompteVente | null) => void;
+  /** Enregistre tout de suite (PATCH) le compte Vinted ou la date de mise en
+   *  vente, sans attendre l'annonce : SacBase les lit dès maintenant. */
+  onPatchArticle: (patch: { compteVente?: CompteVente | null; dateMiseEnVente?: string | null }) => void;
 };
 
 export default function FicheArticle({
@@ -94,7 +95,7 @@ export default function FicheArticle({
   onPrompt,
   montrerChoixPrompt,
   onBasculerChoixPrompt,
-  onCompteVente,
+  onPatchArticle,
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const { qcm } = fiche;
@@ -561,7 +562,9 @@ export default function FicheArticle({
           <select
             id={`compte-${fiche.id}`}
             value={fiche.article?.compteVente ?? ""}
-            onChange={(e) => onCompteVente(isCompteVente(e.target.value) ? e.target.value : null)}
+            onChange={(e) =>
+              onPatchArticle({ compteVente: isCompteVente(e.target.value) ? e.target.value : null })
+            }
             className={`${inputCls} mt-2.5 cursor-pointer`}
           >
             <option value="">—</option>
@@ -571,6 +574,19 @@ export default function FicheArticle({
               </option>
             ))}
           </select>
+
+          {/* Posée seule au premier passage en « En vente » ; à saisir ici pour
+              un article mis en ligne avant cette fonctionnalité. */}
+          <label className={`${labelCls} mt-4 block`} htmlFor={`mev-${fiche.id}`}>
+            Mis en vente le
+          </label>
+          <input
+            id={`mev-${fiche.id}`}
+            type="date"
+            value={fiche.article?.dateMiseEnVente ? (jourParis(new Date(fiche.article.dateMiseEnVente)) ?? "") : ""}
+            onChange={(e) => onPatchArticle({ dateMiseEnVente: e.target.value || null })}
+            className={`${inputCls} mt-2.5`}
+          />
         </div>
 
         {mappingVinted && (
