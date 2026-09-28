@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getUserId, unauthorized, notFound } from "@/lib/apiAuth";
 import { deriveVente, STATUT_VENDU, STATUTS } from "@/lib/calc";
 import { toDTO } from "@/lib/serialize";
+import { parseCompteVentePatch } from "@/lib/comptesVente";
 
 type PatchBody = {
   sku?: string;
@@ -20,6 +21,9 @@ type PatchBody = {
   titreAnnonce?: string | null;
   descriptionAnnonce?: string | null;
   motsClesAnnonce?: string | null;
+  /** Compte Vinted choisi AVANT la vente (fiche de mise en vente, Stock).
+   *  Absent = inchangé, null = effacé, autre valeur hors enum = 400. */
+  compteVente?: string | null;
 };
 
 // PATCH /api/articles/[id] — édition inline + transitions de statut
@@ -66,6 +70,11 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
       data.motsClesAnnonce = body.motsClesAnnonce
         ? String(body.motsClesAnnonce)
         : null;
+
+    const compte = parseCompteVentePatch(body.compteVente);
+    if (!compte.ok)
+      return NextResponse.json({ error: compte.error }, { status: 400 });
+    if (compte.change) data.compteVente = compte.value;
 
     if (body.statut !== undefined && !STATUTS.includes(body.statut as never)) {
       return NextResponse.json({ error: "Statut invalide." }, { status: 400 });

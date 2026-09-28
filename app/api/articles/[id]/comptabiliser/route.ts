@@ -5,23 +5,11 @@ import { deriveVente, STATUT_VENDU } from "@/lib/calc";
 import { toDTO } from "@/lib/serialize";
 import { addLabelToCard, removeComptabiliserLabel } from "@/lib/trello";
 import { contexteTrello } from "@/lib/settings";
-import type { CompteVente } from "@/lib/types";
+import { compteAComptabiliser } from "@/lib/comptesVente";
 
 export const dynamic = "force-dynamic";
 
 type Body = { prixVente?: number; dateVente?: string; canal?: string; compteVente?: string };
-
-const COMPTES_VENTE: readonly CompteVente[] = [
-  "VINTED_PRO",
-  "VINTED_SECOND",
-  "VESTIAIRE_COLLECTIVE",
-];
-
-// Un compte inconnu (ou absent) n'est pas une erreur : la route retombe sur
-// VINTED_PRO à l'écriture, comme avant l'ajout du champ.
-function parseCompteVente(value: string | undefined): CompteVente | undefined {
-  return COMPTES_VENTE.find((c) => c === value);
-}
 
 // POST /api/articles/[id]/comptabiliser
 // 1. Marque l'article comme vendu (prixVente, dateVente, marges, coef, canal)
@@ -43,7 +31,6 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
     }
     const dateVente = body.dateVente ? new Date(body.dateVente) : new Date();
     const canal = body.canal ? String(body.canal).trim() : undefined;
-    const compteVente = parseCompteVente(body.compteVente);
 
     const existing = await prisma.article.findFirst({
       where: { id: params.id, userId },
@@ -67,7 +54,9 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
         margeNette: d.margeNette,
         coefficient: d.coefficient,
         ...(canal ? { canal } : {}),
-        compteVente: compteVente ?? "VINTED_PRO",
+        // Un compte inconnu (ou absent) n'est pas une erreur : on garde celui
+        // déjà choisi sur l'article, VINTED_PRO seulement s'il n'y en a aucun.
+        compteVente: compteAComptabiliser(body.compteVente, existing.compteVente),
       },
       include: { commande: true },
     });

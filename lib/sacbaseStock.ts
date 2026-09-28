@@ -1,0 +1,70 @@
+// Réponse de GET /api/sacbase/stock — le contrat lu par SacBase.
+//
+// ⚠️ SacBase valide cette réponse STRICTEMENT et rejette tout le lot au moindre
+// écart (SKU hors format, compte inconnu, date avec heure…). Ajouter un champ
+// est sans danger (il est ignoré) ; en retirer un ou changer un type casse la
+// synchro. Pas de prix d'achat, de marge ni d'id interne : SacBase n'en a pas
+// besoin, et moins de champs sortis, c'est moins de surface à garder stable.
+
+import type { Prisma } from "@prisma/client";
+import { naturalSort } from "@/lib/calc";
+import { COMPTES_VENTE } from "@/lib/comptesVente";
+import type { CompteVente } from "@/lib/types";
+
+/** Sacs Hipobuy de l'utilisateur ciblé (fournisseur « Hipobuy », casse libre). */
+export function whereSacbase(userId: string) {
+  return {
+    userId,
+    commande: { fournisseur: { contains: "hipobuy", mode: "insensitive" } },
+  } satisfies Prisma.ArticleWhereInput;
+}
+
+export const articleSacbaseSelect = {
+  sku: true,
+  statut: true,
+  compteVente: true,
+  prixVente: true,
+  dateVente: true,
+} satisfies Prisma.ArticleSelect;
+
+export type ArticleSacbaseRow = {
+  sku: string;
+  statut: string;
+  compteVente: CompteVente | null;
+  prixVente: number | null;
+  dateVente: Date | null;
+};
+
+export type ArticleSacbase = {
+  sku: string;
+  statut: string;
+  compte: CompteVente | null;
+  prixVente: number | null;
+  /** « AAAA-MM-JJ » en Europe/Paris, ou null. */
+  dateVente: string | null;
+};
+
+const FMT_PARIS = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" });
+
+/** Jour calendaire à Paris : une vente à 23 h 30 le 27/09 reste le 27/09. */
+export function jourParis(d: Date | null): string | null {
+  return d ? FMT_PARIS.format(d) : null;
+}
+
+export function toArticleSacbase(a: ArticleSacbaseRow): ArticleSacbase {
+  return {
+    sku: a.sku,
+    statut: a.statut,
+    compte: a.compteVente ?? null,
+    prixVente: a.prixVente ?? null,
+    dateVente: jourParis(a.dateVente),
+  };
+}
+
+export function reponseSacbase(rows: ArticleSacbaseRow[], now: Date = new Date()) {
+  return {
+    genere_le: now.toISOString(),
+    comptes: COMPTES_VENTE.map((c) => ({ id: c.id, label: c.label })),
+    articles: rows.map(toArticleSacbase).sort((a, b) => naturalSort(a.sku, b.sku)),
+  };
+}
