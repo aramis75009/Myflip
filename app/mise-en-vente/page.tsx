@@ -622,6 +622,17 @@ export default function MiseEnVentePage() {
                   }
                   montrerChoixPrompt={choixPrompt}
                   onBasculerChoixPrompt={() => setChoixPrompt((v) => !v)}
+                  onCompteVente={(compteVente) => {
+                    const id = fiche.article?.id;
+                    if (!id) return;
+                    updateArticle.mutate(
+                      { id, patch: { compteVente } },
+                      {
+                        onSuccess: (a) => dispatch({ type: "article/maj", article: a }),
+                        onError: () => toast.error("Compte Vinted non enregistré."),
+                      },
+                    );
+                  }}
                 />
               ) : (
                 <div className={`${cardCls} px-6 py-12 text-center`}>

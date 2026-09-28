@@ -29,6 +29,7 @@ import { CANAUX } from "@/lib/canalColors";
 import { statutMarker } from "@/lib/statutColors";
 import type { ArticleDTO } from "@/lib/types";
 import EditableCell from "@/components/EditableCell";
+import { COMPTES_VENTE, isCompteVente, labelCompteVente } from "@/lib/comptesVente";
 import SellModal from "@/components/SellModal";
 import NewCommandeModal from "@/components/NewCommandeModal";
 import CanalBadge from "@/components/CanalBadge";
@@ -59,6 +60,7 @@ type SortKey =
   | "coefficient"
   | "dateVente"
   | "canal"
+  | "compteVente"
   | "transporteur";
 
 type ColumnMeta = {
@@ -82,10 +84,13 @@ const COLUMN_META: ColumnMeta[] = [
   { key: "coefficient", label: "Coef", align: "right", defaultVisible: true },
   { key: "dateVente", label: "Date vente", defaultVisible: false },
   { key: "canal", label: "Canal", defaultVisible: true },
+  { key: "compteVente", label: "Compte", defaultVisible: true },
   { key: "transporteur", label: "Transporteur", defaultVisible: false },
 ];
 
 const COLUMN_STORAGE_KEY = "myflip-columns";
+
+const COMPTES_OPTIONS = COMPTES_VENTE.map((c) => ({ value: c.id, label: c.label }));
 
 // Chips de filtre par statut : « Tous » puis un chip par statut connu.
 const STATUT_CHIPS: { label: string; value: string }[] = [
@@ -111,6 +116,7 @@ const CSV_VALUE: Record<SortKey, (a: ArticleDTO) => string | number> = {
   dateVente: (a) =>
     a.dateVente ? new Date(a.dateVente).toLocaleDateString("fr-FR") : "",
   canal: (a) => a.canal ?? "",
+  compteVente: (a) => (a.compteVente ? labelCompteVente(a.compteVente) : ""),
   transporteur: (a) => a.transporteur ?? "",
 };
 
@@ -532,6 +538,19 @@ const ArticleRow = memo(
           <CanalBadge canal={a.canal} />
         </td>
       ),
+      // Compte Vinted choisi AVANT la vente : SacBase le lit pour répartir les
+      // sacs par compte. Vide = « — », à attribuer.
+      compteVente: (
+        <td key="compteVente" className="px-2 py-[9px] text-[12.5px] text-ink-muted">
+          <EditableCell
+            type="select"
+            value={a.compteVente}
+            display={a.compteVente ? labelCompteVente(a.compteVente) : undefined}
+            options={COMPTES_OPTIONS}
+            onSave={(v) => onPatch(a.id, { compteVente: isCompteVente(v) ? v : null })}
+          />
+        </td>
+      ),
       transporteur: (
         <td key="transporteur" className="px-3 py-[9px] text-[12.5px] text-ink-muted">
           {a.transporteur ?? "—"}
@@ -641,6 +660,12 @@ const ArticleCard = memo(
               <div className="mt-1.5 flex items-center justify-between gap-2">
                 <span className="truncate text-[13px] font-semibold text-[var(--ink2)]">
                   {a.marque}
+                  {a.compteVente && (
+                    <span className="font-normal text-[var(--faint-2)]">
+                      {" · "}
+                      {labelCompteVente(a.compteVente)}
+                    </span>
+                  )}
                 </span>
                 <CanalBadge canal={a.canal} />
               </div>

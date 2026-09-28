@@ -23,6 +23,8 @@ import {
   type Qcm,
 } from "../_reducer";
 import { Chip, cardCls, inputCls, labelCls } from "../_ui";
+import { COMPTES_VENTE, isCompteVente } from "@/lib/comptesVente";
+import type { CompteVente } from "@/lib/types";
 
 const AUTRE = "Autre…";
 
@@ -73,6 +75,9 @@ type Props = {
   onPrompt: (promptId: string | null) => void;
   montrerChoixPrompt: boolean;
   onBasculerChoixPrompt: () => void;
+  /** Enregistre le compte Vinted de l'article tout de suite (PATCH), sans
+   *  attendre l'enregistrement de l'annonce : SacBase le lit dès maintenant. */
+  onCompteVente: (compte: CompteVente | null) => void;
 };
 
 export default function FicheArticle({
@@ -89,6 +94,7 @@ export default function FicheArticle({
   onPrompt,
   montrerChoixPrompt,
   onBasculerChoixPrompt,
+  onCompteVente,
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const { qcm } = fiche;
@@ -546,6 +552,25 @@ export default function FicheArticle({
               ))}
             </select>
           )}
+        </div>
+
+        <div className={`${cardCls} p-5 md:px-6`}>
+          <label className={labelCls} htmlFor={`compte-${fiche.id}`}>
+            Compte Vinted
+          </label>
+          <select
+            id={`compte-${fiche.id}`}
+            value={fiche.article?.compteVente ?? ""}
+            onChange={(e) => onCompteVente(isCompteVente(e.target.value) ? e.target.value : null)}
+            className={`${inputCls} mt-2.5 cursor-pointer`}
+          >
+            <option value="">—</option>
+            {COMPTES_VENTE.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         {mappingVinted && (

@@ -306,3 +306,21 @@ describe("qcm/couleurs", () => {
     expect(etatInitial("f1").fiches[0].qcm.couleurs).toEqual([]);
   });
 });
+
+describe("article/maj — l'article enregistré remplace celui de la fiche", () => {
+  it("met à jour l'article (compte Vinted) sans toucher au QCM ni aux autres fiches", () => {
+    let e = etatA(2);
+    e = reducerMev(e, { type: "sku/lookup", id: "f0", seq: 1 });
+    e = reducerMev(e, { type: "sku/resolu", id: "f0", seq: 1, article: article("SDN4") });
+    const qcmAvant = e.fiches[0].qcm;
+    e = reducerMev(e, { type: "article/maj", article: article("SDN4", { compteVente: "VINTED_SECOND" }) });
+    expect(e.fiches[0].article?.compteVente).toBe("VINTED_SECOND");
+    expect(e.fiches[0].qcm).toBe(qcmAvant);
+    expect(e.fiches[1].article).toBeNull();
+  });
+
+  it("ignore un article qui n'est sur aucune fiche", () => {
+    const e = etatA(1);
+    expect(reducerMev(e, { type: "article/maj", article: article("AUTRE") })).toBe(e);
+  });
+});
