@@ -100,8 +100,10 @@ const echec = (error: string, status = 400): ResultatStatut => ({
  * `opts.dateMiseEnVente` : poser la date de mise en vente au passage en
  * « En vente » (lib/dateMiseEnVente.ts). OPT-IN, et volontairement absent de
  * l'appel Hermes (POST /api/hermes/stock/statut) : Aramis n'a pas encore
- * décidé si l'agent doit la poser. L'activer là-bas = une option à passer, rien
- * à réécrire.
+ * décidé si l'agent doit la poser. L'activer demande de MODIFIER cette route
+ * Hermes (ajouter `{ dateMiseEnVente: true }` à son appel) — une décision à
+ * prendre explicitement, la surface Hermes étant close par principe. D'ici là,
+ * un article mis en vente par l'agent n'a pas de date (« — » dans le Stock).
  */
 export async function changerStatutArticles(
   userId: string,

@@ -70,6 +70,8 @@ export type PatchDate =
   | { ok: false; error: string };
 
 const JOUR_RE = /^\d{4}-\d{2}-\d{2}$/;
+const ANNEE_MIN = 2000;
+const ANNEE_MAX = 2100;
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T/;
 
 /**
@@ -82,8 +84,16 @@ export function parseDatePatch(v: unknown): PatchDate {
   if (v === null || v === "") return { ok: true, change: true, value: null };
   if (typeof v === "string" && (JOUR_RE.test(v) || ISO_RE.test(v))) {
     const d = new Date(JOUR_RE.test(v) ? v + "T00:00:00.000Z" : v);
-    // « 2026-13-45 » passe la regex mais pas le calendrier.
-    if (!Number.isNaN(d.getTime()) && (!JOUR_RE.test(v) || d.toISOString().slice(0, 10) === v))
+    // « 2026-13-45 » passe la regex mais pas le calendrier. L'année est bornée :
+    // un input date tapé au clavier émet « 0002-09-29 » pendant qu'on écrit
+    // 2026, et une telle date sortirait hors format vers SacBase.
+    const annee = Number(v.slice(0, 4));
+    if (
+      !Number.isNaN(d.getTime()) &&
+      annee >= ANNEE_MIN &&
+      annee <= ANNEE_MAX &&
+      (!JOUR_RE.test(v) || d.toISOString().slice(0, 10) === v)
+    )
       return { ok: true, change: true, value: d };
   }
   return { ok: false, error: "Date invalide." };

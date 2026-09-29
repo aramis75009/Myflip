@@ -63,10 +63,30 @@ export function toArticleSacbase(a: ArticleSacbaseRow): ArticleSacbase {
   };
 }
 
+// Les formats exacts que SacBase exige (cf. son parseMyflipStock).
+const SKU_RE = /^[A-Z]{2,5}\d+$/;
+const JOUR_RE = /^\d{4}-\d{2}-\d{2}$/;
+const conforme = (a: ArticleSacbase) =>
+  SKU_RE.test(a.sku) &&
+  a.statut !== "" &&
+  (a.dateVente === null || JOUR_RE.test(a.dateVente)) &&
+  (a.dateMiseEnVente === null || JOUR_RE.test(a.dateMiseEnVente));
+
+/**
+ * `ecartes` : SKU des lignes hors contrat (SKU « SDN-4 », date aberrante…),
+ * RETIRÉES de la réponse. SacBase rejette tout le lot au premier écart : une
+ * seule ligne douteuse couperait la synchro de tous les sacs. La route les
+ * journalise ; elles ne partent jamais.
+ */
 export function reponseSacbase(rows: ArticleSacbaseRow[], now: Date = new Date()) {
+  const tous = rows.map(toArticleSacbase);
   return {
     genere_le: now.toISOString(),
     comptes: COMPTES_VENTE.map((c) => ({ id: c.id, label: c.label })),
-    articles: rows.map(toArticleSacbase).sort((a, b) => naturalSort(a.sku, b.sku)),
+    articles: tous.filter(conforme).sort((a, b) => naturalSort(a.sku, b.sku)),
+    ecartes: tous
+      .filter((a) => !conforme(a))
+      .map((a) => a.sku)
+      .sort(naturalSort),
   };
 }

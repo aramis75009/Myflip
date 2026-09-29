@@ -93,6 +93,13 @@ describe("parseDatePatch", () => {
     expect(parseDatePatch("2026-13-45")).toMatchObject({ ok: false });
     expect(parseDatePatch(42)).toMatchObject({ ok: false });
   });
+  it("année hors 2000–2100 : refus (saisie au clavier en cours, « 0002-09-29 »)", () => {
+    expect(parseDatePatch("0002-09-29")).toMatchObject({ ok: false });
+    expect(parseDatePatch("0202-09-29")).toMatchObject({ ok: false });
+    expect(parseDatePatch("0002-09-29T00:00:00.000Z")).toMatchObject({ ok: false });
+    expect(parseDatePatch("2101-01-01")).toMatchObject({ ok: false });
+    expect(parseDatePatch("2000-01-01")).toMatchObject({ ok: true, change: true });
+  });
 });
 
 describe("whereMiseEnVenteAuto — écritures groupées (barre d'action, assistant)", () => {

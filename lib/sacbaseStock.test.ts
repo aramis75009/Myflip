@@ -78,6 +78,24 @@ describe("reponseSacbase", () => {
   });
 });
 
+describe("reponseSacbase — lignes hors contrat", () => {
+  // SacBase rejette TOUTE la réponse au premier écart : une ligne douteuse
+  // doit être écartée ici, jamais envoyée.
+  const ok = { sku: "SDN3", statut: "En vente", compteVente: null, prixVente: null, dateVente: null, dateMiseEnVente: null };
+  it("écarte un SKU hors format et garde les autres", () => {
+    const r = reponseSacbase([ok, { ...ok, sku: "SDN-4" }, { ...ok, sku: "sdn5" }, { ...ok, sku: "A1" }]);
+    expect(r.articles.map((a) => a.sku)).toEqual(["SDN3"]);
+    expect(r.ecartes).toEqual(["A1", "SDN-4", "sdn5"]);
+  });
+  it("écarte une ligne dont une date sortirait hors format (année < 1000)", () => {
+    const r = reponseSacbase([ok, { ...ok, sku: "SDN6", dateMiseEnVente: new Date("0002-09-29T00:00:00.000Z") }]);
+    expect(r.articles.map((a) => a.sku)).toEqual(["SDN3"]);
+  });
+  it("écarte un statut vide", () => {
+    expect(reponseSacbase([{ ...ok, statut: "" }]).articles).toEqual([]);
+  });
+});
+
 describe("route /api/sacbase/stock", () => {
   it("n'expose que GET", () => {
     const src = readFileSync(path.join(__dirname, "../app/api/sacbase/stock/route.ts"), "utf8");

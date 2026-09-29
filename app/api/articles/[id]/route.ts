@@ -107,12 +107,12 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
       );
     }
 
-    const dateVente =
-      body.dateVente !== undefined
-        ? body.dateVente
-          ? new Date(body.dateVente)
-          : null
-        : existing.dateVente;
+    // Même garde que la date de mise en vente : une année aberrante (saisie
+    // au clavier en cours) sortirait hors format vers SacBase.
+    const venteSaisie = parseDatePatch(body.dateVente);
+    if (!venteSaisie.ok)
+      return NextResponse.json({ error: "Date de vente invalide." }, { status: 400 });
+    const dateVente = venteSaisie.change ? venteSaisie.value : existing.dateVente;
 
     // Passage à « Vendu » sans prix → refus (le client doit ouvrir le modal).
     if (statut === STATUT_VENDU && prixVente == null) {

@@ -18,7 +18,10 @@ export async function GET(req: Request) {
       where: whereSacbase(auth.userId),
       select: articleSacbaseSelect,
     });
-    return NextResponse.json(reponseSacbase(rows), { headers: { "Cache-Control": "no-store" } });
+    const { ecartes, ...corps } = reponseSacbase(rows);
+    if (ecartes.length)
+      console.warn(`[sacbase] ${ecartes.length} article(s) hors contrat écarté(s) :`, ecartes.join(", "));
+    return NextResponse.json(corps, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     console.error("GET /api/sacbase/stock", err);
     return NextResponse.json({ error: "Erreur lors de la lecture du stock." }, { status: 500 });

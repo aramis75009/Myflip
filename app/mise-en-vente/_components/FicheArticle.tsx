@@ -100,6 +100,13 @@ export default function FicheArticle({
   const fileRef = useRef<HTMLInputElement>(null);
   const { qcm } = fiche;
 
+  const dateEnregistree = fiche.article?.dateMiseEnVente
+    ? (jourParis(new Date(fiche.article.dateMiseEnVente)) ?? "")
+    : "";
+  const [dateDraft, setDateDraft] = useState(dateEnregistree);
+  // Resynchronise quand la version serveur change (enregistrement, autre fiche).
+  useEffect(() => setDateDraft(dateEnregistree), [dateEnregistree]);
+
   const fileName = (i: number) =>
     `${fiche.article?.sku ?? "PHOTO"}_${String(i + 1).padStart(2, "0")}.jpg`;
 
@@ -580,11 +587,17 @@ export default function FicheArticle({
           <label className={`${labelCls} mt-4 block`} htmlFor={`mev-${fiche.id}`}>
             Mis en vente le
           </label>
+          {/* Brouillon local, enregistré à la sortie du champ : un input date
+              tapé au clavier émet « 0002-09-29 » en cours de saisie, et un
+              PATCH par frappe ferait gagner la dernière réponse arrivée. */}
           <input
             id={`mev-${fiche.id}`}
             type="date"
-            value={fiche.article?.dateMiseEnVente ? (jourParis(new Date(fiche.article.dateMiseEnVente)) ?? "") : ""}
-            onChange={(e) => onPatchArticle({ dateMiseEnVente: e.target.value || null })}
+            value={dateDraft}
+            onChange={(e) => setDateDraft(e.target.value)}
+            onBlur={() => {
+              if (dateDraft !== dateEnregistree) onPatchArticle({ dateMiseEnVente: dateDraft || null });
+            }}
             className={`${inputCls} mt-2.5`}
           />
         </div>

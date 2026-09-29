@@ -377,7 +377,7 @@ export default function MiseEnVentePage() {
       const f = etatRef.current.fiches.find((x) => x.id === id);
       if (!f?.article) continue;
       try {
-        await updateArticle.mutateAsync({
+        const maj = await updateArticle.mutateAsync({
           id: f.article.id,
           patch: {
             titreAnnonce: f.annonce.titre,
@@ -392,6 +392,9 @@ export default function MiseEnVentePage() {
           differerInvalidation: true,
         });
         dispatch({ type: "enregistre", id, statut });
+        // La fiche reprend la version serveur : le passage en « En vente » vient
+        // d'y poser la date de mise en vente, qui doit s'afficher tout de suite.
+        dispatch({ type: "article/maj", article: maj });
         reussites.add(id);
       } catch (err) {
         dispatch({
