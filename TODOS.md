@@ -350,3 +350,31 @@ Aucun ne bloque la fusion ; tous sont documentés avec leur raison.
       `couleurManquante`). Inoffensif tant que `generation.phase === "ok"`
       implique `article !== null`.
       fois sans surprise.
+
+---
+
+## P2 · Comptes Vinted et dates de mise en vente — reliquats du 29/09/2026
+
+Relevés par la relecture indépendante de `feat/dates-mise-en-vente`, non traités
+parce qu'ils demandent une décision ou restent sans effet aujourd'hui.
+
+- **Décision · libellés de comptes globaux.** `lib/comptesVente.ts` affiche
+  Fripandtrend / Enorab18 à TOUS les comptes MyFlip (spec du 29/09). Un autre
+  utilisateur voit les pseudos d'Aramis. Pistes : libellés par compte dans
+  `UserSettings`, ou réservés au compte `SACBASE_USER_EMAIL`.
+- **Décision · date posée par Hermes.** `POST /api/hermes/stock/statut` n'active
+  pas `{ dateMiseEnVente: true }` : un article mis en vente par l'agent n'a pas
+  de date. L'activer = une ligne dans cette route, mais c'est la surface Hermes.
+- **« Vendu le » masqué pour les préférences existantes.** Qui avait déjà réglé
+  ses colonnes garde `dateVente: false` : la colonne renommée « Vendu le » reste
+  cachée (les nouvelles colonnes, elles, apparaissent). Réactivable dans
+  « Colonnes ».
+- **« Jours en vente » d'un article revenu en brouillon** continue de compter
+  (« En vente depuis N jours ») : la règle lue est « non vendu », pas « en vente ».
+  À trancher.
+- **`SellDialog` : `defaultDate.slice(0, 10)`** reste en UTC ; sans effet tant que
+  `dateVente` est stockée à minuit UTC.
+- **`fix-compte-vente-hipobuy.mjs`** affiche la date de vente en UTC, et
+  `process.exit(1)` dans le `try` saute le `$disconnect`. Cosmétique.
+- **`EditableCell` variante select** : sur Chrome Windows, une flèche au clavier
+  sur le select fermé déclenche un enregistrement immédiat.

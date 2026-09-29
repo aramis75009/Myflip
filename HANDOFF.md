@@ -9,278 +9,60 @@ Le mode d'emploi complet est dans [`AGENTS.md`](AGENTS.md), section
 
 ---
 
-# Passation — 2026-09-09 · Le champ prix : diagnostic et correctifs
+# Passation — 2026-09-29 · Comptes Vinted et dates pour SacBase
 
 | | |
 |---|---|
-| **Agent** | Claude Code (Opus 5) + Aramis |
-| **Branche** | `vinted-champ-prix`, partie de `origin/main` (`a31f369`). **Non poussée. Non fusionnée.** 13 commits + les modifications du 09/09 au soir, **non commitées**. |
-| **Commits** | `9763058` → HEAD (correctifs de code : `9763058`..`b1905b8`) |
-| **Plan** | `docs/superpowers/plans/2026-09-09-champ-prix-et-onglet-cache.md` |
-| **Spec** | `docs/audits/2026-09-09-champ-prix-vinted-diagnostic.md` |
-
-> ## ✅ 09/09/2026, session du soir — **9/10 atteint, non commité**
->
-> Les **rangs 1 et 2 sont implémentés** (détail en fin de ce bandeau). Le
-> tableau ci-dessous décrit l'état d'AVANT cette session : il est conservé
-> parce qu'il porte le raisonnement, mais **ne pas le relire comme une liste
-> de choses à faire**.
->
-> **Fichiers touchés, tous dans `extension-vinted/` :**
-> `interception.js` (nouveau, 350 l.), `interception.test.js` (nouveau,
-> 23 tests), `web-ext-config.mjs` (nouveau), `formulaire.js`,
-> `content-vinted.js`, `background.js`, `manifest.json` (→ 1.3.0), `README.md`.
->
-> **Vérifié** : `npx vitest run extension-vinted/` → **48 tests, 0 échec** ;
-> `npx web-ext lint --self-hosted` → **0 erreur, 2 avertissements** (les deux
-> attendus et documentés).
->
-> ⚠️ **Rien n'est commité** — `git status` le montre. Aramis n'avait pas
-> demandé de commit.
->
-> ⚠️ **9/10 mesure la RESSEMBLANCE des mécanismes, pas le fonctionnement.**
-> Rien de tout ceci n'a tourné dans un navigateur. C'est le prochain geste, et
-> il revient à Aramis (compte jetable, depuis Windows).
->
-> **Ce qui a changé, en une phrase par rang :**
-> - **Rang 1** — `interception.js` patche `XMLHttpRequest` (et `fetch`) dans le
->   monde de la PAGE et relaie la réponse de `POST /api/v2/item_upload/drafts` ;
->   `verifierBrouillonEnregistre()` compare le prix enregistré au prix demandé.
->   Trois issues nouvelles : `succes-verifie`, `prix-non-enregistre`,
->   `echec-api`. La détection par URL reste, en **repli**.
-> - **Rang 2** — `cliquerVraiment()` remplace les **sept** `.click()` :
->   `mouseover → mousedown → (focus) → mouseup → el.click() → mouseout`.
-> - **Rang 3** — oscillateur Web Audio posé, **efficacité non prouvée** : il
->   écrit son propre état dans `data-myflip-oscillateur`.
-> - **Rang 4** — non fait, volontairement : son rôle n'est toujours pas compris.
->
-> **Deux affirmations de la passation précédente étaient fausses**, corrigées
-> dans l'audit d'écart : leur `content-interceptor.js` n'intercepte **que le
-> login OAuth**, et `waitForXHR` vit dans `content-human-actions.js`. Au
-> passage, un fait utile : ils ne patchent que XHR pour les brouillons, donc
-> **le formulaire Vinted passe bien par XHR**.
-
-# 🎯 L'OBJECTIF DE CE CHANTIER : PASSER DE 6/10 À **9/10 MINIMUM**
-
-**C'est la consigne la plus importante de cette passation, donnée par Aramis le
-09/09/2026. Tout le reste en découle.**
-
-L'extension MyFlip doit **ressembler le plus possible à celle du Troc Futé** —
-dans ses mécanismes, jamais dans son code. Leur outil tourne depuis deux ans chez
-des clients payants **sans se faire repérer par Vinted** ; c'est la seule preuve
-de terrain disponible, et Aramis connaît personnellement leur développeur.
-
-**Note avant cette session : 6/10 — après : 9/10.** Le relevé complet, avec le détail de ce qui est aligné
-et de ce qui manque, est dans
-[`docs/audits/2026-09-09-ecart-avec-le-troc-fute.md`](docs/audits/2026-09-09-ecart-avec-le-troc-fute.md).
-
-## Le chemin vers 9/10, chiffré et ordonné
-
-| Rang | Ce qui manquait | Gain | Note atteinte | État |
-|---|---|---|---|---|
-| **1** | **Lire la réponse de l'API Vinted** au lieu de deviner | **+2** | **8/10** | ✅ fait le 09/09 au soir |
-| **2** | **De vrais événements souris** au lieu de `HTMLElement.click()` | **+1** | **9/10** | ✅ fait le 09/09 au soir |
-| 3 | Oscillateur Web Audio anti-endormissement | +0,5 | 9,5/10 | ⚠️ posé, non prouvé |
-| 4 | Règles sur les en-têtes réseau (rôle non analysé) | +0,5 | 10/10 | ❌ non fait, exprès |
-
-**Les rangs 1 et 2 suffisent à atteindre l'objectif.**
-
-**Rang 1 — le manque le plus coûteux du projet.** Ils remplacent
-`XMLHttpRequest` et attendent la réponse de `POST /api/v2/item_upload/drafts` :
-ils savent **ce que Vinted a réellement enregistré**, champ par champ. MyFlip
-déduit le succès d'un changement d'URL et ne sait rien du contenu. **Cette
-interception aurait détecté le prix à 0,00 € au premier essai**, au lieu de
-coûter un mois et deux chantiers. À faire porter par un script du monde de la
-page — le `XMLHttpRequest` du monde isolé n'est pas celui que Vinted utilise.
-
-**Rang 2 — `HTMLElement.click()` n'est pas un clic.** Il n'émet ni
-`pointerdown` ni `mousedown`, donc **ne déplace pas le focus** — ce qui est tout
-le sujet du champ prix. Ils composent la séquence complète.
-
-## ⚠️ Le seul endroit où il NE FAUT PAS s'aligner
-
-Leur mensonge de visibilité bloque `blur` en phase de **capture** sans
-condition. `blur` ne bouillonne pas mais il capture : ce blocage tuerait
-**n'importe quel écouteur `blur` d'élément de la page**. Si Vinted tourne en
-React 16, cela **causerait** le brouillon à `0,00 €` au lieu de le corriger.
-
-Celui de MyFlip ne bloque que les événements dont la **cible** est `window` ou
-`document`. **C'est volontaire. Ne pas « aligner » ce point** — la revue finale
-du 09/09 l'a exigé.
-
-## ⚠️ La note vient d'une lecture PARTIELLE
-
-Ont été lus : `manifest.json`, `content-always-focus.js`, `timer-worker.js`, et
-dans `content-human-actions.js` la fonction du prix plus la table des matières.
-**N'ont pas été analysés** : `background.js` (37 Ko), `content.js`,
-`content-interceptor.js`, `rules/vinted-headers.json` (22 Ko).
-
-**Premier travail pour viser 9/10 sérieusement : finir cette lecture.**
-Aramis n'a rien à fournir : le `.xpi` est un téléchargement public. **La marche
-à suivre exacte — commande, pièges, et inventaire de leurs 8 fichiers avec ce
-qui a été lu ou non — est en tête de**
-`docs/audits/2026-09-09-ecart-avec-le-troc-fute.md`.
-
-**Ne recopier aucune ligne**, et supprimer le dossier après lecture : le lire est
-légitime, le redistribuer ne l'est pas.
-
----
-
-## La décision en attente, à relire à la lumière de l'objectif
-
-Le diagnostic classait « ouvrir l'onglet **au premier plan** » (`active: true`
-dans `background.js`) comme un correctif d'un mot, et la machinerie — mensonge
-de visibilité + minuteurs en worker — comme « à n'envisager que si ce mot ne
-suffit pas ». La machinerie a été construite **sans jamais essayer le mot**, et
-l'arbitrage n'a pas été soumis à Aramis. C'est la faute de conduite de la
-session du 09/09, relevée par la revue finale.
-
-⚠️ **Mais la consigne du 9/10 la tranche en pratique : Le Troc Futé garde
-l'onglet CACHÉ.** Retirer la machinerie ferait *baisser* la note. L'option
-« essayer `active: true` et retirer la machinerie » est donc écartée, sauf
-contre-ordre explicite d'Aramis.
-
-`background.js` reste sur `active: false`. Ce qui subsiste, et qui est bon
-marché : la mesure `avaitLeFocus` journalisée par `taperPrix()` dira au premier
-passage si l'onglet caché était bien la cause racine. Si oui, `active: true`
-reste un **repli de secours** — pas la voie principale.
+| **Agent** | Claude Code (Opus 5.5), session ouverte sur SacBase avec MyFlip ajouté en `--add-dir` |
+| **Branches** | `feat/comptes-vinted-sacbase` (`59fc934`, `ec1303b`) puis `feat/dates-mise-en-vente` empilée dessus (`dd0ae3d`, `cec882e`, + ce commit de docs). Parties de `origin/main` (`b0f456b`). **Non poussées. Non fusionnées.** Worktree : `.claude/worktrees/comptes-vinted`. |
+| **Specs** | `Fake hipobuy/Claude outputs/prompt5_claude_code_myflip_comptes_vinted.md` (comptes + API SacBase) et le brief « dates de mise en vente » (`prompt7_…`). |
 
 ## Goal — l'objectif
-
-Que le prix arrive réellement dans le brouillon Vinted, au lieu de s'y
-enregistrer à `0,00 €` alors que le champ affiche « 15,00 € » (relevé du
-08/09/2026). C'était le seul inconnu du chantier Vinted.
+Que SacBase (tableau de bord des sacs Hipobuy) lise dans MyFlip, pour chaque sac, le statut, le prix, la date de vente, le compte Vinted et la date de mise en vente — et que MyFlip sache dire en combien de jours un article s'est vendu.
 
 ## Current state — ce qui a été fait
+- **Comptes Vinted** : libellés réels dans `lib/comptesVente.ts` (Fripandtrend = `VINTED_PRO`, Enorab18 = `VINTED_SECOND`), choix du compte AVANT la vente (colonne « Compte » du Stock, sélecteur de la fiche de mise en vente), la comptabilisation garde le compte choisi.
+- **`GET /api/sacbase/stock`** : lecture seule, jeton `SACBASE_API_TOKEN`, compte `SACBASE_USER_EMAIL`, 6 clés par article, dates en jour de Paris, lignes hors contrat écartées et journalisées.
+- **Script** `scripts/fix-compte-vente-hipobuy.mjs` : passe les sacs Hipobuy vendus sur Enorab18. Simulation par défaut, `--apply` pour écrire. **Pas lancé sur Neon.**
+- **Dates** : colonne `Article.dateMiseEnVente` (migration écrite à la main), posée au PASSAGE en « En vente », gardée à travers les brouillons, jamais écrasée si saisie ; colonnes « Mis en vente le », « Vendu le », « Jours en vente » dans `/stock` ; date modifiable dans la fiche (enregistrée à la sortie du champ) ; « aujourd'hui » des modaux de vente en jour de Paris.
+- **Pas fait, volontairement** : la date n'est pas posée par l'API Hermes (voir Decisions) ; pas de rattrapage des articles existants.
 
-**Le diagnostic vient de la lecture de l'extension concurrente.** Le Troc Futé
-est publié sur addons.mozilla.org ; son `.xpi` a été téléchargé publiquement, lu,
-puis supprimé. **Aucune ligne recopiée** — les deux documents produits consignent
-des faits sur Vinted et sur React. Écart complet et note de ressemblance
-(**6/10**) dans `docs/audits/2026-09-09-ecart-avec-le-troc-fute.md`.
+## Decisions — choix critiques ou irréversibles
+- **Migration AVANT le code.** Le build Vercel ne lance que `prisma generate`. `articleSelect` lit `dateMiseEnVente` sur chaque requête article : si le code part avant `prisma migrate deploy`, **toutes les pages articles tombent en 500 pour tous les comptes**.
+- **Hermes non modifié.** `changerStatutArticles` a une option `{ dateMiseEnVente: true }` activée par la barre d'action du Stock, PAS par `POST /api/hermes/stock/statut`. L'activer = modifier cette route Hermes : décision d'Aramis, en attente.
+- **Passage, pas état.** Un article déjà « En vente » sans date (antérieur) ne reçoit pas de date à la première édition venue : sinon on inventerait un rattrapage.
+- **Année bornée 2000–2100** sur les dates saisies : un input date tapé au clavier émet « 0002-09-29 » en cours de frappe, et une telle date sortirait hors format vers SacBase, qui rejette alors tout le lot.
 
-**Quatre causes, quatre correctifs**, tous livrés sur la branche :
-
-1. **Le mauvais événement.** Depuis React 17, `onBlur` est émulé depuis
-   `focusout` ; `blur` ne bouillonne pas et n'atteint jamais l'écouteur posé à
-   la racine. Le champ prix est le seul du formulaire à valider **au départ du
-   focus** — c'est là qu'il reformate « 15 » en « 15,00 € » et commite. Le titre
-   survivait parce qu'il commite sur `input`.
-2. **Le séparateur décimal.** Le champ est en locale française :
-   `prixPourVinted()` (`app/mise-en-vente/_publierVinted.ts`) convertit le point
-   en virgule. **Seul maillon de la chaîne du prix couvert par des tests** (6).
-3. **Le focus jamais réellement déplacé.** `taperPrix()` sort désormais le focus
-   vers le champ description.
-4. **L'onglet caché.** `forcerVisibilitePage()` (injectée dans le monde de la
-   page) et `minuteur-worker.js`.
-
-**Ce qui n'a PAS été fait :**
-
-- **Rien n'a jamais tourné dans un navigateur.** Pas une fois.
-- **Trois des quatre correctifs vivent dans des fichiers qu'aucun outil ne
-  vérifie** : `tsconfig.json` n'inclut que `**/*.ts`/`**/*.tsx`, vitest ne
-  collecte que `extension-vinted/**/*.test.js`. Les 219 tests verts ne couvrent
-  que la conversion décimale.
-- **Le prix d'un vrai brouillon Vinted n'a toujours jamais été relu.**
-
-## Decisions — choix critiques
-
-**La revue finale a rejeté la branche, et ses deux défauts bloquants venaient de
-correctifs de cette session.** Corrigés dans `b1905b8` :
-
-- **Le mensonge de visibilité était trop large.** Il bloquait `blur` en phase de
-  **capture** sur `window`/`document` — donc tout écouteur `blur` d'élément de
-  la page. Sous React 16, il aurait **causé** le bug au lieu de le corriger.
-  Restreint aux événements dont la cible est `window` ou `document`.
-- **Une pause pouvait ne jamais se résoudre.** Un worker qui se construit mais
-  ne démarre pas émet un événement `error`, pas une exception. `remplir()`
-  restait suspendue, aucun `vinted:resultat` ne partait, l'entrée restait
-  `"en-cours"` — et `file.js:134` **exclut `"en-cours"` de la purge TTL**. File
-  gelée jusqu'à fermeture manuelle de l'onglet, sans message. Garde-fou temporel
-  + écouteur `error` ajoutés.
-- **Le commit pouvait tourner deux fois.** Si le champ avait le focus,
-  `el.blur()` commite déjà ; le `focusout` synthétique faisait recommencer sur
-  « 15,00 € » déjà reformaté — qu'un parseur naïf rend `NaN`, c'est-à-dire
-  `0,00 €`. On fabriquait le bug qu'on chassait. Rendu conditionnel sur
-  `avaitLeFocus`.
-
-⚠️ **`avaitLeFocus` est aussi la MESURE qui départage les causes.**
-`taperPrix()` journalise `[myflip-vinted] prix : le champ avait le focus = …`.
-En onglet caché : `false` ⇒ la cause racine est l'onglet (n° 4), pas
-l'événement (n° 1). **La revue finale argumente que c'est le cas** — l'ancien
-`el.blur()` produisait déjà un `focusout` réel, sauf si le focus n'avait jamais
-été pris.
-
-**Le sélecteur `[data-testid="price-input"]` (le conteneur) ne vient d'aucun
-relevé DOM** — il vient de la lecture du concurrent. Le champ,
-`[data-testid="price-input--input"]`, lui, est attesté. À confirmer au premier
-passage.
-
-**Un défaut critique préexistant, non corrigé** (documenté dans
-`docs/audits/2026-09-04-revue-finale-lane-a.md`) : `Article.prixVente` est
-écrasé à `null` à chaque sauvegarde. **Le brouillon Vinted reçoit bien le prix**
-— il voyage en mémoire — mais il est absent de `/stock`. Décision d'Aramis du
-09/09 : le prix d'annonce aura **sa propre colonne** (`TODOS.md`), après l'essai.
-
-## Changed — fichiers
-
+## Changed — fichiers et composants
 | Fichier | Nature |
 |---|---|
-| `app/mise-en-vente/_publierVinted.ts` + test | `prixPourVinted()`, 6 tests |
-| `extension-vinted/formulaire.js` | `taperPrix()` ; `pause()` par worker + garde-fou |
-| `extension-vinted/content-vinted.js` | `forcerVisibilitePage()` injectée en `textContent` ; `init()` différé |
-| `extension-vinted/minuteur-worker.js` | Créé |
-| `extension-vinted/manifest.json` | `run_at: document_start`, `web_accessible_resources`, version `1.2.0` |
-| `extension-vinted/README.md` | Les quatre causes et leurs correctifs |
-| `docs/audits/2026-09-09-champ-prix-vinted-diagnostic.md` | Créé — la spec |
-| `docs/audits/2026-09-09-ecart-avec-le-troc-fute.md` | Créé — écart et note 6/10 |
+| `lib/comptesVente.ts` (+ test) | nouveau — libellés et règles de compte |
+| `lib/sacbaseAuth.ts`, `lib/sacbaseStock.ts` (+ test), `app/api/sacbase/stock/route.ts` | nouveau — API SacBase |
+| `lib/dateMiseEnVente.ts` (+ test) | nouveau — règle de date, jours en vente, validation des dates |
+| `prisma/schema.prisma`, `prisma/migrations/20260929120000_date_mise_en_vente/` | colonne `dateMiseEnVente` |
+| `app/api/articles/[id]/route.ts`, `…/comptabiliser/route.ts`, `app/api/articles/bulk/route.ts`, `app/api/chat/route.ts`, `lib/stock.ts` | écritures de statut |
+| `lib/serialize.ts`, `lib/types.ts`, `lib/hooks.ts` | DTO / patch |
+| `components/EditableCell.tsx` | variantes `select` et `date` |
+| `app/stock/page.tsx`, `app/mise-en-vente/*`, `components/SellDialog.tsx`, `components/SellModal.tsx` | interface |
+| `scripts/fix-compte-vente-hipobuy.mjs` | nouveau — correction ponctuelle |
+| `CLAUDE.md` | API SacBase, règle de date, variables |
 
-## Validations
+## Validations — passants / échoués / non lancés
+- **Passants** : `npm run test` → 21 fichiers, **292 tests** ; `npm run typecheck` → 0 erreur ; lint (`npx eslint --no-eslintrc -c .eslintrc.json app lib components` — `npm run lint` échoue dans un worktree imbriqué, ESLint charge aussi le `.eslintrc` du dépôt parent) → 0 ; `npm run build` → OK (un avertissement `jose`/Edge préexistant).
+- **Passants, sur une base Postgres jetable locale (PGlite, toutes les migrations rejouées)** : `prisma migrate deploy` OK, `migrate diff` base→schéma = seulement le `DROP photosPretes` connu ; route SacBase 401/200/405, périmètre (autre compte et autre fournisseur exclus), tri naturel ; la réponse réelle passe le parseur strict de SacBase ; PATCH compte / date (valide, `FOO`, `null`, année 0002) ; comptabilisation qui garde le compte ; barre d'action ; script `--apply` ; `/stock` et fiche vérifiés au navigateur à 1440 et 390 px.
+- **Non lancés** : rien sur Neon (ni dev ni prod) ; `SellDialog` de `/a-comptabiliser` non ouvert au navigateur ; enregistrement complet d'une annonce (génération IA) non rejoué — la mise à jour de la fiche après `enregistrer` n'est vérifiée que par le code.
+- **Relecture indépendante** faite (Opus) : 1 critique + 4 importants ; critique et 2 importants corrigés (`cec882e`), 2 soumis à Aramis (Blockers).
 
-```
-$ npx tsc --noEmit          → exit 0, aucune sortie
-$ npx vitest run            → 17 fichiers, 219 tests, 0 échec
-$ cd extension-vinted && npx web-ext lint --self-hosted
-                            → 0 erreur, 2 avertissements (baseline)
-```
-
-**Non lancés** : toute exécution navigateur. `npm run build` (interdit).
-
-## Blockers
-
-- **La décision d'Aramis sur `active: true`** (voir en tête).
-- La branche n'est **ni poussée ni fusionnée**.
-- `main` est à jour et déployé : le chantier précédent (prix dans le prompt,
-  délai en pop-up) est en production, migrations appliquées.
+## Blockers — ce qui bloque
+- **Décision Aramis — pseudos visibles par les autres comptes.** Les libellés Fripandtrend / Enorab18 sont globaux (demandé par la spec) : un autre utilisateur de MyFlip les voit à la place de « Vinted Pro / Vinted Second ». Pistes : libellés réglables par compte, ou réservés à `SACBASE_USER_EMAIL`.
+- **Décision Aramis — date posée par Hermes ?** (voir Decisions).
 
 ## Next — la prochaine action
-
-**L'objectif en tête de cette passation commande l'ordre ci-dessous.**
-
-1. **Finir la lecture de l'extension concurrente** — `background.js` (37 Ko),
-   `content.js`, `content-interceptor.js`, `rules/vinted-headers.json` (22 Ko).
-   Sans ça, la note de 6/10 reste une estimation. Télécharger le `.xpi` depuis
-   addons.mozilla.org, lire, supprimer, **ne rien recopier**.
-2. **Rang 1 — lire la réponse de l'API Vinted** (+2 → 8/10). Le manque le plus
-   coûteux du projet, et celui qui rendra la vérification du prix automatique
-   au lieu de dépendre d'Aramis relisant un brouillon à la main.
-3. **Rang 2 — de vrais événements souris** (+1 → **9/10, objectif atteint**).
-4. **Le premier passage réel**, qu'Aramis fera lui-même : compte Vinted
-   **jetable**, depuis son **PC Windows**, contre `myflip-app.vercel.app`. Il
-   refuse d'essayer depuis le Mac — il n'y a accès qu'à son compte pro
-   (700 avis). Charger l'extension par `about:debugging` → Charger un module
-   temporaire. **Regarder le prix du brouillon créé**, et la console pour la
-   ligne `le champ avait le focus = …`.
-5. Ensuite : la colonne `prixAnnonce` (`TODOS.md`), puis la signature de
-   l'extension en « unlisted » pour une installation permanente.
-
-⚠️ **L'ordre entre 3 et 4 se discute.** Faire l'essai plus tôt donnerait une
-mesure réelle plutôt qu'une hypothèse de plus — mais chaque session d'essai
-coûte un compte jetable à Aramis, et le rang 1 est précisément ce qui rendrait
-cet essai concluant du premier coup. À trancher avec lui.
-
-⚠️ **Cette passation n'est pas passée par une relecture indépendante** :
-écrite par le contrôleur en fin de session.
+1. Poser `SACBASE_API_TOKEN` (`openssl rand -hex 32`) et `SACBASE_USER_EMAIL` dans Vercel (Production).
+2. `npx prisma migrate status` sur la base de **prod**, puis `npx prisma migrate deploy` — lire d'abord la liste des migrations en attente (la `20260908…` supprime la table `PrixReference`, si la prod ne l'a pas encore vue).
+3. Fusionner `feat/dates-mise-en-vente` (qui contient `feat/comptes-vinted-sacbase`) dans `main`, pousser `origin` (pas `alex`), laisser Vercel déployer.
+4. `node --env-file=<env prod> scripts/fix-compte-vente-hipobuy.mjs`, lire la liste (6 sacs attendus), puis `--apply`.
+5. `curl -H "Authorization: Bearer <jeton>" https://myflip-app.vercel.app/api/sacbase/stock` → 200.
 
 ---
 
@@ -288,7 +70,8 @@ cet essai concluant du premier coup. À trancher avec lui.
 
 | Date | Sujet | Agent | Fiche |
 |---|---|---|---|
-| 2026-09-09 | Le champ prix : diagnostic et correctifs | Claude Code (Opus 5) | *(passation courante)* |
+| 2026-09-29 | Comptes Vinted et dates pour SacBase | Claude Code (Opus 5.5) | *(passation courante)* |
+| 2026-09-09 | Le champ prix : diagnostic et correctifs | Claude Code (Opus 5) | [fiche](docs/handoffs/2026-09-09-champ-prix-diagnostic.md) |
 | 2026-09-09 | Le prix dans le prompt, le délai dans un pop-up | Claude Code (Opus 5) | [fiche](docs/handoffs/2026-09-09-prix-prompt-delai-popup.md) |
 | 2026-09-08 | Remplissage Vinted livré, prochain chantier cadré | Claude Code (Opus 5) | [fiche](docs/handoffs/2026-09-08-remplissage-vinted-livre.md) |
 | 2026-09-03 | Audit du chantier Vinted, correctifs, rangement de `main` | Claude Code (Opus 5) | [fiche](docs/handoffs/2026-09-03-audit-chantier-vinted.md) |
