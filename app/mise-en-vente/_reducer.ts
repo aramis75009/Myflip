@@ -154,6 +154,9 @@ export type ActionMev =
   | { type: "sku/saisie"; id: string; sku: string }
   | { type: "sku/lookup"; id: string; seq: number }
   | { type: "sku/resolu"; id: string; seq: number; article: ArticleDTO }
+  /** L'article vient d'être enregistré (compte Vinted…) : la fiche reprend la
+   *  version serveur. Repéré par `article.id`, pas par la fiche. */
+  | { type: "article/maj"; article: ArticleDTO }
   | { type: "sku/echec"; id: string; seq: number; message: string }
   | { type: "photo/ajout"; id: string; photos: Photo[] }
   | { type: "photo/retrait"; id: string; photoId: string }
@@ -408,6 +411,12 @@ export function reducerMev(etat: EtatMev, action: ActionMev): EtatMev {
 
     case "reset":
       return etatInitial(action.id);
+
+    case "article/maj": {
+      const cible = etat.fiches.find((f) => f.article?.id === action.article.id);
+      if (!cible) return etat;
+      return surFiche(etat, cible.id, (f) => ({ ...f, article: action.article }));
+    }
 
     default:
       return etat;

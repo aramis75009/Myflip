@@ -211,6 +211,9 @@ model Article {
   coefficient Float?
   canal       String?   @default("Vinted")
   dateVente   DateTime?
+  // Première mise en ligne (statut « En vente »). Posée une fois par
+  // lib/dateMiseEnVente.ts, jamais remise à zéro ; corrigeable à la main.
+  dateMiseEnVente DateTime?
   transporteur String?
   trelloCardId String?
   commandeId  String?

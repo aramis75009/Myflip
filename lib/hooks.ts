@@ -127,6 +127,7 @@ export type ArticlePatch = Partial<{
   prixAchat: number;
   prixVente: number | null;
   dateVente: string | null;
+  dateMiseEnVente: string | null;
   canal: string | null;
   titreAnnonce: string | null;
   descriptionAnnonce: string | null;

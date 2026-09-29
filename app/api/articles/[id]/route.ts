@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getUserId, unauthorized, notFound } from "@/lib/apiAuth";
 import { deriveVente, STATUT_VENDU, STATUTS } from "@/lib/calc";
 import { toDTO } from "@/lib/serialize";
+import { parseCompteVentePatch } from "@/lib/comptesVente";
+import { dateMiseEnVenteAEcrire, parseDatePatch } from "@/lib/dateMiseEnVente";
 
 type PatchBody = {
   sku?: string;
@@ -16,10 +18,15 @@ type PatchBody = {
   prixAchat?: number;
   prixVente?: number | null;
   dateVente?: string | null;
+  /** Correction à la main de la première mise en ligne (« AAAA-MM-JJ » ou ISO). */
+  dateMiseEnVente?: string | null;
   canal?: string | null;
   titreAnnonce?: string | null;
   descriptionAnnonce?: string | null;
   motsClesAnnonce?: string | null;
+  /** Compte Vinted choisi AVANT la vente (fiche de mise en vente, Stock).
+   *  Absent = inchangé, null = effacé, autre valeur hors enum = 400. */
+  compteVente?: string | null;
 };
 
 // PATCH /api/articles/[id] — édition inline + transitions de statut
@@ -67,6 +74,11 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
         ? String(body.motsClesAnnonce)
         : null;
 
+    const compte = parseCompteVentePatch(body.compteVente);
+    if (!compte.ok)
+      return NextResponse.json({ error: compte.error }, { status: 400 });
+    if (compte.change) data.compteVente = compte.value;
+
     if (body.statut !== undefined && !STATUTS.includes(body.statut as never)) {
       return NextResponse.json({ error: "Statut invalide." }, { status: 400 });
     }
@@ -95,12 +107,12 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
       );
     }
 
-    const dateVente =
-      body.dateVente !== undefined
-        ? body.dateVente
-          ? new Date(body.dateVente)
-          : null
-        : existing.dateVente;
+    // Même garde que la date de mise en vente : une année aberrante (saisie
+    // au clavier en cours) sortirait hors format vers SacBase.
+    const venteSaisie = parseDatePatch(body.dateVente);
+    if (!venteSaisie.ok)
+      return NextResponse.json({ error: "Date de vente invalide." }, { status: 400 });
+    const dateVente = venteSaisie.change ? venteSaisie.value : existing.dateVente;
 
     // Passage à « Vendu » sans prix → refus (le client doit ouvrir le modal).
     if (statut === STATUT_VENDU && prixVente == null) {
@@ -109,6 +121,19 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
         { status: 400 },
       );
     }
+
+    const saisie = parseDatePatch(body.dateMiseEnVente);
+    if (!saisie.ok)
+      return NextResponse.json({ error: "Date de mise en vente invalide." }, { status: 400 });
+    // Premier passage en « En vente » : date du jour. Une saisie à la main
+    // l'emporte, et une date déjà posée n'est jamais écrasée.
+    const miseEnVente = dateMiseEnVenteAEcrire({
+      statutAvant: existing.statut,
+      statut,
+      dateActuelle: existing.dateMiseEnVente,
+      ...(saisie.change ? { saisie: saisie.value } : {}),
+    });
+    if (miseEnVente !== undefined) data.dateMiseEnVente = miseEnVente;
 
     const derived = deriveVente({ statut, prixAchat, prixVente, dateVente });
 

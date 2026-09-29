@@ -145,6 +145,38 @@ fonctions que le formulaire « Nouvelle commande » et que la barre d'action gro
 du Stock. Toute évolution de la génération des SKU ou du prorata des frais de port
 se fait là, une seule fois.
 
+### API SacBase — `GET /api/sacbase/stock`
+
+Adresse **en lecture seule** pour SacBase, le tableau de bord des sacs Hipobuy
+(Next 16, sur le VPS). Même modèle que l'API Hermes mais **séparée** : jeton
+`SACBASE_API_TOKEN` (Bearer, temps constant), compte fixé par
+`SACBASE_USER_EMAIL`, 503 sans ces variables, 401 sur un mauvais jeton. Le jeton
+SacBase n'ouvre aucune route d'écriture. Code : `lib/sacbaseAuth.ts`,
+`lib/sacbaseStock.ts`.
+
+- Périmètre : les articles du compte dont `commande.fournisseur` contient
+  « hipobuy » (casse libre), triés par SKU naturel.
+- Réponse : `{ genere_le, comptes, articles }`, chaque article porte **exactement**
+  `sku`, `statut`, `compte`, `prixVente`, `dateVente`, `dateMiseEnVente` (dates en
+  `AAAA-MM-JJ`, jour de Paris).
+- ⚠️ **SacBase rejette toute la réponse au moindre écart** (SKU hors
+  `^[A-Z]{2,5}\d+$`, compte hors enum, date avec heure). Ajouter un champ est sans
+  danger ; en retirer un ou changer un type casse la synchro.
+
+### Comptes de vente et date de mise en vente
+
+- `lib/comptesVente.ts` est la **seule** source des libellés : `VINTED_PRO` =
+  « Fripandtrend », `VINTED_SECOND` = « Enorab18 ». Le compte se choisit AVANT la
+  vente (colonne « Compte » du Stock, fiche de mise en vente) ; la comptabilisation
+  garde le compte choisi, `VINTED_PRO` seulement s'il n'y en a aucun.
+- `Article.dateMiseEnVente` (29/09/2026) : posée par `lib/dateMiseEnVente.ts` au
+  **passage** en « En vente » (pas quand l'article l'est déjà), jamais remise à
+  zéro par un retour en brouillon, jamais écrasée si saisie à la main. Appliquée
+  dans le PATCH article, la barre d'action groupée (`changerStatutArticles`,
+  option `dateMiseEnVente: true`) et l'outil statut de l'assistant.
+  ⚠️ **Pas dans l'API Hermes** (`POST /api/hermes/stock/statut` n'active pas
+  l'option) : décision laissée à Aramis. Pas de rattrapage des articles existants.
+
 ---
 
 ## 🧩 Composants clés
@@ -332,6 +364,8 @@ RESEND_API_KEY
 DATABASE_URL            # Neon PostgreSQL (dans .env, géré par Vercel/Prisma)
 HERMES_API_TOKEN        # API Hermes : jeton porteur. Absente = /api/hermes/* répond 503
 HERMES_USER_EMAIL       # API Hermes : compte MyFlip sur lequel l'agent écrit
+SACBASE_API_TOKEN       # API SacBase (lecture seule) : jeton porteur. Absente = /api/sacbase/stock répond 503
+SACBASE_USER_EMAIL      # API SacBase : compte MyFlip dont SacBase lit les sacs Hipobuy
 ```
 
 ⚠️ **`ENCRYPTION_KEY` perdue = tous les secrets de `UserSettings` illisibles.** La

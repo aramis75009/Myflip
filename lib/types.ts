@@ -19,6 +19,8 @@ export type ArticleDTO = {
   coefficient: number | null;
   canal: string | null;
   dateVente: string | null; // ISO
+  /** Première mise en ligne (« En vente »), ISO. Cf. lib/dateMiseEnVente.ts. */
+  dateMiseEnVente: string | null;
   transporteur: string | null;
   trelloCardId: string | null;
   commandeId: string | null;

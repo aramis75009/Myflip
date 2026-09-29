@@ -29,6 +29,8 @@ import { CANAUX } from "@/lib/canalColors";
 import { statutMarker } from "@/lib/statutColors";
 import type { ArticleDTO } from "@/lib/types";
 import EditableCell from "@/components/EditableCell";
+import { COMPTES_VENTE, isCompteVente, labelCompteVente } from "@/lib/comptesVente";
+import { joursEnVente, jourParis } from "@/lib/dateMiseEnVente";
 import SellModal from "@/components/SellModal";
 import NewCommandeModal from "@/components/NewCommandeModal";
 import CanalBadge from "@/components/CanalBadge";
@@ -57,8 +59,11 @@ type SortKey =
   | "margeBrute"
   | "margeNette"
   | "coefficient"
+  | "dateMiseEnVente"
   | "dateVente"
+  | "joursEnVente"
   | "canal"
+  | "compteVente"
   | "transporteur";
 
 type ColumnMeta = {
@@ -80,12 +85,19 @@ const COLUMN_META: ColumnMeta[] = [
   { key: "margeBrute", label: "Marge brute", align: "right", defaultVisible: false },
   { key: "margeNette", label: "Marge nette", align: "right", defaultVisible: true },
   { key: "coefficient", label: "Coef", align: "right", defaultVisible: true },
-  { key: "dateVente", label: "Date vente", defaultVisible: false },
+  { key: "dateMiseEnVente", label: "Mis en vente le", defaultVisible: true },
+  { key: "dateVente", label: "Vendu le", defaultVisible: true },
+  { key: "joursEnVente", label: "Jours en vente", align: "right", defaultVisible: true },
   { key: "canal", label: "Canal", defaultVisible: true },
+  { key: "compteVente", label: "Compte", defaultVisible: true },
   { key: "transporteur", label: "Transporteur", defaultVisible: false },
 ];
 
 const COLUMN_STORAGE_KEY = "myflip-columns";
+
+const COMPTES_OPTIONS = COMPTES_VENTE.map((c) => ({ value: c.id, label: c.label }));
+
+const joursTxt = (n: number) => (n <= 1 ? n + " jour" : n + " jours");
 
 // Chips de filtre par statut : « Tous » puis un chip par statut connu.
 const STATUT_CHIPS: { label: string; value: string }[] = [
@@ -108,9 +120,13 @@ const CSV_VALUE: Record<SortKey, (a: ArticleDTO) => string | number> = {
   margeBrute: (a) => a.margeBrute ?? "",
   margeNette: (a) => a.margeNette ?? "",
   coefficient: (a) => a.coefficient ?? "",
+  dateMiseEnVente: (a) =>
+    a.dateMiseEnVente ? new Date(a.dateMiseEnVente).toLocaleDateString("fr-FR") : "",
   dateVente: (a) =>
     a.dateVente ? new Date(a.dateVente).toLocaleDateString("fr-FR") : "",
+  joursEnVente: (a) => joursEnVente(a)?.jours ?? "",
   canal: (a) => a.canal ?? "",
+  compteVente: (a) => (a.compteVente ? labelCompteVente(a.compteVente) : ""),
   transporteur: (a) => a.transporteur ?? "",
 };
 
@@ -131,9 +147,13 @@ function virtualWindow(v: Virtualizer<Window, Element>) {
   };
 }
 
+// « Jours en vente » n'est pas un champ de l'article : il se calcule.
+const sortValue = (a: ArticleDTO, key: SortKey) =>
+  key === "joursEnVente" ? (joursEnVente(a)?.jours ?? null) : a[key];
+
 function compare(a: ArticleDTO, b: ArticleDTO, key: SortKey): number {
-  const va = a[key];
-  const vb = b[key];
+  const va = sortValue(a, key);
+  const vb = sortValue(b, key);
   if (va == null && vb == null) return 0;
   if (va == null) return 1;
   if (vb == null) return -1;
@@ -378,6 +398,7 @@ const ArticleRow = memo(
       a.prixVente != null &&
       coefEffectif != null &&
       coefEffectif < a.coefObjectif;
+    const jours = joursEnVente(a);
     const cells: Record<SortKey, React.ReactNode> = {
       sku: (
         <td
@@ -505,19 +526,36 @@ const ArticleRow = memo(
           )}
         </td>
       ),
+      dateMiseEnVente: (
+        <td
+          key="dateMiseEnVente"
+          className="px-2 py-[9px] font-mono text-[12px] tabular-nums text-ink-muted"
+        >
+          <EditableCell
+            value={a.dateMiseEnVente ? jourParis(new Date(a.dateMiseEnVente)) : null}
+            display={
+              a.dateMiseEnVente
+                ? new Date(a.dateMiseEnVente).toLocaleDateString("fr-FR")
+                : "—"
+            }
+            type="date"
+            onSave={(v) => onPatch(a.id, { dateMiseEnVente: v || null })}
+          />
+        </td>
+      ),
       dateVente: (
         <td
           key="dateVente"
           className="px-2 py-[9px] font-mono text-[12px] tabular-nums text-ink-muted"
         >
           <EditableCell
-            value={a.dateVente ? a.dateVente.slice(0, 10) : null}
+            value={a.dateVente ? jourParis(new Date(a.dateVente)) : null}
             display={
               a.dateVente
                 ? new Date(a.dateVente).toLocaleDateString("fr-FR")
                 : "—"
             }
-            type="text"
+            type="date"
             editable={vendu}
             onSave={(v) =>
               onPatch(a.id, {
@@ -527,9 +565,41 @@ const ArticleRow = memo(
           />
         </td>
       ),
+      // Calculé, non éditable : grisé tant que l'article est en vente (le
+      // compteur tourne), plein une fois vendu (durée définitive).
+      joursEnVente: (
+        <td
+          key="joursEnVente"
+          className="px-3 py-[9px] text-right font-mono text-[12.5px] tabular-nums"
+        >
+          {jours ? (
+            <span
+              className={jours.vendu ? "font-bold text-[var(--ink)]" : "text-[var(--faint-2)]"}
+              title={jours.vendu ? "Vendu en " + joursTxt(jours.jours) : "En vente depuis " + joursTxt(jours.jours)}
+            >
+              {jours.jours} j
+            </span>
+          ) : (
+            <span className="text-[var(--faint-2)]">—</span>
+          )}
+        </td>
+      ),
       canal: (
         <td key="canal" className="px-2 py-[9px]">
           <CanalBadge canal={a.canal} />
+        </td>
+      ),
+      // Compte Vinted choisi AVANT la vente : SacBase le lit pour répartir les
+      // sacs par compte. Vide = « — », à attribuer.
+      compteVente: (
+        <td key="compteVente" className="px-2 py-[9px] text-[12.5px] text-ink-muted">
+          <EditableCell
+            type="select"
+            value={a.compteVente}
+            display={a.compteVente ? labelCompteVente(a.compteVente) : undefined}
+            options={COMPTES_OPTIONS}
+            onSave={(v) => onPatch(a.id, { compteVente: isCompteVente(v) ? v : null })}
+          />
         </td>
       ),
       transporteur: (
@@ -604,6 +674,7 @@ const ArticleCard = memo(
     { a, isSelected, onToggleSelect, onStatutChange, onDelete, onShowDetail, ...rest },
     ref,
   ) {
+    const jours = joursEnVente(a);
     return (
       <div ref={ref} {...rest} className="pb-3">
         <div
@@ -641,6 +712,12 @@ const ArticleCard = memo(
               <div className="mt-1.5 flex items-center justify-between gap-2">
                 <span className="truncate text-[13px] font-semibold text-[var(--ink2)]">
                   {a.marque}
+                  {a.compteVente && (
+                    <span className="font-normal text-[var(--faint-2)]">
+                      {" · "}
+                      {labelCompteVente(a.compteVente)}
+                    </span>
+                  )}
                 </span>
                 <CanalBadge canal={a.canal} />
               </div>
@@ -654,6 +731,14 @@ const ArticleCard = memo(
                 <span className={`font-bold ${margeClass(a.margeNette)}`}>
                   {a.margeNette != null ? euros(a.margeNette) : "—"}
                 </span>
+                {jours && (
+                  <span
+                    className={jours.vendu ? "text-[var(--ink2)]" : "text-[var(--faint-2)]"}
+                    title={jours.vendu ? "Vendu en " + joursTxt(jours.jours) : "En vente depuis " + joursTxt(jours.jours)}
+                  >
+                    · {jours.jours} j
+                  </span>
+                )}
               </div>
             </div>
           </div>

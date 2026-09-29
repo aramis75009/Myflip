@@ -1,27 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { aujourdhuiParis } from "@/lib/dateMiseEnVente";
 import { X } from "lucide-react";
 import { CANAUX } from "@/lib/canalColors";
+import { COMPTES_VENTE } from "@/lib/comptesVente";
 import type { CompteVente } from "@/lib/types";
 
 // Validation d'une vente : carte centrée (même structure que l'ancien modal
 // clair) habillée aux couleurs de la barre de sélection du Stock — fond sombre
 // #16261D, contrôles bg-white/10, action verte var(--pos).
 
+// Jour calendaire à Paris : en UTC, une vente saisie entre minuit et 2 h
+// serait pré-remplie à la veille.
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return aujourdhuiParis();
 }
 
 const LABEL = "mb-1.5 block text-[12.5px] font-semibold text-[#9FB2A7]";
 const FIELD =
   "min-h-[44px] w-full rounded-xl border border-white/15 bg-white/10 px-3.5 text-[14px] font-semibold text-white outline-none transition-colors [color-scheme:dark] focus:border-white/35";
-
-const COMPTES_VENTE: { value: CompteVente; label: string }[] = [
-  { value: "VINTED_PRO", label: "Vinted Pro" },
-  { value: "VINTED_SECOND", label: "Vinted Second" },
-  { value: "VESTIAIRE_COLLECTIVE", label: "Vestiaire Collective" },
-];
 
 type Props = {
   open: boolean;
@@ -172,7 +170,7 @@ export default function SellDialog({
               className={`${FIELD} cursor-pointer`}
             >
               {COMPTES_VENTE.map((c) => (
-                <option key={c.value} value={c.value}>
+                <option key={c.id} value={c.id}>
                   {c.label}
                 </option>
               ))}

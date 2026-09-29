@@ -23,6 +23,9 @@ import {
   type Qcm,
 } from "../_reducer";
 import { Chip, cardCls, inputCls, labelCls } from "../_ui";
+import { COMPTES_VENTE, isCompteVente } from "@/lib/comptesVente";
+import { jourParis } from "@/lib/dateMiseEnVente";
+import type { CompteVente } from "@/lib/types";
 
 const AUTRE = "Autre…";
 
@@ -73,6 +76,9 @@ type Props = {
   onPrompt: (promptId: string | null) => void;
   montrerChoixPrompt: boolean;
   onBasculerChoixPrompt: () => void;
+  /** Enregistre tout de suite (PATCH) le compte Vinted ou la date de mise en
+   *  vente, sans attendre l'annonce : SacBase les lit dès maintenant. */
+  onPatchArticle: (patch: { compteVente?: CompteVente | null; dateMiseEnVente?: string | null }) => void;
 };
 
 export default function FicheArticle({
@@ -89,9 +95,17 @@ export default function FicheArticle({
   onPrompt,
   montrerChoixPrompt,
   onBasculerChoixPrompt,
+  onPatchArticle,
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const { qcm } = fiche;
+
+  const dateEnregistree = fiche.article?.dateMiseEnVente
+    ? (jourParis(new Date(fiche.article.dateMiseEnVente)) ?? "")
+    : "";
+  const [dateDraft, setDateDraft] = useState(dateEnregistree);
+  // Resynchronise quand la version serveur change (enregistrement, autre fiche).
+  useEffect(() => setDateDraft(dateEnregistree), [dateEnregistree]);
 
   const fileName = (i: number) =>
     `${fiche.article?.sku ?? "PHOTO"}_${String(i + 1).padStart(2, "0")}.jpg`;
@@ -546,6 +560,46 @@ export default function FicheArticle({
               ))}
             </select>
           )}
+        </div>
+
+        <div className={`${cardCls} p-5 md:px-6`}>
+          <label className={labelCls} htmlFor={`compte-${fiche.id}`}>
+            Compte Vinted
+          </label>
+          <select
+            id={`compte-${fiche.id}`}
+            value={fiche.article?.compteVente ?? ""}
+            onChange={(e) =>
+              onPatchArticle({ compteVente: isCompteVente(e.target.value) ? e.target.value : null })
+            }
+            className={`${inputCls} mt-2.5 cursor-pointer`}
+          >
+            <option value="">—</option>
+            {COMPTES_VENTE.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+
+          {/* Posée seule au premier passage en « En vente » ; à saisir ici pour
+              un article mis en ligne avant cette fonctionnalité. */}
+          <label className={`${labelCls} mt-4 block`} htmlFor={`mev-${fiche.id}`}>
+            Mis en vente le
+          </label>
+          {/* Brouillon local, enregistré à la sortie du champ : un input date
+              tapé au clavier émet « 0002-09-29 » en cours de saisie, et un
+              PATCH par frappe ferait gagner la dernière réponse arrivée. */}
+          <input
+            id={`mev-${fiche.id}`}
+            type="date"
+            value={dateDraft}
+            onChange={(e) => setDateDraft(e.target.value)}
+            onBlur={() => {
+              if (dateDraft !== dateEnregistree) onPatchArticle({ dateMiseEnVente: dateDraft || null });
+            }}
+            className={`${inputCls} mt-2.5`}
+          />
         </div>
 
         {mappingVinted && (
