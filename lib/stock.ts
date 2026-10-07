@@ -34,6 +34,7 @@ export const articleHermesSelect = {
   prixAchat: true,
   prixVente: true,
   dateVente: true,
+  dateMiseEnVente: true,
   commandeId: true,
 } satisfies Prisma.ArticleSelect;
 
@@ -41,12 +42,18 @@ export type ArticleHermesRow = Prisma.ArticleGetPayload<{
   select: typeof articleHermesSelect;
 }>;
 
-export type ArticleHermes = Omit<ArticleHermesRow, "dateVente"> & {
+export type ArticleHermes = Omit<ArticleHermesRow, "dateVente" | "dateMiseEnVente"> & {
   dateVente: string | null;
+  /** Première mise en ligne (« En vente »), ISO — cf. lib/dateMiseEnVente.ts. */
+  dateMiseEnVente: string | null;
 };
 
 export function toArticleHermes(a: ArticleHermesRow): ArticleHermes {
-  return { ...a, dateVente: a.dateVente?.toISOString() ?? null };
+  return {
+    ...a,
+    dateVente: a.dateVente?.toISOString() ?? null,
+    dateMiseEnVente: a.dateMiseEnVente?.toISOString() ?? null,
+  };
 }
 
 /**

@@ -50,10 +50,16 @@ export async function POST(req: NextRequest) {
     if (demandes.length === 0 && !commandeId)
       return erreurHermes("Fournir « skus » (tableau) ou « commandeId ».");
 
+    // Date de mise en vente posée automatiquement au passage en « En vente »,
+    // comme la barre d'action du Stock et l'assistant (décision d'Aramis du
+    // 07/10/2026 — cf. le commentaire opt-in de changerStatutArticles).
+    // whereMiseEnVenteAuto ne touche que les articles SANS date qui N'ÉTAIENT
+    // PAS déjà « En vente » : jamais d'écrasement d'une date existante.
     const res = await changerStatutArticles(
       auth.userId,
       { skus: demandes, commandeId },
       body.statut ?? "",
+      { dateMiseEnVente: true },
     );
 
     if (!res.ok)
