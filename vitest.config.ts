@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 import { defineConfig } from "vitest/config";
 import tsconfigPaths from "vite-tsconfig-paths";
 
@@ -12,6 +14,14 @@ import tsconfigPaths from "vite-tsconfig-paths";
  */
 export default defineConfig({
   plugins: [tsconfigPaths()],
+  resolve: {
+    alias: {
+      // `server-only` lève une erreur hors d'un Server Component, et Vitest
+      // tourne en Node nu : sans cet alias, un module serveur qui l'importe
+      // échoue au chargement, avant même la première assertion.
+      "server-only": fileURLToPath(new URL("./lib/__stubs__/server-only.ts", import.meta.url)),
+    },
+  },
   test: {
     environment: "node",
     include: ["lib/**/*.test.ts", "app/**/*.test.ts", "extension-vinted/**/*.test.js"],
