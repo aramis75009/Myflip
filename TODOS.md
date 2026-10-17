@@ -378,3 +378,67 @@ parce qu'ils demandent une décision ou restent sans effet aujourd'hui.
   `process.exit(1)` dans le `try` saute le `$disconnect`. Cosmétique.
 - **`EditableCell` variante select** : sur Chrome Windows, une flèche au clavier
   sur le select fermé déclenche un enregistrement immédiat.
+
+---
+
+## P2 · Studio IA — convertir le HEIC pour de vrai
+
+**Quoi.** Installer une bibliothèque de décodage HEIC (`heic2any` ou
+équivalent) pour l'import en lot de la fiche coloris.
+
+**Pourquoi.** La spec du Studio (§3) promet « HEIC accepté et converti ». Le
+dépôt ne convertit rien : `ACCEPT_IMAGES` et le tri de `_fichiers.ts` listent
+bien `.heic`/`.heif`, mais le décodage repose entièrement sur
+`createImageBitmap` puis `HTMLImageElement` (`lib/imageProcessing.ts:111-128`),
+c'est-à-dire sur le navigateur. **Safari sait lire le HEIC, Chrome ne sait
+pas.** Or l'import en lot sert justement à récupérer les photos prises à
+l'iPhone.
+
+**L'état livré le 18/10.** Aucune dépendance ajoutée, volontairement : l'échec
+est *nommé* fichier par fichier au lieu d'être avalé (le pipeline de
+`/mise-en-vente` se contente d'un toast). Ça marche dans Safari, pas ailleurs.
+
+**Ce que ça coûte.** ~1,5 Mo de WASM côté client, chargés seulement sur la page
+du Studio. À mesurer avant de décider.
+
+**Prérequis.** Essayer d'abord un vrai HEIC d'iPhone dans Chrome ET dans
+Safari : si Aramis travaille exclusivement sous Safari, ce chantier n'existe
+pas.
+
+---
+
+## P2 · Studio IA — option B, la génération par API
+
+**Quoi.** Un bouton « Tester ce coloris » qui appelle directement l'API Gemini,
+au lieu du va-et-vient manuel par l'application Gemini.
+
+**Pourquoi.** C'est l'étape d'après, prévue par la spec (§2, §10). Le modèle de
+données ne bougera pas : `StudioEssai.source` vaut `manuel` aujourd'hui et
+`api` demain, la colonne existe déjà.
+
+**Contexte.** Écartée volontairement à la rédaction de la spec (17/10) : le
+test du 17/10 s'est fait dans l'application Gemini, avec l'abonnement d'Aramis,
+et la spec interdit tout robot dans cette application. L'option B demande une
+clé API Gemini, donc un autre budget.
+
+**Prérequis.** Que le banc de test ait d'abord donné son verdict : si le modèle
+ne reproduit pas fidèlement les sacs, l'option B n'a pas d'objet.
+
+---
+
+## P3 · Studio IA — recul après échec du client SacBase
+
+**Quoi.** Un court recul (10 à 15 s) dans `lib/studioColoris.ts` quand SacBase
+ne répond pas.
+
+**Pourquoi.** Le cache de 60 s n'est pas rafraîchi après un échec, donc chaque
+appel retente et peut attendre jusqu'à 4 s. C'est la limite héritée du client
+de SacBase (`lib/myflip.server.ts`), copiée telle quelle.
+
+**Ce qui l'évite aujourd'hui.** Appeler `getColoris` une seule fois puis
+construire l'index `sku → cle`, au lieu de `resolveSkuToCle` en boucle. C'est
+ce que la T8 doit faire.
+
+**Quand ça deviendra nécessaire.** Si `/mise-en-vente` finit par résoudre les
+coloris photo par photo, ou si une page du Studio appelle SacBase à chaque
+rendu.
