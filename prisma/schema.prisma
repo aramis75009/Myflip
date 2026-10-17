@@ -36,6 +36,12 @@ model User {
   lots      Lot[]
   prompts   PromptTemplate[]
   settings  UserSettings?
+
+  // Studio IA — banc de test, cloisonné du reste (cf. la section en bas de ce
+  // fichier). Aucune de ces relations ne touche Article.
+  studioColoris    StudioColoris[]
+  studioReferences StudioReference[]
+  studioAngles     StudioAngle[]
 }
 
 /// Réglages et secrets propres à un compte : clés IA et accès Trello.
@@ -271,4 +277,110 @@ model PromptTemplate {
   @@index([userId, estDefaut])
   @@index([marque])
   @@index([categorie])
+}
+
+// ─────────────────────────── Studio IA ───────────────────────────
+//
+// Banc de test de génération d'angles (spec du 17/10, §8). CLOISONNÉ : aucune
+// image générée ne doit pouvoir rejoindre une annonce. Rien ici ne référence
+// `Article`, rien dans `Article` ne référence ceci, et aucun module de mise en
+// vente, d'export, de l'extension ou des API Hermes / SacBase n'importe
+// `lib/studio*` — c'est `lib/studioCloisonnement.test.ts` qui le garde.
+
+/// Un coloris suivi par le Studio. `cle` vient de SacBase ("5039-black-pink") :
+/// les SKU MyFlip sont des identifiants d'unité, seul SacBase sait quel coloris
+/// porte un sac.
+model StudioColoris {
+  id      String @id @default(cuid())
+  cle     String
+  modele  String
+  coloris String
+  /// Détails à préserver, un par ligne. Servent au prompt ET à la grille de
+  /// vérification : c'est la même liste des deux côtés, volontairement.
+  details String @db.Text @default("")
+
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  references StudioReference[]
+  essais     StudioEssai[]
+
+  @@unique([userId, cle])
+  @@index([userId])
+}
+
+/// Une VRAIE photo de référence. Jamais une image générée : celles-ci vivent
+/// dans `StudioEssai`, et les deux préfixes du Blob sont distincts.
+model StudioReference {
+  id String @id @default(cuid())
+  /// null = pas encore rattachée (SacBase injoignable ou SKU inconnu au
+  /// chargement). Rattachée au prochain passage ; ce n'est pas une erreur.
+  colorisId String?
+  coloris   StudioColoris? @relation(fields: [colorisId], references: [id], onDelete: SetNull)
+  /// Sac photographié, quand il est connu. L'import en lot n'en a pas.
+  sku      String?
+  /// mise_en_vente | studio
+  origine  String
+  /// face | dos | cote | detail | ouvert
+  role     String
+  urlImage String
+
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([colorisId])
+  @@index([sku])
+}
+
+/// Un modèle d'angle, éditable dans le Studio. Même principe que PromptTemplate.
+model StudioAngle {
+  id            String @id @default(cuid())
+  nom           String
+  /// Quelle photo de référence joindre : face | dos | cote | detail | ouvert
+  roleReference String
+  /// Texte injecté dans {angle} du bloc commun.
+  angle         String @db.Text
+  ordre         Int    @default(0)
+
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  essais StudioEssai[]
+
+  @@index([userId, ordre])
+}
+
+/// Un essai : une image générée, sa note et la décision d'Aramis.
+model StudioEssai {
+  id        String        @id @default(cuid())
+  colorisId String
+  coloris   StudioColoris @relation(fields: [colorisId], references: [id], onDelete: Cascade)
+  angleId   String
+  /// Restrict, pas Cascade : supprimer un modèle d'angle effacerait les mesures
+  /// qui sont le but même du test (§11). Un angle qui a servi se garde.
+  angle     StudioAngle   @relation(fields: [angleId], references: [id], onDelete: Restrict)
+  /// 1er, 2e essai… pour ce couple coloris × angle.
+  numero    Int
+  /// manuel (génération dans l'application Gemini) | api (option B, plus tard).
+  source        String  @default("manuel")
+  promptUtilise String  @db.Text
+  urlImage      String
+  /// Sortie du contrôle automatique (§6). Aide à la décision, rien de plus.
+  verifIA       Json?
+  /// valide | rejete | null. C'est CE champ qui alimente les statistiques, pas
+  /// `verifIA` : le verdict du modèle n'est qu'une aide.
+  decision      String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([colorisId, angleId, numero])
+  @@index([colorisId])
+  @@index([angleId])
 }
