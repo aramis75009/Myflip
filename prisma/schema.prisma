@@ -42,6 +42,8 @@ model User {
   studioColoris    StudioColoris[]
   studioReferences StudioReference[]
   studioAngles     StudioAngle[]
+  studioFavoris    StudioModeleFavori[]
+  studioEchecs     StudioEchec[]
 }
 
 /// Réglages et secrets propres à un compte : clés IA et accès Trello.
@@ -306,6 +308,7 @@ model StudioColoris {
 
   references StudioReference[]
   essais     StudioEssai[]
+  echecs     StudioEchec[]
 
   @@unique([userId, cle])
   @@index([userId])
@@ -353,6 +356,7 @@ model StudioAngle {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   essais StudioEssai[]
+  echecs StudioEchec[]
 
   @@index([userId, ordre])
 }
@@ -366,10 +370,23 @@ model StudioEssai {
   /// Restrict, pas Cascade : supprimer un modèle d'angle effacerait les mesures
   /// qui sont le but même du test (§11). Un angle qui a servi se garde.
   angle     StudioAngle   @relation(fields: [angleId], references: [id], onDelete: Restrict)
-  /// 1er, 2e essai… pour ce couple coloris × angle.
+  /// 1er, 2e essai… pour ce triplet coloris × angle × modèle.
   numero    Int
-  /// manuel (génération dans l'application Gemini) | api (option B, plus tard).
+  /// manuel (image faite ailleurs et déposée) | api (générée par OpenRouter).
   source        String  @default("manuel")
+  /// Id OpenRouter du modèle (« google/gemini-3-pro-image »), "manuel" pour un
+  /// dépôt. NOT NULL : la numérotation est unique par modèle, un NULL la casserait.
+  modele        String  @default("manuel")
+  /// Estimation au lancement, null si le tarif est inconnu (jamais inventé).
+  coutEstimeUsd Float?
+  /// `usage.cost` d'OpenRouter, null s'il ne l'a pas renvoyé (jamais compté zéro).
+  coutReelUsd   Float?
+  /// Regroupe les essais d'un même clic « Générer ».
+  lancementId   String?
+  /// L'essai raté dont celui-ci est la correction.
+  essaiParentId String?
+  parent        StudioEssai?  @relation("StudioCorrection", fields: [essaiParentId], references: [id], onDelete: SetNull)
+  corrections   StudioEssai[] @relation("StudioCorrection")
   promptUtilise String  @db.Text
   urlImage      String
   /// Sortie du contrôle automatique (§6). Aide à la décision, rien de plus.
@@ -380,7 +397,44 @@ model StudioEssai {
 
   createdAt DateTime @default(now())
 
-  @@unique([colorisId, angleId, numero])
+  @@unique([colorisId, angleId, modele, numero])
   @@index([colorisId])
   @@index([angleId])
+}
+
+/// Modèle d'image épinglé par un compte, pour le sélecteur des lignes d'angle.
+model StudioModeleFavori {
+  id     String @id @default(cuid())
+  modele String
+
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, modele])
+}
+
+/// Une génération par API qui n'a pas produit d'image. Ne consomme aucun
+/// numéro d'essai et n'entre dans aucun taux ; se compte à part au bilan.
+model StudioEchec {
+  id          String        @id @default(cuid())
+  colorisId   String
+  coloris     StudioColoris @relation(fields: [colorisId], references: [id], onDelete: Cascade)
+  angleId     String
+  angle       StudioAngle   @relation(fields: [angleId], references: [id], onDelete: Restrict)
+  modele      String
+  /// Code de `StudioGenerationError` (securite, no_image, no_credits…).
+  code        String
+  message     String        @db.Text
+  lancementId String?
+  coutReelUsd Float?
+
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([colorisId])
 }
