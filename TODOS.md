@@ -407,22 +407,36 @@ pas.
 
 ---
 
-## P2 · Studio IA — option B, la génération par API
+## P3 · Studio IA — lancer un coloris entier d'un coup
 
-**Quoi.** Un bouton « Tester ce coloris » qui appelle directement l'API Gemini,
-au lieu du va-et-vient manuel par l'application Gemini.
+**Quoi.** Un bouton « Tous les angles » sur la fiche coloris, qui enchaîne les
+lancements angle par angle avec les modèles cochés.
 
-**Pourquoi.** C'est l'étape d'après, prévue par la spec (§2, §10). Le modèle de
-données ne bougera pas : `StudioEssai.source` vaut `manuel` aujourd'hui et
-`api` demain, la colonne existe déjà.
+**Pourquoi.** L'option B (génération par API OpenRouter) est **faite le
+19/10** (PRD `2026-10-19-studio-ia-generation-api-prd.md`), mais angle par
+angle : c'est la définition du lancement retenue pour le seuil de 0,10 $.
+Sur ~10 coloris × 5 angles, le clic par angle devient la contrainte.
 
-**Contexte.** Écartée volontairement à la rédaction de la spec (17/10) : le
-test du 17/10 s'est fait dans l'application Gemini, avec l'abonnement d'Aramis,
-et la spec interdit tout robot dans cette application. L'option B demande une
-clé API Gemini, donc un autre budget.
+**Contexte.** Exclu du PRD (§5, §10). Avant de le faire : décider si le seuil
+vaut par angle (5 confirmations) ou par coloris (une seule, sur un total plus
+gros), et garder une requête par modèle et par angle (limite de 300 s).
 
-**Prérequis.** Que le banc de test ait d'abord donné son verdict : si le modèle
-ne reproduit pas fidèlement les sacs, l'option B n'a pas d'objet.
+**Prérequis.** Que le test angle par angle ait désigné 2 ou 3 modèles dignes
+d'être lancés en série.
+
+## P3 · Studio IA — ce que la génération par API ne fait pas encore
+
+- **Pas de plafond mensuel** : seulement le seuil par lancement (choix
+  d'Aramis au cadrage). Le total dépensé est affiché au bilan.
+- **Résolution non demandée** : on laisse le défaut du modèle (souvent 1K).
+  L'estimation prend le maximum des variantes (4K compris), donc surestime.
+- **Modèles SVG seuls écartés** du catalogue (`recraft/*vector*`) : le Blob et
+  la vérification IA ne lisent que jpg, png et webp.
+- **Pas de nouvelle tentative du repli chat avec `modalities: ["image"]`** :
+  un modèle image seul qui passerait par `chat/completions` sort en
+  `parametres`. À ajouter si le cas se présente.
+- **Modèles sans `3:4`** (krea-2, gpt-image-1, gpt-5-image…) : `aspect_ratio`
+  n'est pas envoyé, l'image sort au format par défaut du modèle.
 
 ---
 
