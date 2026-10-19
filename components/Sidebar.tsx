@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -14,6 +14,7 @@ import {
   BarChart3,
   Settings,
   UserCircle,
+  FlaskConical,
   LogOut,
   PanelLeft,
   type LucideIcon,
@@ -26,6 +27,9 @@ type NavItem = {
   short: string;
   icon: LucideIcon;
   badge?: boolean;
+  // Entrée « secondaire » : séparée du reste dans la sidebar desktop, absente
+  // du dock mobile (le Studio est une vue desktop).
+  section?: "secondaire";
 };
 
 // (cf. plus bas) et n'existe pas du tout en mobile, la scène 3D étant une vue
@@ -46,7 +50,19 @@ const NAV: NavItem[] = [
   { href: "/statistiques", label: "Statistiques", short: "STATS", icon: BarChart3 },
   { href: "/parametres", label: "Prompts", short: "PROMPT", icon: Settings },
   { href: "/compte", label: "Mon compte", short: "MOI", icon: UserCircle },
+  {
+    href: "/studio",
+    label: "Studio (test)",
+    short: "STUDIO",
+    icon: FlaskConical,
+    section: "secondaire",
+  },
 ];
+
+// Premier élément secondaire : c'est devant lui qu'on pose l'unique séparateur.
+const PREMIER_SECONDAIRE = NAV.findIndex((item) => item.section === "secondaire");
+// Le dock mobile n'affiche que les entrées principales.
+const NAV_DOCK = NAV.filter((item) => item.section !== "secondaire");
 
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -176,43 +192,50 @@ export default function Sidebar() {
               style={{ top: indicator.top, height: indicator.height }}
             />
           )}
-          {NAV.map((item) => {
+          {NAV.map((item, index) => {
             const active = isActive(pathname, item.href);
             const Icon = item.icon;
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                title={item.label}
-                data-active={active}
-                className={`sb-item relative z-10 flex min-h-[46px] items-center gap-[11px] rounded-[15px] px-3 transition-colors ${
-                  active
-                    ? "font-bold text-[var(--acc-ink)]"
-                    : "font-medium text-[var(--nav)] hover:bg-[var(--tint)] hover:text-[var(--ink)]"
-                }`}
-              >
-                <Icon
-                  className="h-[18px] w-[18px] flex-shrink-0"
-                  strokeWidth={active ? 2.3 : 2}
-                />
-                <ItemLabel label={item.label} short={item.short} />
-                {item.badge && count > 0 && (
-                  <>
-                    {/* Déployée : la même pastille que le dock mobile, pour que
-                        le compteur se lise comme une notification et non comme
-                        une décoration. Le liseré en --surface la détache du
-                        fond d'accent de la ligne active, qui est lime en thème
-                        sombre — sans lui, le contraste tombe à ~2,3:1. */}
-                    <span
-                      aria-label={`${count} article${count > 1 ? "s" : ""} à comptabiliser`}
-                      className="sb-hide-collapsed inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[var(--alert)] px-1.5 font-mono text-[10px] font-bold text-white ring-2 ring-[var(--surface)]"
-                    >
-                      {count}
-                    </span>
-                    <span className="sb-only-collapsed absolute right-2 top-1.5 h-[6px] w-[6px] rounded-full bg-[var(--alert)]" />
-                  </>
+              <Fragment key={item.href}>
+                {index === PREMIER_SECONDAIRE && (
+                  <div
+                    role="separator"
+                    className="relative z-10 mx-3 my-1.5 border-t border-[var(--border)]"
+                  />
                 )}
-              </Link>
+                <Link
+                  href={item.href}
+                  title={item.label}
+                  data-active={active}
+                  className={`sb-item relative z-10 flex min-h-[46px] items-center gap-[11px] rounded-[15px] px-3 transition-colors ${
+                    active
+                      ? "font-bold text-[var(--acc-ink)]"
+                      : "font-medium text-[var(--nav)] hover:bg-[var(--tint)] hover:text-[var(--ink)]"
+                  }`}
+                >
+                  <Icon
+                    className="h-[18px] w-[18px] flex-shrink-0"
+                    strokeWidth={active ? 2.3 : 2}
+                  />
+                  <ItemLabel label={item.label} short={item.short} />
+                  {item.badge && count > 0 && (
+                    <>
+                      {/* Déployée : la même pastille que le dock mobile, pour que
+                          le compteur se lise comme une notification et non comme
+                          une décoration. Le liseré en --surface la détache du
+                          fond d'accent de la ligne active, qui est lime en thème
+                          sombre — sans lui, le contraste tombe à ~2,3:1. */}
+                      <span
+                        aria-label={`${count} article${count > 1 ? "s" : ""} à comptabiliser`}
+                        className="sb-hide-collapsed inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[var(--alert)] px-1.5 font-mono text-[10px] font-bold text-white ring-2 ring-[var(--surface)]"
+                      >
+                        {count}
+                      </span>
+                      <span className="sb-only-collapsed absolute right-2 top-1.5 h-[6px] w-[6px] rounded-full bg-[var(--alert)]" />
+                    </>
+                  )}
+                </Link>
+              </Fragment>
             );
           })}
 
@@ -252,7 +275,7 @@ export default function Sidebar() {
         className="fixed bottom-0 left-0 z-40 flex w-full items-stretch overflow-x-auto border-t border-[var(--border)] bg-surface md:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        {NAV.map((item) => (
+        {NAV_DOCK.map((item) => (
           <Link key={item.href} href={item.href} className={DOCK_ITEM}>
             <DockTile
               icon={item.icon}
