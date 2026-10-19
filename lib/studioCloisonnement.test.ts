@@ -247,17 +247,58 @@ function fichiersStudioLib(): string[] {
   );
 }
 const fichiersStudioApi = () => balayer("app/api/studio", { recursif: true });
+/** Les écrans /studio : ils ne doivent pas plus atteindre la vente que les routes. */
+const fichiersStudioPages = () => balayer("app/studio", { recursif: true });
 
 describe("cloisonnement : le Studio n'atteint jamais la vente ni l'export", () => {
   it("n'importe aucun module de mise en vente, d'export ou d'extension", () => {
-    const fichiers = [...fichiersStudioLib(), ...fichiersStudioApi()];
+    const fichiers = [...fichiersStudioLib(), ...fichiersStudioApi(), ...fichiersStudioPages()];
     expect(violations(fichiers, viseVenteOuExport)).toEqual([]);
   });
 
-  it("n'écrit jamais sur Article (lib/studio* et app/api/studio/**)", () => {
-    const fichiers = [...fichiersStudioLib(), ...fichiersStudioApi()];
+  it("n'écrit jamais sur Article (lib/studio*, app/api/studio/**, app/studio/**)", () => {
+    const fichiers = [...fichiersStudioLib(), ...fichiersStudioApi(), ...fichiersStudioPages()];
     const ecritures = fichiers.filter((f) => ECRITURE_ARTICLE.test(lire(f)));
     expect(ecritures).toEqual([]);
+  });
+
+  it("balaie bien les écrans et les routes du Studio (sentinelles)", () => {
+    expect(fichiersStudioPages()).toEqual(
+      expect.arrayContaining(["app/studio/page.tsx", "app/studio/[cle]/page.tsx", "app/studio/bilan/page.tsx"]),
+    );
+    expect(fichiersStudioApi()).toEqual(
+      expect.arrayContaining([
+        "app/api/studio/references/route.ts",
+        "app/api/studio/essais/route.ts",
+        // Génération par API (plan du 19/10) : les routes qui paient et qui écrivent.
+        "app/api/studio/generations/route.ts",
+        "app/api/studio/modeles/route.ts",
+        "app/api/studio/modeles/favoris/route.ts",
+      ]),
+    );
+    expect(fichiersStudioLib()).toEqual(
+      expect.arrayContaining([
+        "lib/studioBlob.ts",
+        "lib/studioServeur.ts",
+        "lib/studioModeles.ts",
+        "lib/studioCatalogue.ts",
+        "lib/studioGeneration.ts",
+        "lib/studioLancement.ts",
+      ]),
+    );
+  });
+
+  it("n'expose aucun chemin d'écriture vers l'export ou l'extension : pas de route Studio sous api/listings, api/hermes ou api/sacbase", () => {
+    const vente = [...balayer("app/api/listings", { recursif: true }), ...balayer("app/api/hermes", { recursif: true }), ...balayer("app/api/sacbase", { recursif: true })];
+    const lisentStudio = vente.filter((f) => /\.\s*studio(?:Coloris|Reference|Angle|Essai|Echec|ModeleFavori)\s*\./.test(lire(f)));
+    expect(lisentStudio).toEqual([]);
+  });
+
+  it("côté vente, le seul contact est l'envoi des vraies photos vers /api/studio/references", () => {
+    const appels = balayer("app/mise-en-vente", { recursif: true }).flatMap((f) =>
+      [...lire(f).matchAll(/["'`](\/api\/studio\/[^"'`?]*)/g)].map((m) => `${f} → ${m[1]}`),
+    );
+    expect(appels).toEqual(["app/mise-en-vente/_referencesPhotos.ts → /api/studio/references"]);
   });
 
   it("traite l'absence de app/api/studio sans échouer, et ne la laisse pas vide quand elle existe", () => {

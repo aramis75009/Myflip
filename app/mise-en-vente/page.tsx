@@ -41,6 +41,7 @@ import {
   type DelaiVinted,
 } from "./_delaiVinted";
 import { ecrire, effacer, lire } from "./_persistance";
+import { conserverReferences, estSacHipobuy } from "./_referencesPhotos";
 import {
   extensionPresente,
   publierVinted as orchestrerPublicationVinted,
@@ -223,11 +224,13 @@ export default function MiseEnVentePage() {
     const aTraiter = files.slice(0, Math.max(0, place));
     const ignores: string[] = [];
     const prets: Photo[] = [];
+    const pourStudio: { original: Blob; jpeg: Blob }[] = [];
 
     for (const file of aTraiter) {
       try {
         const base = await loadImageDirect(file);
         const blob = await encodeRotated(base, 0);
+        pourStudio.push({ original: file, jpeg: blob });
         prets.push({
           id: `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
           base,
@@ -243,6 +246,11 @@ export default function MiseEnVentePage() {
     }
 
     if (prets.length > 0) dispatch({ type: "photo/ajout", id: ficheId, photos: prets });
+    // Studio IA : les vraies photos d'un sac Hipobuy deviennent des références.
+    // Lancé sans `await` et sans toast : best-effort, ne bloque jamais l'annonce.
+    if (pourStudio.length > 0 && cible?.article && estSacHipobuy(cible.article.commandeFournisseur)) {
+      void conserverReferences(cible.article.sku, cible.photos.length, pourStudio);
+    }
     if (files.length > place) {
       toast.warning(`${files.length - place} photo(s) non ajoutée(s) : limite de ${MAX_PHOTOS}.`);
     }

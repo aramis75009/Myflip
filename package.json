@@ -22,6 +22,7 @@
     "@prisma/client": "^6.19.3",
     "@tanstack/react-query": "^5.101.0",
     "@tanstack/react-virtual": "^3.14.3",
+    "@vercel/blob": "^2.8.2",
     "bcryptjs": "^3.0.3",
     "date-fns": "^4.4.0",
     "exifr": "^7.1.3",

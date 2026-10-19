@@ -19,6 +19,7 @@ const LABELS: Record<string, { title: string; sub: string }> = {
   "/statistiques": { title: "Statistiques", sub: "PERFORMANCE" },
   "/parametres": { title: "Prompts", sub: "MODÈLES IA" },
   "/compte": { title: "Mon compte", sub: "PROFIL & SÉCURITÉ" },
+  "/studio": { title: "Studio (test)", sub: "BANC DE TEST IA" },
 };
 
 // Barre supérieure partagée : nom de la page à gauche (unique source du titre —
