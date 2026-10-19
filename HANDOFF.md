@@ -15,7 +15,7 @@ Le mode d'emploi complet est dans [`AGENTS.md`](AGENTS.md), section
 |---|---|
 | **Agent** | Claude Code (Opus 5.5), orchestrateur ; 5 sous-agents routés par Jev (3 Sonnet xhigh : estimateur/catalogue, client de génération, statistiques ; 2 Opus xhigh : orchestration/routes, écran). T7–T9 faits le même jour par une autre session Opus 5.5. |
 | **Branche** | `feat/studio-ia` |
-| **Commits** | aucun nouveau : T7–T9 et la génération par API sont **non commités, à la demande d'Aramis**. Derniers commits : `18dfa7d`, `2989f9c`. |
+| **Commits** | `b3d8cae` (migration seule), `fb139b9` (T7–T9 + génération par API), `602507c` (docs), poussés sur `origin/feat/studio-ia` le 19/10 à la demande d'Aramis. **Non fusionnés dans `main`, rien déployé.** |
 
 ## Goal — l'objectif
 Mettre plusieurs modèles d'image OpenRouter en concurrence sur chaque angle d'un
