@@ -7,7 +7,8 @@
 
 /**
  * Les prises d'un sac, toujours les mêmes, dans l'ordre où on les fait. Liste
- * fixe (décision du 20/10) : 14 prises plus une libre.
+ * fixe (décision du 20/10) : 14 prises plus une libre. C'est celle des V1 ; les
+ * V2 la gardent tant qu'Aramis n'a pas photographié de V2.
  */
 export const PRISES: readonly string[] = [
   "Face",
@@ -27,10 +28,33 @@ export const PRISES: readonly string[] = [
   "Prise libre",
 ];
 
+/** Les V3 ne montrent pas les mêmes détails (validé par Aramis le 20/10). */
+const PRISES_V3: readonly string[] = [
+  "Face",
+  "Face · lettrage ELITE",
+  "Face · poche ouverte",
+  "Swoosh",
+  "Compartiment principal ouvert",
+  "Dos",
+  "Bretelle gauche",
+  "Bretelle droite",
+  "Boucle de poitrine",
+  "Poche latérale ouverte",
+  "Compartiment du haut",
+  "Côté gauche",
+  "Côté droit",
+  "Dessous",
+  "Prise libre",
+];
+
+/** La liste des prises d'une génération (« V1 », « V2 », « V3 ») ; V1 par défaut. */
+export const prisesPour = (generation?: string | null): readonly string[] => (generation === "V3" ? PRISES_V3 : PRISES);
+
+/** Toutes les générations ont le même nombre de cases : un numéro de prise reste valable partout. */
 export const MAX_PRISES = PRISES.length;
 
-/** Nom de la prise n° `ordre` (1-indexé), « Prise n » au-delà de la liste. */
-export const nomPrise = (ordre: number) => PRISES[ordre - 1] ?? `Prise ${ordre}`;
+/** Nom de la prise n° `ordre` (1-indexé) pour cette génération, « Prise n » au-delà de la liste. */
+export const nomPrise = (ordre: number, generation?: string | null) => prisesPour(generation)[ordre - 1] ?? `Prise ${ordre}`;
 
 /**
  * Statuts MyFlip d'un sac encore « chez moi », sans annonce : mêmes valeurs que

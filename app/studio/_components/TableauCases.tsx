@@ -6,7 +6,7 @@ import { Copy, Download, Lock, Sparkles, Star, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Module } from "@/components/console";
 import { triggerDownload } from "@/lib/imageProcessing";
-import { PRISES, choixAutomatique, cleCase, nomPrise, type EtatCase } from "@/lib/studioCases";
+import { choixAutomatique, cleCase, nomPrise, prisesPour, type EtatCase } from "@/lib/studioCases";
 import { libelleTarif, type ModeleImage } from "@/lib/studioModeles";
 import { btn, btnAcc } from "../_ui";
 import { ACCEPT, changerPrise, fichiersImages, lireErreur, preparer } from "./envoi";
@@ -202,7 +202,7 @@ export default function TableauCases({
   }
 
   async function deplacer(refId: string, ordre: number) {
-    const erreur = await changerPrise(refId, ordre);
+    const erreur = await changerPrise(refId, ordre, fiche.generation);
     if (erreur) toast.error(erreur);
     router.refresh();
   }
@@ -275,12 +275,12 @@ export default function TableauCases({
                     title="Changer de prise (échange avec la photo qui l’occupe)"
                     className="min-w-0 flex-1 truncate rounded-lg border border-transparent bg-transparent py-1 text-[13.5px] font-medium text-[var(--ink)] hover:border-[var(--border)] focus:border-[var(--acc)] focus:outline-none"
                   >
-                    {PRISES.map((nom, i) => (
+                    {prisesPour(fiche.generation).map((nom, i) => (
                       <option key={nom} value={i + 1}>
                         {nom}
                       </option>
                     ))}
-                    {l.ordre > PRISES.length && <option value={l.ordre}>{nomPrise(l.ordre)}</option>}
+                    {l.ordre > prisesPour(fiche.generation).length && <option value={l.ordre}>{nomPrise(l.ordre, fiche.generation)}</option>}
                   </select>
                 </div>
                 {angles.map((a) => (

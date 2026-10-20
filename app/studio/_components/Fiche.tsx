@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronDown, Save } from "lucide-react";
+import { ArrowLeft, ChevronDown, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Frame, Module } from "@/components/console";
 import { detailsEnLignes } from "@/lib/studioAngles";
@@ -88,6 +88,15 @@ export default function Fiche({ fiche }: { fiche: FicheClient }) {
     <Frame>
       <BandeauSacbase etat={fiche.sacbase} />
 
+      <div>
+        <Link
+          href="/studio"
+          className="inline-flex h-10 items-center gap-2 rounded-full border border-[var(--border)] bg-surface pl-3 pr-4 text-[14px] font-semibold text-[var(--ink)] transition-colors hover:border-[var(--border-strong)]"
+        >
+          <ArrowLeft size={17} aria-hidden /> Tous les coloris
+        </Link>
+      </div>
+
       <Module className="p-[22px]">
         <div className="flex flex-wrap items-center gap-5">
           <div className="flex h-[92px] w-[92px] flex-none items-center justify-center overflow-hidden rounded-[18px] border border-[var(--border)] bg-surface">
@@ -100,9 +109,6 @@ export default function Fiche({ fiche }: { fiche: FicheClient }) {
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 text-[13px]">
-              <Link href="/studio" className="inline-flex items-center gap-0.5 font-semibold text-[var(--ink2)] hover:text-[var(--ink)]">
-                <ChevronLeft size={15} /> Coloris
-              </Link>
               <span className="font-mono text-[11px] tracking-[0.14em] text-[var(--ink2)]">
                 {[fiche.generation, coloris.modele].filter(Boolean).join(" · ")}
               </span>
@@ -143,7 +149,7 @@ export default function Fiche({ fiche }: { fiche: FicheClient }) {
         <DetailsVerifies cle={coloris.cle} details={coloris.details} />
       </Module>
 
-      <ImportPrises cle={coloris.cle} lignes={fiche.lignes} />
+      <ImportPrises cle={coloris.cle} generation={fiche.generation} lignes={fiche.lignes} />
 
       {file.length > 0 && (
         <FileAJuger fiche={fiche} file={file} nomDe={nomDe} catalogue={parId} avisEnCours={avisEnCours} onAvis={(id) => lancerAvis([id])} />

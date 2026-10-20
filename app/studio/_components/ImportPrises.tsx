@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, useTransition, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -23,14 +23,45 @@ const avecFichiers = (e: DragEvent) => Array.from(e.dataTransfer.types).includes
  * range ensuite en les glissant d'une case à l'autre (sur une case occupée,
  * les deux s'échangent). Sans souris : toucher une photo, puis sa case.
  */
-export default function ImportPrises({ cle, lignes }: { cle: string; lignes: readonly Photo[] }) {
+export default function ImportPrises({
+  cle,
+  generation,
+  lignes,
+}: {
+  cle: string;
+  /** « V1 », « V2 », « V3 » : choisit les noms des prises. */
+  generation: string | null;
+  lignes: readonly Photo[];
+}) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const cibleFichiers = useRef<number | null>(null);
   const [envoi, setEnvoi] = useState<string | null>(null);
   // Copie locale : un déplacement s'affiche tout de suite, le serveur suit.
+  // Tant qu'un déplacement est en vol, une relecture serveur plus ancienne ne
+  // doit pas l'écraser (sinon la photo revient puis repart) : on ne recopie
+  // les lignes du serveur qu'une fois tous les déplacements confirmés.
   const [photos, setPhotos] = useState<readonly Photo[]>(lignes);
-  useEffect(() => setPhotos(lignes), [lignes]);
+  const enVol = useRef(0);
+  useEffect(() => {
+    if (enVol.current === 0) {
+      setPhotos(lignes);
+      return;
+    }
+    // Déplacement en vol : garder l'ordre local, mais prendre les photos que le
+    // serveur ajoute (un import fini entre-temps) ou retire.
+    setPhotos((actuelles) => {
+      const connues = new Set(actuelles.map((p) => p.id));
+      const surServeur = new Set(lignes.map((l) => l.id));
+      return [...actuelles.filter((p) => surServeur.has(p.id)), ...lignes.filter((l) => !connues.has(l.id))];
+    });
+  }, [lignes]);
+  // Le rafraîchissement compte dans l'envoi : le compteur et les cases libres
+  // ne redeviennent fiables qu'une fois les lignes du serveur arrivées.
+  const [rafraichit, demarrer] = useTransition();
+  const rafraichir = () => demarrer(() => router.refresh());
+  const minuteurEclair = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const occupe = !!envoi || rafraichit;
   const [glissee, setGlissee] = useState<string | null>(null);
   const [survol, setSurvol] = useState<number | "section" | null>(null);
   const [choisie, setChoisie] = useState<string | null>(null);
@@ -41,7 +72,7 @@ export default function ImportPrises({ cle, lignes }: { cle: string; lignes: rea
 
   async function importer(liste: File[], cible: number | null = null) {
     const fichiers = fichiersImages(liste).sort(parNom);
-    if (fichiers.length === 0 || envoi) return;
+    if (fichiers.length === 0 || occupe) return;
     // Déposées sur une case vide : la première photo va dans cette case.
     const ordres = cible !== null && libres.includes(cible) ? [cible, ...libres.filter((o) => o !== cible)] : libres;
     if (fichiers.length > ordres.length) {
@@ -67,6 +98,7 @@ export default function ImportPrises({ cle, lignes }: { cle: string; lignes: rea
         const form = new FormData();
         form.set("origine", "studio");
         form.set("cle", cle);
+        if (generation) form.set("generation", generation);
         for (const p of lot) {
           form.append("photo", p.jpeg, `${p.empreinte}.jpg`);
           form.append("empreinte", p.empreinte);
@@ -92,7 +124,7 @@ export default function ImportPrises({ cle, lignes }: { cle: string; lignes: rea
       toast.error(`Import interrompu après ${ok} photo${ok > 1 ? "s" : ""} : ${e instanceof Error ? e.message : "erreur inconnue"}`);
     } finally {
       setEnvoi(null);
-      router.refresh();
+      rafraichir();
     }
   }
 
@@ -100,16 +132,17 @@ export default function ImportPrises({ cle, lignes }: { cle: string; lignes: rea
     setChoisie(null);
     const source = photos.find((p) => p.id === id);
     if (!source || source.ordre === ordre) return;
-    const avant = photos;
-    setPhotos(photos.map((p) => (p.id === id ? { ...p, ordre } : p.ordre === ordre ? { ...p, ordre: source.ordre } : p)));
+    setPhotos((actuelles) => actuelles.map((p) => (p.id === id ? { ...p, ordre } : p.ordre === ordre ? { ...p, ordre: source.ordre } : p)));
     setEclair([source.ordre, ordre]);
-    setTimeout(() => setEclair([]), 900);
-    const erreur = await changerPrise(id, ordre);
-    if (erreur) {
-      toast.error(erreur);
-      setPhotos(avant);
-    }
-    router.refresh();
+    if (minuteurEclair.current) clearTimeout(minuteurEclair.current);
+    minuteurEclair.current = setTimeout(() => setEclair([]), 900);
+    enVol.current++;
+    const erreur = await changerPrise(id, ordre, generation);
+    enVol.current--;
+    if (erreur) toast.error(erreur);
+    // Une seule relecture, après le dernier déplacement : elle les contient tous.
+    // En cas d'erreur, c'est elle qui remet la planche dans l'état du serveur.
+    if (enVol.current === 0) rafraichir();
   }
 
   function choisirFichiers(cible: number | null) {
@@ -117,7 +150,7 @@ export default function ImportPrises({ cle, lignes }: { cle: string; lignes: rea
     input.current?.click();
   }
 
-  const nomChoisie = choisie ? nomPrise(photos.find((p) => p.id === choisie)?.ordre ?? 0) : null;
+  const nomChoisie = choisie ? nomPrise(photos.find((p) => p.id === choisie)?.ordre ?? 0, generation) : null;
 
   return (
     <Module className="p-[22px]">
@@ -144,7 +177,7 @@ export default function ImportPrises({ cle, lignes }: { cle: string; lignes: rea
             {photos.length} / {MAX_PRISES} prises
           </span>
           <div className="flex-1" />
-          <button type="button" className={`${btnAcc} h-10 rounded-full px-4`} disabled={!!envoi || libres.length === 0} onClick={() => choisirFichiers(null)}>
+          <button type="button" className={`${btnAcc} h-10 rounded-full px-4`} disabled={occupe || libres.length === 0} onClick={() => choisirFichiers(null)}>
             <Upload size={15} /> {envoi ?? "Ajouter des photos"}
           </button>
           <input
@@ -160,14 +193,18 @@ export default function ImportPrises({ cle, lignes }: { cle: string; lignes: rea
             }}
           />
         </div>
-        <p className="text-[14px] leading-relaxed text-[var(--ink2)]">
-          {photos.length === 0
-            ? "14 à 15 vraies photos, toujours les mêmes prises. Dépose-les ici : elles prennent les cases dans l’ordre des noms de fichier, tu les ranges ensuite en les glissant."
-            : "Glisse chaque photo sur sa prise : sur une case occupée, les deux s’échangent. Sans souris, touche une photo puis la case où la ranger."}
-        </p>
-
-        {choisie && (
-          <div className="flex flex-wrap items-center gap-2.5 rounded-[14px] bg-[var(--warn-soft)] px-3.5 py-2.5 text-[14px]">
+        {/* Aide et bandeau de sélection dans la même cellule : la plus haute des
+            deux fixe la hauteur, la grille ne descend pas quand on sélectionne. */}
+        <div className="grid [&>*]:[grid-area:1/1]">
+          <p className={`text-[14px] leading-relaxed text-[var(--ink2)] ${choisie ? "invisible" : ""}`}>
+            {photos.length === 0
+              ? "14 à 15 vraies photos, toujours les mêmes prises. Dépose-les ici : elles prennent les cases dans l’ordre des noms de fichier, tu les ranges ensuite en les glissant."
+              : "Glisse chaque photo sur sa prise : sur une case occupée, les deux s’échangent. Sans souris, touche une photo puis la case où la ranger."}
+          </p>
+          <div
+            className={`flex flex-wrap items-center gap-x-2.5 gap-y-1.5 self-start rounded-[14px] bg-[var(--warn-soft)] px-3.5 py-2 text-[14px] ${choisie ? "" : "invisible"}`}
+            aria-live="polite"
+          >
             <span>
               Photo <b>{nomChoisie}</b> sélectionnée : touche la case où la ranger.
             </span>
@@ -175,7 +212,7 @@ export default function ImportPrises({ cle, lignes }: { cle: string; lignes: rea
               Annuler
             </button>
           </div>
-        )}
+        </div>
 
         <ol
           className="grid gap-2.5 [grid-template-columns:repeat(auto-fill,minmax(128px,1fr))] sm:gap-3 sm:[grid-template-columns:repeat(auto-fill,minmax(150px,1fr))]"
@@ -205,11 +242,13 @@ export default function ImportPrises({ cle, lignes }: { cle: string; lignes: rea
                   else if (glissee) void ranger(glissee, ordre);
                   setGlissee(null);
                 }}
-                className={`flex flex-col gap-2 rounded-[16px] border p-2 transition-colors ${
+                // Largeur de bordure constante : la mise en avant est un anneau
+                // (box-shadow), qui ne prend pas de place et ne fait pas sauter la photo.
+                className={`flex flex-col gap-2 rounded-[16px] border p-2 transition-[background-color,border-color,box-shadow] duration-150 ${
                   dessus
-                    ? "border-2 border-[var(--acc)] bg-[var(--acc-soft)]"
+                    ? "border-[var(--acc)] bg-[var(--acc-soft)] ring-1 ring-[var(--acc)]"
                     : eclaire
-                      ? "border-2 border-[var(--warn)] bg-[var(--warn-soft)]"
+                      ? "border-[var(--warn)] bg-[var(--warn-soft)] ring-1 ring-[var(--warn)]"
                       : photo
                         ? "border-[var(--border)] bg-[var(--surface-2)]"
                         : "border-dashed border-[var(--border-strong)] bg-[var(--surface-2)]"
@@ -217,7 +256,7 @@ export default function ImportPrises({ cle, lignes }: { cle: string; lignes: rea
               >
                 <div className="flex min-h-5 items-baseline gap-2 px-0.5">
                   <span className="font-mono text-[11px] font-semibold text-[var(--ink2)]">{String(ordre).padStart(2, "0")}</span>
-                  <span className="truncate text-[13.5px] font-semibold">{nomPrise(ordre)}</span>
+                  <span className="truncate text-[13.5px] font-semibold">{nomPrise(ordre, generation)}</span>
                 </div>
                 {photo ? (
                   <button
@@ -227,16 +266,17 @@ export default function ImportPrises({ cle, lignes }: { cle: string; lignes: rea
                       e.dataTransfer.effectAllowed = "move";
                       e.dataTransfer.setData("text/plain", photo.id);
                       setChoisie(null);
-                      setGlissee(photo.id);
+                      // Après la capture du fantôme par le navigateur, sinon il serait pâle lui aussi.
+                      setTimeout(() => setGlissee(photo.id), 0);
                     }}
                     onDragEnd={() => {
                       setGlissee(null);
                       setSurvol(null);
                     }}
                     onClick={() => (choisie && choisie !== photo.id ? void ranger(choisie, ordre) : setChoisie(choisie === photo.id ? null : photo.id))}
-                    aria-label={`Photo rangée sous ${nomPrise(ordre)}`}
+                    aria-label={`Photo rangée sous ${nomPrise(ordre, generation)}`}
                     aria-pressed={choisie === photo.id}
-                    className={`aspect-[3/4] w-full cursor-grab overflow-hidden rounded-[12px] outline-offset-2 active:cursor-grabbing ${
+                    className={`aspect-[3/4] w-full cursor-grab overflow-hidden rounded-[12px] bg-[var(--border)] outline-offset-2 active:cursor-grabbing ${
                       choisie === photo.id ? "outline outline-[3px] outline-[var(--warn)]" : ""
                     } ${glissee === photo.id ? "opacity-40" : ""}`}
                   >
@@ -246,9 +286,9 @@ export default function ImportPrises({ cle, lignes }: { cle: string; lignes: rea
                 ) : (
                   <button
                     type="button"
-                    disabled={!!envoi}
+                    disabled={occupe}
                     onClick={() => (choisie ? void ranger(choisie, ordre) : choisirFichiers(ordre))}
-                    className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-1.5 rounded-[12px] text-[13px] text-[var(--ink2)] transition-colors hover:bg-surface disabled:opacity-50"
+                    className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-1.5 rounded-[12px] text-[13px] text-[var(--ink2)] transition-colors enabled:hover:bg-surface disabled:cursor-wait"
                   >
                     <Plus size={18} aria-hidden />
                     {choisie ? "Ranger ici" : "Dépose ici"}

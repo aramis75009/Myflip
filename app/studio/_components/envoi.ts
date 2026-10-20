@@ -45,11 +45,11 @@ export async function lireErreur(res: Response): Promise<string> {
  * coloris l'occupe déjà, le serveur échange les deux. Renvoie l'erreur à
  * afficher, ou null.
  */
-export async function changerPrise(refId: string, ordre: number): Promise<string | null> {
+export async function changerPrise(refId: string, ordre: number, generation: string | null): Promise<string | null> {
   const res = await fetch(`/api/studio/references/${refId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ordre }),
+    body: JSON.stringify({ ordre, generation }),
   });
   return res.ok ? null : lireErreur(res);
 }

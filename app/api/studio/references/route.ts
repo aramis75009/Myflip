@@ -51,6 +51,8 @@ export async function POST(req: NextRequest) {
   if (!estOrigine(origine)) return NextResponse.json({ error: "Origine inconnue." }, { status: 400 });
   const sku = (typeof form.get("sku") === "string" ? (form.get("sku") as string) : "").trim().toUpperCase() || null;
   const cle = (typeof form.get("cle") === "string" ? (form.get("cle") as string) : "").trim() || null;
+  // Génération du coloris (« V3 »…) : elle choisit la liste des noms de prise.
+  const generation = typeof form.get("generation") === "string" ? (form.get("generation") as string) : null;
   const position = Math.max(0, Number.parseInt(String(form.get("position") ?? "0"), 10) || 0);
 
   const fichiers = form.getAll("photo").filter((f): f is File => typeof f !== "string");
@@ -115,7 +117,7 @@ export async function POST(req: NextRequest) {
         if (libre) {
           await prisma.studioReference.update({
             where: { id: libre.id },
-            data: { colorisId, ordre: ordres[i], prise: nomPrise(ordres[i]) },
+            data: { colorisId, ordre: ordres[i], prise: nomPrise(ordres[i], generation) },
           });
           conservees++;
         } else doublons++;
@@ -131,7 +133,7 @@ export async function POST(req: NextRequest) {
           origine,
           role: estRole(roles[i]) ? roles[i] : roleSuggere(position + i),
           urlImage: url,
-          ...(ordres.length > 0 ? { ordre: ordres[i], prise: nomPrise(ordres[i]) } : {}),
+          ...(ordres.length > 0 ? { ordre: ordres[i], prise: nomPrise(ordres[i], generation) } : {}),
         },
       });
       conservees++;

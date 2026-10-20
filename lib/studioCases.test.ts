@@ -8,6 +8,7 @@ import {
   ligneCouverte,
   nomPrise,
   passeFiltres,
+  prisesPour,
   promptVariante,
   sacsCibles,
   usageAngles,
@@ -29,6 +30,16 @@ describe("prises", () => {
     expect(nomPrise(1)).toBe("Face");
     expect(nomPrise(14)).toBe("Dessous");
     expect(nomPrise(16)).toBe("Prise 16");
+  });
+
+  it("les V3 ont leur propre liste, de même longueur ; V1 et V2 gardent la liste de base", () => {
+    expect(prisesPour("V3")).toHaveLength(PRISES.length);
+    expect(nomPrise(2, "V3")).toBe("Face · lettrage ELITE");
+    expect(nomPrise(5, "V3")).toBe("Compartiment principal ouvert");
+    expect(nomPrise(6, "V3")).toBe("Dos");
+    expect(nomPrise(2, "V1")).toBe("Face · détail gauche");
+    expect(nomPrise(2, "V2")).toBe("Face · détail gauche");
+    expect(nomPrise(2, null)).toBe("Face · détail gauche");
   });
 });
 

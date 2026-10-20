@@ -13,16 +13,18 @@ type Ctx = { params: Promise<{ id: string }> };
 /**
  * PATCH /api/studio/references/[id] — corrige le rôle d'une photo, ou son
  * numéro de prise (`ordre`, 1 à 15 ; null la sort du tableau). Si une autre
- * photo du coloris porte déjà ce numéro, les deux s'échangent.
+ * photo du coloris porte déjà ce numéro, les deux s'échangent. `generation`
+ * (« V3 »…) choisit la liste des noms de prise.
  */
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   const userId = await getUserId();
   if (!userId) return unauthorized();
   const { id } = await params;
-  const body = (await req.json().catch(() => ({}))) as { role?: unknown; ordre?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { role?: unknown; ordre?: unknown; generation?: unknown };
 
   if (body.ordre !== undefined) {
     const ordre = body.ordre;
+    const generation = typeof body.generation === "string" ? body.generation : null;
     if (ordre !== null && !(typeof ordre === "number" && Number.isInteger(ordre) && ordre >= 1 && ordre <= MAX_PRISES)) {
       return NextResponse.json({ error: `Numéro de prise : 1 à ${MAX_PRISES}.` }, { status: 400 });
     }
@@ -35,10 +37,10 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       if (ordre !== null && ref.colorisId) {
         await tx.studioReference.updateMany({
           where: { userId, colorisId: ref.colorisId, ordre, NOT: { id } },
-          data: { ordre: ref.ordre, prise: ref.ordre === null ? null : nomPrise(ref.ordre) },
+          data: { ordre: ref.ordre, prise: ref.ordre === null ? null : nomPrise(ref.ordre, generation) },
         });
       }
-      await tx.studioReference.update({ where: { id }, data: { ordre, prise: ordre === null ? null : nomPrise(ordre) } });
+      await tx.studioReference.update({ where: { id }, data: { ordre, prise: ordre === null ? null : nomPrise(ordre, generation) } });
     });
     return NextResponse.json({ ok: true });
   }

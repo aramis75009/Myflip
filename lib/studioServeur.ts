@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { cleCase, etatsDesCases, sacsCibles, usageAngles, type EtatCase } from "@/lib/studioCases";
+import { cleCase, etatsDesCases, nomPrise, sacsCibles, usageAngles, type EtatCase } from "@/lib/studioCases";
 import { buildSkuIndex, getColoris, type SacbaseCatalogue, type SacbaseColoris, type SacbaseColorisSource } from "@/lib/studioColoris";
 import { planRattachement } from "@/lib/studioFiche";
 
@@ -236,6 +236,20 @@ export async function chargerFiche(userId: string, cle: string) {
     lirePromptMaitre(userId),
   ]);
 
+  // Les noms de prise dépendent de la génération (les V3 ont leur liste) : une
+  // photo importée avant que sa génération ne soit connue est renommée ici, pour
+  // que la file à juger et l'annonce lisent le bon nom.
+  const generation = duCatalogue?.generation ?? null;
+  if (generation) {
+    const aRenommer = lignes.filter((l) => l.ordre !== null && l.prise !== nomPrise(l.ordre, generation));
+    if (aRenommer.length > 0) {
+      await prisma.$transaction(
+        aRenommer.map((l) => prisma.studioReference.update({ where: { id: l.id }, data: { prise: nomPrise(l.ordre as number, generation) } })),
+      );
+      for (const l of aRenommer) l.prise = nomPrise(l.ordre as number, generation);
+    }
+  }
+
   const sacs = duCatalogue?.sacs ?? [];
   const statuts = await statutsDesSkus(userId, [...sacs.map((s) => s.sku), ...essais.flatMap((e) => (e.skuCible ? [e.skuCible] : []))]);
   const statutDe = (sku: string) => statuts.get(sku) ?? null;
@@ -246,7 +260,7 @@ export async function chargerFiche(userId: string, cle: string) {
   return {
     sacbase: etatDe(source),
     coloris: { id: coloris.id, cle: coloris.cle, modele: coloris.modele, coloris: coloris.coloris, details: coloris.details },
-    generation: duCatalogue?.generation ?? null,
+    generation,
     vignette: duCatalogue?.image ? `/api/studio/vignette?cle=${encodeURIComponent(cle)}` : null,
     sacs: sacs.map((s) => ({ sku: s.sku, statut: statutDe(s.sku) ?? s.statut, vendu: s.vendu })),
     cibles: sacsCibles(sacs, statutDe),
