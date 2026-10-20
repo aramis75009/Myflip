@@ -143,7 +143,7 @@ export default function Fiche({ fiche }: { fiche: FicheClient }) {
         <DetailsVerifies cle={coloris.cle} details={coloris.details} />
       </Module>
 
-      <ImportPrises cle={coloris.cle} prisesOccupees={fiche.lignes.map((l) => l.ordre)} />
+      <ImportPrises cle={coloris.cle} lignes={fiche.lignes} />
 
       {file.length > 0 && (
         <FileAJuger fiche={fiche} file={file} nomDe={nomDe} catalogue={parId} avisEnCours={avisEnCours} onAvis={(id) => lancerAvis([id])} />

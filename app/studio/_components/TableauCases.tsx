@@ -9,7 +9,7 @@ import { triggerDownload } from "@/lib/imageProcessing";
 import { PRISES, choixAutomatique, cleCase, nomPrise, type EtatCase } from "@/lib/studioCases";
 import { libelleTarif, type ModeleImage } from "@/lib/studioModeles";
 import { btn, btnAcc } from "../_ui";
-import { ACCEPT, fichiersImages, lireErreur, preparer } from "./envoi";
+import { ACCEPT, changerPrise, fichiersImages, lireErreur, preparer } from "./envoi";
 import { CODES_COMPTE, copier, envoyerGeneration, parNom, parPaquets } from "./lancer";
 import { SEUIL_TEXTE, devisPour, montantDevis, type ContexteModeles } from "./SelecteurModeles";
 import type { FicheClient } from "./Fiche";
@@ -201,13 +201,9 @@ export default function TableauCases({
     if (nouveaux.length > 0) onNouveaux(nouveaux);
   }
 
-  async function changerPrise(refId: string, ordre: number) {
-    const res = await fetch(`/api/studio/references/${refId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ordre }),
-    });
-    if (!res.ok) toast.error(await lireErreur(res));
+  async function deplacer(refId: string, ordre: number) {
+    const erreur = await changerPrise(refId, ordre);
+    if (erreur) toast.error(erreur);
     router.refresh();
   }
 
@@ -274,7 +270,7 @@ export default function TableauCases({
                   <span className="font-mono text-[12px] text-[var(--ink2)]">{String(l.ordre).padStart(2, "0")}</span>
                   <select
                     value={l.ordre}
-                    onChange={(e) => void changerPrise(l.id, Number(e.target.value))}
+                    onChange={(e) => void deplacer(l.id, Number(e.target.value))}
                     aria-label={`Prise de la photo ${l.ordre}`}
                     title="Changer de prise (échange avec la photo qui l’occupe)"
                     className="min-w-0 flex-1 truncate rounded-lg border border-transparent bg-transparent py-1 text-[13.5px] font-medium text-[var(--ink)] hover:border-[var(--border)] focus:border-[var(--acc)] focus:outline-none"

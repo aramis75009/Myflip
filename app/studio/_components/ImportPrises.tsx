@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { Check, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Module } from "@/components/console";
-import { MAX_PRISES, PRISES } from "@/lib/studioCases";
+import { MAX_PRISES, PRISES, nomPrise } from "@/lib/studioCases";
 import { btnAcc } from "../_ui";
-import { ACCEPT, fichiersImages, lireErreur, preparer } from "./envoi";
+import { ACCEPT, changerPrise, fichiersImages, lireErreur, preparer } from "./envoi";
 import { parNom } from "./lancer";
 
 const PHOTOS_PAR_ENVOI = 12;
@@ -16,14 +16,16 @@ const OCTETS_PAR_ENVOI = 3_500_000;
 /**
  * « Photographie le sac » : les 14 à 15 vraies photos, toujours les mêmes
  * prises, déposées dans l'ordre de la liste. Chaque photo prend le numéro de
- * la première prise encore vide ; on corrige ensuite ligne par ligne.
+ * la première prise encore vide ; on corrige ensuite dans « Tes photos »,
+ * qui reste affiché une fois les 15 prises remplies.
  */
-export default function ImportPrises({ cle, prisesOccupees }: { cle: string; prisesOccupees: number[] }) {
+export default function ImportPrises({ cle, lignes }: { cle: string; lignes: readonly { id: string; ordre: number }[] }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [envoi, setEnvoi] = useState<string | null>(null);
   const [survol, setSurvol] = useState(false);
-  const occupees = new Set(prisesOccupees);
+  const [deplacement, setDeplacement] = useState<string | null>(null);
+  const occupees = new Set(lignes.map((l) => l.ordre));
   const libres = Array.from({ length: MAX_PRISES }, (_, i) => i + 1).filter((o) => !occupees.has(o));
   const complet = libres.length === 0;
 
@@ -82,7 +84,16 @@ export default function ImportPrises({ cle, prisesOccupees }: { cle: string; pri
     }
   }
 
-  if (complet) return null;
+  async function deplacer(refId: string, ordre: number) {
+    setDeplacement(refId);
+    const erreur = await changerPrise(refId, ordre);
+    if (erreur) toast.error(erreur);
+    setDeplacement(null);
+    router.refresh();
+  }
+
+  const photos = [...lignes].sort((a, b) => a.ordre - b.ordre);
+  if (complet && photos.length === 0) return null;
 
   return (
     <Module className="p-[22px]">
@@ -92,61 +103,101 @@ export default function ImportPrises({ cle, prisesOccupees }: { cle: string; pri
           14 à 15 vraies photos, toujours les mêmes prises. Chacune servira de base à ses variantes d’angle.
         </span>
       </div>
-      <div className="mt-4 grid gap-[18px] [grid-template-columns:minmax(0,1fr)_300px]">
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setSurvol(true);
-          }}
-          onDragLeave={() => setSurvol(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setSurvol(false);
-            void importer(Array.from(e.dataTransfer.files));
-          }}
-          className={`flex min-h-[220px] flex-col items-center justify-center gap-2 rounded-[18px] border-2 border-dashed p-6 text-center transition-colors ${
-            survol ? "border-[var(--acc)] bg-[var(--acc-soft)]" : "border-[var(--border-strong)] bg-[var(--surface-2)]"
-          }`}
-        >
-          <span className="text-[16px] font-semibold">
-            {occupees.size === 0 ? "Glisse les photos ici, dans l’ordre de la liste" : `Glisse les ${libres.length} prises manquantes`}
-          </span>
-          <span className="text-[13.5px] text-[var(--ink2)]">
-            Triées par nom de fichier. Chaque photo prend le nom de sa prise ; tu corriges ensuite si besoin.
-          </span>
-          <button type="button" className={`${btnAcc} mt-2 h-11 rounded-full px-5`} disabled={!!envoi} onClick={() => input.current?.click()}>
-            <Upload size={15} /> {envoi ?? "Importer les photos"}
-          </button>
-          <input
-            ref={input}
-            type="file"
-            accept={ACCEPT}
-            multiple
-            hidden
-            onChange={(e) => {
-              void importer(Array.from(e.target.files ?? []));
-              e.target.value = "";
+      {!complet && (
+        <div className="mt-4 grid gap-[18px] [grid-template-columns:minmax(0,1fr)_300px]">
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setSurvol(true);
             }}
-          />
+            onDragLeave={() => setSurvol(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setSurvol(false);
+              void importer(Array.from(e.dataTransfer.files));
+            }}
+            className={`flex min-h-[220px] flex-col items-center justify-center gap-2 rounded-[18px] border-2 border-dashed p-6 text-center transition-colors ${
+              survol ? "border-[var(--acc)] bg-[var(--acc-soft)]" : "border-[var(--border-strong)] bg-[var(--surface-2)]"
+            }`}
+          >
+            <span className="text-[16px] font-semibold">
+              {occupees.size === 0 ? "Glisse les photos ici, dans l’ordre de la liste" : `Glisse les ${libres.length} prises manquantes`}
+            </span>
+            <span className="text-[13.5px] text-[var(--ink2)]">
+              Triées par nom de fichier. Chaque photo prend le nom de sa prise ; tu corriges ensuite si besoin.
+            </span>
+            <button type="button" className={`${btnAcc} mt-2 h-11 rounded-full px-5`} disabled={!!envoi} onClick={() => input.current?.click()}>
+              <Upload size={15} /> {envoi ?? "Importer les photos"}
+            </button>
+            <input
+              ref={input}
+              type="file"
+              accept={ACCEPT}
+              multiple
+              hidden
+              onChange={(e) => {
+                void importer(Array.from(e.target.files ?? []));
+                e.target.value = "";
+              }}
+            />
+          </div>
+          <ol className="flex flex-col gap-1 text-[13.5px]">
+            {PRISES.map((nom, i) => {
+              const fait = occupees.has(i + 1);
+              return (
+                <li key={nom} className={`flex items-center gap-2.5 ${fait ? "text-[var(--ink2)]" : ""}`}>
+                  <span
+                    className={`flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full font-mono text-[10.5px] font-semibold ${
+                      fait ? "bg-[var(--acc)] text-[var(--acc-ink)]" : "bg-[var(--surface-2)] text-[var(--ink2)]"
+                    }`}
+                  >
+                    {fait ? <Check size={12} aria-label="importée" /> : String(i + 1).padStart(2, "0")}
+                  </span>
+                  {nom}
+                </li>
+              );
+            })}
+          </ol>
         </div>
-        <ol className="flex flex-col gap-1 text-[13.5px]">
-          {PRISES.map((nom, i) => {
-            const fait = occupees.has(i + 1);
-            return (
-              <li key={nom} className={`flex items-center gap-2.5 ${fait ? "text-[var(--ink2)]" : ""}`}>
-                <span
-                  className={`flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full font-mono text-[10.5px] font-semibold ${
-                    fait ? "bg-[var(--acc)] text-[var(--acc-ink)]" : "bg-[var(--surface-2)] text-[var(--ink2)]"
-                  }`}
+      )}
+      {photos.length > 0 && (
+        <section className={complet ? "mt-4" : "mt-6 border-t border-[var(--border)] pt-5"} aria-label="Tes photos">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h3 className="text-[16px] font-semibold">Tes photos</h3>
+            <span className="text-[13.5px] text-[var(--ink2)]">
+              Vérifie la prise de chacune. Choisir une prise occupée (⇄) échange les deux photos.
+            </span>
+          </div>
+          <ul className="mt-3 grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(150px,1fr))]">
+            {photos.map((l) => (
+              <li key={l.id} className={`flex flex-col gap-2 transition-opacity ${deplacement === l.id ? "opacity-50" : ""}`}>
+                <div className="relative aspect-[3/4] overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--surface-2)]">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- image privée servie par /api/studio/image */}
+                  <img src={`/api/studio/image?ref=${l.id}`} alt={nomPrise(l.ordre)} loading="lazy" className="h-full w-full object-cover" />
+                  <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 font-mono text-[11px] font-semibold text-white">
+                    {String(l.ordre).padStart(2, "0")}
+                  </span>
+                </div>
+                <select
+                  value={l.ordre}
+                  disabled={deplacement !== null}
+                  onChange={(e) => void deplacer(l.id, Number(e.target.value))}
+                  aria-label={`Prise de la photo ${l.ordre}`}
+                  className="w-full truncate rounded-lg border border-[var(--border)] bg-surface px-2 py-1.5 text-[13.5px] font-medium text-[var(--ink)] focus:border-[var(--acc)] focus:outline-none disabled:opacity-60"
                 >
-                  {fait ? <Check size={12} aria-label="importée" /> : String(i + 1).padStart(2, "0")}
-                </span>
-                {nom}
+                  {PRISES.map((nom, i) => (
+                    <option key={nom} value={i + 1}>
+                      {String(i + 1).padStart(2, "0")} · {nom}
+                      {i + 1 !== l.ordre && occupees.has(i + 1) ? " ⇄" : ""}
+                    </option>
+                  ))}
+                  {l.ordre > PRISES.length && <option value={l.ordre}>{nomPrise(l.ordre)}</option>}
+                </select>
               </li>
-            );
-          })}
-        </ol>
-      </div>
+            ))}
+          </ul>
+        </section>
+      )}
     </Module>
   );
 }
