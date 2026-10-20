@@ -41,7 +41,7 @@ import {
   type DelaiVinted,
 } from "./_delaiVinted";
 import { ecrire, effacer, lire } from "./_persistance";
-import { conserverReferences, estSacHipobuy } from "./_referencesPhotos";
+import { conserverReferences, estSacHipobuy, imagesValideesStudio } from "./_referencesPhotos";
 import {
   extensionPresente,
   publierVinted as orchestrerPublicationVinted,
@@ -206,6 +206,7 @@ export default function MiseEnVentePage() {
         return;
       }
       dispatch({ type: "sku/resolu", id, seq, article: match });
+      if (estSacHipobuy(match.commandeFournisseur)) void ajouterImagesStudio(id, match.sku);
     } catch (err) {
       dispatch({
         type: "sku/echec",
@@ -216,8 +217,24 @@ export default function MiseEnVentePage() {
     }
   }
 
+  // ── Images du Studio ────────────────────────────────────────────────────
+  // Les images validées pour ce sac dans le Studio rejoignent ses photos dès
+  // que le SKU est résolu. Chaque essai n'est ajouté qu'une fois par fiche,
+  // même si le SKU est recherché à nouveau.
+  const studioAjoutesRef = useRef<Record<string, Set<string>>>({});
+  async function ajouterImagesStudio(ficheId: string, sku: string) {
+    const images = await imagesValideesStudio(sku);
+    const deja = (studioAjoutesRef.current[ficheId] ??= new Set());
+    const nouvelles = images.filter((i) => !deja.has(i.essaiId));
+    if (nouvelles.length === 0) return;
+    nouvelles.forEach((i) => deja.add(i.essaiId));
+    await ajouterPhotos(ficheId, nouvelles.map((i) => i.fichier), { studio: true });
+    toast.success(`${nouvelles.length} image${nouvelles.length > 1 ? "s" : ""} du Studio ajoutée${nouvelles.length > 1 ? "s" : ""} à ${sku}.`);
+  }
+
   // ── Photos ──────────────────────────────────────────────────────────────
-  async function ajouterPhotos(ficheId: string, files: File[]) {
+  /** `studio` : images générées et validées, qui ne repartent pas comme références. */
+  async function ajouterPhotos(ficheId: string, files: File[], { studio = false }: { studio?: boolean } = {}) {
     if (files.length === 0) return;
     const cible = etatRef.current.fiches.find((f) => f.id === ficheId);
     const place = MAX_PHOTOS - (cible?.photos.length ?? 0);
@@ -248,7 +265,7 @@ export default function MiseEnVentePage() {
     if (prets.length > 0) dispatch({ type: "photo/ajout", id: ficheId, photos: prets });
     // Studio IA : les vraies photos d'un sac Hipobuy deviennent des références.
     // Lancé sans `await` et sans toast : best-effort, ne bloque jamais l'annonce.
-    if (pourStudio.length > 0 && cible?.article && estSacHipobuy(cible.article.commandeFournisseur)) {
+    if (!studio && pourStudio.length > 0 && cible?.article && estSacHipobuy(cible.article.commandeFournisseur)) {
       void conserverReferences(cible.article.sku, cible.photos.length, pourStudio);
     }
     if (files.length > place) {

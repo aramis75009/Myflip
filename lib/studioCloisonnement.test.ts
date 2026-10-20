@@ -3,12 +3,15 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * Cloisonnement du Studio IA (spec 2026-10-17-studio-ia-design.md, §7).
+ * Cloisonnement du Studio (spec 2026-10-17-studio-ia-design.md, §7, assoupli le
+ * 20/10).
  *
- * Exigence non négociable : aucune image générée ne doit pouvoir rejoindre une
- * annonce Vinted. Ce n'est pas tenu par la discipline mais par ce test, qui lit
- * le SOURCE des fichiers (même technique que lib/sacbaseStock.test.ts) et
- * inspecte leurs imports.
+ * Exigence : une image générée ne rejoint une annonce Vinted que si Aramis l'a
+ * VALIDÉE pour ce sac, et par un seul chemin : GET /api/studio/annonce, appelé
+ * depuis app/mise-en-vente/_referencesPhotos.ts. Tout autre passage reste
+ * interdit. Ce n'est pas tenu par la discipline mais par ce test, qui lit le
+ * SOURCE des fichiers (même technique que lib/sacbaseStock.test.ts) et inspecte
+ * leurs imports.
  *
  * Mode de panne principal d'un test de ce genre : passer parce qu'il n'a rien
  * regardé (dossier renommé, glob qui ne matche plus, regex cassée). Trois
@@ -274,6 +277,11 @@ describe("cloisonnement : le Studio n'atteint jamais la vente ni l'export", () =
         "app/api/studio/generations/route.ts",
         "app/api/studio/modeles/route.ts",
         "app/api/studio/modeles/favoris/route.ts",
+        // Variantes d'angle (20/10) : prompts, vignettes et le chemin vers l'annonce.
+        "app/api/studio/angles/route.ts",
+        "app/api/studio/reglages/route.ts",
+        "app/api/studio/vignette/route.ts",
+        "app/api/studio/annonce/route.ts",
       ]),
     );
     expect(fichiersStudioLib()).toEqual(
@@ -284,21 +292,40 @@ describe("cloisonnement : le Studio n'atteint jamais la vente ni l'export", () =
         "lib/studioCatalogue.ts",
         "lib/studioGeneration.ts",
         "lib/studioLancement.ts",
+        "lib/studioCases.ts",
+        "lib/studioPrompts.ts",
       ]),
     );
   });
 
   it("n'expose aucun chemin d'écriture vers l'export ou l'extension : pas de route Studio sous api/listings, api/hermes ou api/sacbase", () => {
     const vente = [...balayer("app/api/listings", { recursif: true }), ...balayer("app/api/hermes", { recursif: true }), ...balayer("app/api/sacbase", { recursif: true })];
-    const lisentStudio = vente.filter((f) => /\.\s*studio(?:Coloris|Reference|Angle|Essai|Echec|ModeleFavori)\s*\./.test(lire(f)));
+    const lisentStudio = vente.filter((f) => /\.\s*studio(?:Coloris|Reference|Angle|Essai|Echec|ModeleFavori|Reglages)\s*\./.test(lire(f)));
     expect(lisentStudio).toEqual([]);
   });
 
-  it("côté vente, le seul contact est l'envoi des vraies photos vers /api/studio/references", () => {
+  it("côté vente, deux contacts et un seul fichier : les vraies photos partent, les images validées reviennent", () => {
     const appels = balayer("app/mise-en-vente", { recursif: true }).flatMap((f) =>
       [...lire(f).matchAll(/["'`](\/api\/studio\/[^"'`?]*)/g)].map((m) => `${f} → ${m[1]}`),
     );
-    expect(appels).toEqual(["app/mise-en-vente/_referencesPhotos.ts → /api/studio/references"]);
+    expect(appels.sort()).toEqual([
+      "app/mise-en-vente/_referencesPhotos.ts → /api/studio/annonce",
+      "app/mise-en-vente/_referencesPhotos.ts → /api/studio/image",
+      "app/mise-en-vente/_referencesPhotos.ts → /api/studio/references",
+    ]);
+  });
+
+  it("la route de l'annonce ne rend que les images VALIDÉES par Aramis, jamais selon l'avis IA", () => {
+    const src = lire("app/api/studio/annonce/route.ts");
+    expect(src).toMatch(/decision:\s*"valide"/);
+    expect(src).not.toMatch(/verifIA/);
+    expect(ECRITURE_ARTICLE.test(src)).toBe(false);
+  });
+
+  it("une image générée ne repart jamais comme vraie photo : les images du Studio sautent conserverReferences", () => {
+    const page = lire("app/mise-en-vente/page.tsx");
+    expect(page).toMatch(/await ajouterPhotos\(ficheId, [^\n]*\{ studio: true \}\);/);
+    expect(page).toMatch(/if \(!studio && pourStudio\.length > 0/);
   });
 
   it("traite l'absence de app/api/studio sans échouer, et ne la laisse pas vide quand elle existe", () => {

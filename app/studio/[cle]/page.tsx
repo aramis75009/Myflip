@@ -1,11 +1,12 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { chargerFiche } from "@/lib/studioServeur";
-import FicheColoris from "../_components/FicheColoris";
+import Fiche from "../_components/Fiche";
 
 export const dynamic = "force-dynamic";
 
-// /studio/[cle] — la fiche d'un coloris : références, détails, une ligne par angle.
+// /studio/[cle] — la fiche d'un coloris : images à juger, puis le tableau
+// vraie photo × prompt d'angle pour préparer le prochain sac.
 export default async function FicheColorisPage({ params }: { params: Promise<{ cle: string }> }) {
   const session = await auth();
   const userId = session?.user?.id;
@@ -16,13 +17,5 @@ export default async function FicheColorisPage({ params }: { params: Promise<{ c
   if (!fiche) notFound();
 
   // Dates en chaînes : la fiche passe la frontière serveur → client.
-  return (
-    <FicheColoris
-      fiche={{
-        ...fiche,
-        references: fiche.references.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
-        essais: fiche.essais.map((e) => ({ ...e, createdAt: e.createdAt.toISOString() })),
-      }}
-    />
-  );
+  return <Fiche fiche={{ ...fiche, essais: fiche.essais.map((e) => ({ ...e, createdAt: e.createdAt.toISOString() })) }} />;
 }
