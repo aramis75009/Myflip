@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
-import { compilerPrompt } from "./studioAngles";
+import { promptVariante } from "./studioCases";
 import { StudioGenerationError, type DemandeImage, type ImageGeneree } from "./studioGeneration";
 import {
   MAX_MODELES_PAR_LANCEMENT,
@@ -47,9 +47,11 @@ function contexte(over: Partial<ContexteGeneration> = {}): ContexteGeneration {
   return {
     colorisId: "col-1",
     angleId: "ang-1",
-    details: "Gold zip pullers\nPink logo patch",
-    angleTexte: "back view, camera at the height of the bag",
+    referenceId: "ref-1",
+    promptMaitre: "Recreate the exact same item. Change only the camera angle.",
+    angleTexte: "Angle: camera about 8° to the right.",
     references: [REF(1), REF(2)],
+    caseLibre: true,
     parent: null,
     ...over,
   };
@@ -59,6 +61,9 @@ function corps(over: Partial<CorpsGeneration> = {}): CorpsGeneration {
   return {
     cle: "5039-black-pink",
     angleId: "ang-1",
+    referenceId: "ref-1",
+    skuCible: "SDN15",
+    nbCases: 1,
     modele: "d/cinq",
     modeles: ["d/cinq"],
     lancementId: UUID,
@@ -169,14 +174,14 @@ describe("referencesAEnvoyer", () => {
 // ── lireCorpsGeneration ─────────────────────────────────────────────────────
 
 describe("lireCorpsGeneration", () => {
-  const valide = { cle: "5039-black-pink", angleId: "ang-1", modele: "a/x", modeles: ["a/x", "b/y"], lancementId: UUID, confirme: true };
+  const valide = { cle: "5039-black-pink", angleId: "ang-1", referenceId: "ref-1", modele: "a/x", modeles: ["a/x", "b/y"], lancementId: UUID, confirme: true };
   const erreur = (body: unknown) => {
     const r = lireCorpsGeneration(body);
     expect("erreur" in r, JSON.stringify(body)).toBe(true);
   };
 
   it("reads a valid body", () => {
-    expect(lireCorpsGeneration(valide)).toEqual({ ...valide, essaiParentId: null, detailsCorrection: [] });
+    expect(lireCorpsGeneration(valide)).toEqual({ ...valide, skuCible: null, nbCases: 1, essaiParentId: null, detailsCorrection: [] });
   });
 
   it("treats anything but `true` as not confirmed", () => {
@@ -220,7 +225,7 @@ describe("lireCorpsGeneration", () => {
   it("requires a single-model launch for a correction", () => {
     erreur({ ...valide, essaiParentId: "essai-1", detailsCorrection: ["Gold zip"] });
     const r = lireCorpsGeneration({ ...valide, modeles: ["a/x"], essaiParentId: "essai-1", detailsCorrection: ["Gold zip", "  "] });
-    expect(r).toEqual({ ...valide, modeles: ["a/x"], essaiParentId: "essai-1", detailsCorrection: ["Gold zip", "  "] });
+    expect(r).toEqual({ ...valide, skuCible: null, nbCases: 1, modeles: ["a/x"], essaiParentId: "essai-1", detailsCorrection: ["Gold zip", "  "] });
   });
 
   it("refuses malformed correction fields, ignores details without a parent", () => {
@@ -384,9 +389,11 @@ describe("executerGeneration — success", () => {
       {
         colorisId: "col-1",
         angleId: "ang-1",
+        referenceId: "ref-1",
+        skuCible: "SDN15",
         modele: "d/cinq",
         source: "api",
-        promptUtilise: compilerPrompt({ angle: contexte().angleTexte, details: contexte().details }),
+        promptUtilise: promptVariante(contexte().promptMaitre, contexte().angleTexte),
         urlImage: "https://blob.example/generees/user-1/essai.png",
         coutEstimeUsd: 0.05,
         coutReelUsd: 0.0421,
@@ -443,6 +450,7 @@ describe("executerGeneration — failures", () => {
         userId: USER,
         colorisId: "col-1",
         angleId: "ang-1",
+        referenceId: "ref-1",
         modele: "d/cinq",
         code: "securite",
         message: "Le fournisseur a bloqué la génération (sécurité).",
@@ -596,5 +604,43 @@ describe("executerGeneration — correction by regeneration", () => {
     const r = await executerGeneration(deps, USER, correction({ modele: "i/une-ref", modeles: ["i/une-ref"] }));
     expect(r).toMatchObject({ status: 400, body: { code: "sans_reference" } });
     expect(appels.generer).toHaveLength(0);
+  });
+});
+
+// ── Variantes d'angle (20/10) : une case = une photo × un prompt d'angle ────
+
+describe("variantes d'angle", () => {
+  it("exige la photo de la ligne, lit le sac cible en majuscules et le nombre de cases", () => {
+    const base = { cle: "c", angleId: "a", referenceId: "r", modele: "a/x", modeles: ["a/x"], lancementId: UUID };
+    expect(lireCorpsGeneration({ ...base, referenceId: undefined })).toEqual({ erreur: "Coloris, photo, angle et modèle requis." });
+    expect(lireCorpsGeneration({ ...base, skuCible: "sdn15", nbCases: 14 })).toMatchObject({ skuCible: "SDN15", nbCases: 14 });
+    for (const nbCases of [0, 61, 1.5, "3"]) expect(lireCorpsGeneration({ ...base, nbCases })).toHaveProperty("erreur");
+    expect(lireCorpsGeneration({ ...base, nbCases: 2, essaiParentId: "e" })).toEqual({ erreur: "Une correction porte sur une seule case." });
+  });
+
+  it("chiffre le devis sur toutes les cases du lancement : 3 × 0,05 $ exige la confirmation", async () => {
+    const { deps, appels } = fausses();
+    const r = await executerGeneration(deps, USER, corps({ nbCases: 3 }));
+    expect(r).toMatchObject({ status: 409, body: { code: "confirmation_requise" } });
+    expect(appels.generer).toHaveLength(0);
+    const ok = await executerGeneration(deps, USER, corps({ nbCases: 2 }));
+    expect(ok.status).toBe(200);
+    expect(appels.creerEssai[0].coutEstimeUsd).toBe(0.05);
+  });
+
+  it("refuse une case déjà prise sans rien payer", async () => {
+    const { deps, appels } = fausses({ ctx: contexte({ caseLibre: false }) });
+    const r = await executerGeneration(deps, USER, corps({ confirme: true }));
+    expect(r).toMatchObject({ status: 409, body: { code: "case_prise" } });
+    expect(rien(appels)).toEqual({ cle: 0, generer: 0, deposer: 0, creerEssai: 0 });
+  });
+
+  it("laisse corriger une case prise : la correction vise l'essai raté de cette case", async () => {
+    const parent = { id: "essai-rate", modele: "d/cinq", image: IMAGE_RATEE };
+    const { deps, appels } = fausses({ ctx: contexte({ caseLibre: false, parent }) });
+    const r = await executerGeneration(deps, USER, corps({ essaiParentId: "essai-rate", detailsCorrection: ["Gold zip"] }));
+    expect(r.status).toBe(200);
+    expect(appels.creerEssai[0]).toMatchObject({ referenceId: "ref-1", skuCible: "SDN15", essaiParentId: "essai-rate" });
+    expect(appels.creerEssai[0].promptUtilise).toContain(contexte().promptMaitre);
   });
 });

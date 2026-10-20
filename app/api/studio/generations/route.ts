@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getUserId, unauthorized } from "@/lib/apiAuth";
 import { deposerImage, lireImageEnBase64 } from "@/lib/studioBlob";
 import { trouverModele } from "@/lib/studioCatalogue";
-import { numeroSuivant, referencesPourAngle } from "@/lib/studioFiche";
+import { etatCase } from "@/lib/studioCases";
+import { numeroSuivant } from "@/lib/studioFiche";
 import { cleDuCompte, genererImage } from "@/lib/studioGeneration";
 import {
   executerGeneration,
@@ -13,6 +14,7 @@ import {
   type CorpsGeneration,
   type DepsGeneration,
 } from "@/lib/studioLancement";
+import { lirePromptMaitre, statutsDesSkus } from "@/lib/studioServeur";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,42 +24,50 @@ export const maxDuration = 300;
 
 const enDataUrl = (img: { data: string; mimeType: string } | null) => (img ? `data:${img.mimeType};base64,${img.data}` : null);
 
-/** Coloris, angle, vraies photos et essai parent, tous scopés par userId. null = pas à ce compte. */
+/**
+ * Coloris, photo de la ligne, prompt d'angle et essai parent, tous scopés par
+ * userId. null = pas à ce compte (ou photo hors tableau, angle archivé).
+ */
 async function chargerContexte(userId: string, c: CorpsGeneration): Promise<ContexteGeneration | null> {
-  const [coloris, angle] = await Promise.all([
-    prisma.studioColoris.findUnique({
-      where: { userId_cle: { userId, cle: c.cle } },
-      select: {
-        id: true,
-        details: true,
-        references: { where: { userId }, select: { id: true, role: true, createdAt: true, urlImage: true } },
-      },
+  const [coloris, angle, reference, maitre] = await Promise.all([
+    prisma.studioColoris.findUnique({ where: { userId_cle: { userId, cle: c.cle } }, select: { id: true } }),
+    prisma.studioAngle.findFirst({ where: { id: c.angleId, userId, archiveLe: null }, select: { id: true, angle: true } }),
+    prisma.studioReference.findFirst({
+      where: { id: c.referenceId, userId, ordre: { not: null } },
+      select: { id: true, colorisId: true, urlImage: true },
     }),
-    prisma.studioAngle.findFirst({ where: { id: c.angleId, userId }, select: { id: true, angle: true, roleReference: true } }),
+    lirePromptMaitre(userId),
   ]);
-  if (!coloris || !angle) return null;
+  if (!coloris || !angle || !reference || reference.colorisId !== coloris.id) return null;
 
   let parent: ContexteGeneration["parent"] = null;
   if (c.essaiParentId) {
-    // Le parent doit être un essai de CE coloris et de CET angle : corriger un
-    // autre angle n'aurait aucun sens.
+    // Le parent doit être un essai de CETTE case : corriger une autre case n'aurait aucun sens.
     const p = await prisma.studioEssai.findFirst({
-      where: { id: c.essaiParentId, colorisId: coloris.id, angleId: angle.id, coloris: { userId } },
+      where: { id: c.essaiParentId, colorisId: coloris.id, angleId: angle.id, referenceId: reference.id, coloris: { userId } },
       select: { id: true, modele: true, urlImage: true },
     });
     if (!p) return null;
     parent = { id: p.id, modele: p.modele, image: p.urlImage ? enDataUrl(await lireImageEnBase64(p.urlImage, "generees", userId)) : null };
   }
 
-  const choisies = referencesPourAngle(coloris.references, angle.roleReference);
-  const lues = await Promise.all(choisies.map((r) => lireImageEnBase64(r.urlImage, "references", userId)));
+  // La case est-elle encore libre ? Mêmes règles que l'écran (lib/studioCases).
+  const essaisCase = await prisma.studioEssai.findMany({
+    where: { colorisId: coloris.id, angleId: angle.id, referenceId: reference.id },
+    select: { referenceId: true, angleId: true, decision: true, skuCible: true },
+  });
+  const statuts = await statutsDesSkus(userId, essaisCase.flatMap((e) => (e.skuCible ? [e.skuCible] : [])));
+  const etat = etatCase(essaisCase, (sku) => statuts.get(sku) ?? null);
 
+  const photo = enDataUrl(await lireImageEnBase64(reference.urlImage, "references", userId));
   return {
     colorisId: coloris.id,
     angleId: angle.id,
-    details: coloris.details,
+    referenceId: reference.id,
+    promptMaitre: maitre.texte,
     angleTexte: angle.angle,
-    references: lues.map(enDataUrl).filter((u): u is string => u !== null),
+    references: photo ? [photo] : [],
+    caseLibre: etat.kind === "libre",
     parent,
   };
 }
@@ -102,13 +112,14 @@ function dependances(userId: string): DepsGeneration {
 }
 
 /**
- * POST /api/studio/generations — UNE génération : un modèle d'un lancement.
+ * POST /api/studio/generations — UNE génération : une case (photo × prompt
+ * d'angle) d'un lancement, avec un modèle.
  *
- * L'écran envoie une requête par modèle coché, en parallèle ; chacune porte la
- * liste complète (`modeles`), `lancementId` et `confirme`. Le devis est
- * recalculé ici sur toute la liste : au-delà de 0,10 $, ou avec un tarif
- * inconnu, sans `confirme: true` ⇒ 409 `confirmation_requise` avec le devis,
- * et rien n'est payé.
+ * L'écran envoie une requête par case choisie ; chacune porte `nbCases`, la
+ * liste des modèles, `lancementId` et `confirme`. Le devis est recalculé ici
+ * sur tout le lancement : au-delà de 0,10 $, ou avec un tarif inconnu, sans
+ * `confirme: true` ⇒ 409 `confirmation_requise` avec le devis, et rien n'est
+ * payé. Une case déjà prise ⇒ 409 `case_prise` (seule une correction y génère).
  *
  * Clé OpenRouter du compte uniquement (`missing_key` sinon). L'image va au Blob
  * sous `generees/<userId>/` et ne repart jamais dans la réponse : l'écran la lit

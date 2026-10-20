@@ -1,5 +1,6 @@
 import "server-only";
-import { compilerCorrection, compilerPrompt } from "@/lib/studioAngles";
+import { compilerCorrection } from "@/lib/studioAngles";
+import { promptVariante } from "@/lib/studioCases";
 import { StudioGenerationError, type DemandeImage, type GenerationErrorCode, type ImageGeneree } from "@/lib/studioGeneration";
 import { RATIO_STUDIO, devisLancement, estimerEssai, formatUsd, type Devis, type Estimation, type ModeleImage } from "@/lib/studioModeles";
 
@@ -22,10 +23,18 @@ import { RATIO_STUDIO, devisLancement, estimerEssai, formatUsd, type Devis, type
  */
 
 export const MAX_MODELES_PAR_LANCEMENT = 6;
+/** Cases d'un même lancement : une fiche compte au plus 15 photos × quelques angles. */
+export const MAX_CASES_PAR_LANCEMENT = 60;
 
 export type CorpsGeneration = {
   cle: string;
   angleId: string;
+  /** La vraie photo de la ligne : la case est (referenceId, angleId). */
+  referenceId: string;
+  /** Le sac dont l'annonce recevra l'image une fois validée. */
+  skuCible: string | null;
+  /** Nombre de cases du lancement (une requête par case) : le devis porte sur toutes. */
+  nbCases: number;
   /** Le modèle que CETTE requête génère. */
   modele: string;
   /** Tous les modèles cochés du lancement : c'est sur eux que porte le devis. */
@@ -40,12 +49,15 @@ export type CorpsGeneration = {
 export type ContexteGeneration = {
   colorisId: string;
   angleId: string;
-  /** Détails du coloris, la saisie brute (un par ligne). */
-  details: string;
-  /** Texte injecté dans {angle}. */
+  referenceId: string;
+  /** Prompt maître du compte (vide s'il n'est pas saisi). */
+  promptMaitre: string;
+  /** Texte du prompt d'angle. */
   angleTexte: string;
-  /** Vraies photos en data URL, déjà choisies (et plafonnées) par `referencesPourAngle`. */
+  /** La vraie photo de la ligne, en data URL (vide si illisible au Blob). */
   references: string[];
+  /** Faux si la case est déjà prise (validée, à juger, en vente) : seule une correction y génère. */
+  caseLibre: boolean;
   /** L'essai à corriger ; `image` null = image purgée. */
   parent: { id: string; modele: string; image: string | null } | null;
 };
@@ -54,6 +66,8 @@ export type ContexteGeneration = {
 export type NouvelEssai = {
   colorisId: string;
   angleId: string;
+  referenceId: string;
+  skuCible: string | null;
   modele: string;
   source: "api";
   promptUtilise: string;
@@ -69,6 +83,7 @@ export type NouvelEchec = {
   userId: string;
   colorisId: string;
   angleId: string;
+  referenceId: string;
   modele: string;
   code: string;
   message: string;
@@ -118,8 +133,20 @@ export function lireCorpsGeneration(body: unknown): CorpsGeneration | { erreur: 
 
   const cle = identifiant(body.cle);
   const angleId = identifiant(body.angleId);
+  const referenceId = identifiant(body.referenceId);
   const modele = identifiant(body.modele);
-  if (!cle || !angleId || !modele) return { erreur: "Coloris, angle et modèle requis." };
+  if (!cle || !angleId || !referenceId || !modele) return { erreur: "Coloris, photo, angle et modèle requis." };
+
+  let skuCible: string | null = null;
+  if (body.skuCible !== undefined && body.skuCible !== null) {
+    skuCible = identifiant(body.skuCible)?.toUpperCase() ?? null;
+    if (!skuCible) return { erreur: "Sac cible illisible." };
+  }
+
+  const nbCases = body.nbCases === undefined ? 1 : body.nbCases;
+  if (typeof nbCases !== "number" || !Number.isInteger(nbCases) || nbCases < 1 || nbCases > MAX_CASES_PAR_LANCEMENT) {
+    return { erreur: `De 1 à ${MAX_CASES_PAR_LANCEMENT} cases par lancement.` };
+  }
 
   if (!Array.isArray(body.modeles) || body.modeles.length === 0) return { erreur: "Aucun modèle coché." };
   if (body.modeles.length > MAX_MODELES_PAR_LANCEMENT) {
@@ -160,7 +187,9 @@ export function lireCorpsGeneration(body: unknown): CorpsGeneration | { erreur: 
     detailsCorrection = d;
   }
 
-  return { cle, angleId, modele, modeles, lancementId, confirme, essaiParentId, detailsCorrection };
+  if (essaiParentId && nbCases !== 1) return { erreur: "Une correction porte sur une seule case." };
+
+  return { cle, angleId, referenceId, skuCible, nbCases, modele, modeles, lancementId, confirme, essaiParentId, detailsCorrection };
 }
 
 // ── Références ──────────────────────────────────────────────────────────────
@@ -222,7 +251,10 @@ export function controlerLancement(p: {
   nbReferences: number;
   confirme: boolean;
   avecImageRatee?: boolean;
+  /** Cases du lancement : chaque modèle génère une image par case. Défaut 1. */
+  nbCases?: number;
 }): ControleLancement {
+  const nbCases = Math.max(1, Math.floor(p.nbCases ?? 1));
   const avecImageRatee = p.avecImageRatee === true;
   if (p.modeles.length === 0 || p.modeles.some((m) => m === null)) {
     return { ok: false, status: 400, code: "modele_inconnu", message: "Modèle absent du catalogue OpenRouter." };
@@ -234,7 +266,7 @@ export function controlerLancement(p: {
       ok: false,
       status: 400,
       code: "sans_reference",
-      message: "Aucune vraie photo pour ce coloris : ajoute une référence d'abord.",
+      message: "Photo de la ligne illisible : réimporte-la.",
     };
   }
 
@@ -257,7 +289,8 @@ export function controlerLancement(p: {
         message: `${m.nom} exige au moins ${m.minReferences} images de référence.`,
       };
     }
-    estimations.push(estimerEssai(m, total));
+    const estimation = estimerEssai(m, total);
+    for (let i = 0; i < nbCases; i++) estimations.push(estimation);
   }
 
   const devis = devisLancement(estimations);
@@ -315,7 +348,12 @@ const refus = (status: number, error: string, code: string, extra: Record<string
  */
 export async function executerGeneration(deps: DepsGeneration, userId: string, c: CorpsGeneration): Promise<Reponse> {
   const ctx = await deps.chargerContexte(userId, c);
-  if (!ctx) return refus(404, "Coloris, angle ou essai introuvable.", "introuvable");
+  if (!ctx) return refus(404, "Coloris, photo, angle ou essai introuvable.", "introuvable");
+  // Une case prise (validée, à juger, en vente) ne se régénère que par correction.
+  if (!c.essaiParentId && !ctx.caseLibre) {
+    return refus(409, "Cette case a déjà servi pour ce coloris : choisis une autre variante.", "case_prise");
+  }
+  const promptBase = promptVariante(ctx.promptMaitre, ctx.angleTexte);
 
   const parent = c.essaiParentId ? ctx.parent : null;
   let promptCorrection: string | null = null;
@@ -325,7 +363,7 @@ export async function executerGeneration(deps: DepsGeneration, userId: string, c
       return refus(400, "Une correction se régénère avec le modèle de l'essai raté.", "modele_parent");
     }
     if (!parent.image) return refus(409, "L'image de cet essai a été purgée : impossible de la corriger.", "image_purgee");
-    promptCorrection = promptDeCorrection(compilerPrompt({ angle: ctx.angleTexte, details: ctx.details }), c.detailsCorrection ?? []);
+    promptCorrection = promptDeCorrection(promptBase, c.detailsCorrection ?? []);
     if (promptCorrection === null) return refus(400, "Choisis au moins un détail à corriger.", "sans_detail");
   }
 
@@ -335,6 +373,7 @@ export async function executerGeneration(deps: DepsGeneration, userId: string, c
     nbReferences: ctx.references.length,
     confirme: c.confirme,
     avecImageRatee: parent !== null,
+    nbCases: c.nbCases,
   });
   if (!controle.ok) {
     if (controle.code === "modele_inconnu") {
@@ -346,9 +385,10 @@ export async function executerGeneration(deps: DepsGeneration, userId: string, c
 
   const index = c.modeles.indexOf(c.modele);
   const modele = modeles[index] as ModeleImage;
-  const estimation = controle.devis.lignes[index];
+  // Les lignes du devis vont par modèle, `nbCases` fois chacune : la première du modèle suffit.
+  const estimation = controle.devis.lignes[index * c.nbCases];
   const { envoyees, tronquees } = referencesAEnvoyer(ctx.references, modele.maxReferences, parent !== null);
-  const promptUtilise = promptCorrection ?? compilerPrompt({ angle: ctx.angleTexte, details: ctx.details });
+  const promptUtilise = promptCorrection ?? promptBase;
 
   if (parent) await deps.rejeterParent(parent.id);
 
@@ -358,6 +398,7 @@ export async function executerGeneration(deps: DepsGeneration, userId: string, c
         userId,
         colorisId: ctx.colorisId,
         angleId: ctx.angleId,
+        referenceId: ctx.referenceId,
         modele: c.modele,
         code,
         message: message.slice(0, LONGUEUR_MAX_MESSAGE),
@@ -411,6 +452,8 @@ export async function executerGeneration(deps: DepsGeneration, userId: string, c
   const essai = await deps.creerEssai({
     colorisId: ctx.colorisId,
     angleId: ctx.angleId,
+    referenceId: ctx.referenceId,
+    skuCible: c.skuCible,
     modele: c.modele,
     source: "api",
     promptUtilise,

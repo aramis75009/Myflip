@@ -37,13 +37,14 @@ model User {
   prompts   PromptTemplate[]
   settings  UserSettings?
 
-  // Studio IA — banc de test, cloisonné du reste (cf. la section en bas de ce
-  // fichier). Aucune de ces relations ne touche Article.
+  // Studio IA — cloisonné du reste (cf. la section en bas de ce fichier).
+  // Aucune de ces relations ne touche Article.
   studioColoris    StudioColoris[]
   studioReferences StudioReference[]
   studioAngles     StudioAngle[]
   studioFavoris    StudioModeleFavori[]
   studioEchecs     StudioEchec[]
+  studioReglages   StudioReglages?
 }
 
 /// Réglages et secrets propres à un compte : clés IA et accès Trello.
@@ -283,11 +284,12 @@ model PromptTemplate {
 
 // ─────────────────────────── Studio IA ───────────────────────────
 //
-// Banc de test de génération d'angles (spec du 17/10, §8). CLOISONNÉ : aucune
-// image générée ne doit pouvoir rejoindre une annonce. Rien ici ne référence
-// `Article`, rien dans `Article` ne référence ceci, et aucun module de mise en
-// vente, d'export, de l'extension ou des API Hermes / SacBase n'importe
-// `lib/studio*` — c'est `lib/studioCloisonnement.test.ts` qui le garde.
+// Variantes d'angle d'un sac (spec du 17/10, §8 ; passation du 20/10). Une
+// image VALIDÉE par Aramis rejoint l'annonce de son sac cible (`skuCible`), par
+// la seule route GET /api/studio/annonce. Rien ici ne référence `Article`, rien
+// dans `Article` ne référence ceci, et aucun module de mise en vente, d'export,
+// de l'extension ou des API Hermes / SacBase n'importe `lib/studio*` — c'est
+// `lib/studioCloisonnement.test.ts` qui le garde.
 
 /// Un coloris suivi par le Studio. `cle` vient de SacBase ("5039-black-pink") :
 /// les SKU MyFlip sont des identifiants d'unité, seul SacBase sait quel coloris
@@ -329,26 +331,41 @@ model StudioReference {
   /// face | dos | cote | detail | ouvert
   role     String
   urlImage String
+  /// Numéro de la prise (1 à 15) : une ligne du tableau de la fiche. null =
+  /// photo gardée mais pas une ligne (conservée à la mise en vente, ancienne).
+  ordre    Int?
+  /// Nom de la prise (« Face · détail gauche »), cf. PRISES de lib/studioCases.ts.
+  prise    String?
 
   createdAt DateTime @default(now())
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  essais StudioEssai[]
+  echecs StudioEchec[]
+
   @@index([userId])
   @@index([colorisId])
   @@index([sku])
+  @@index([colorisId, ordre])
 }
 
-/// Un modèle d'angle, éditable dans le Studio. Même principe que PromptTemplate.
+/// Un prompt d'angle, éditable dans /parametres (onglet Studio) : une colonne
+/// du tableau de la fiche. Un angle qui a servi ne se supprime pas et ne se
+/// réécrit pas : le modifier archive l'ancien et crée une nouvelle version.
 model StudioAngle {
   id            String @id @default(cuid())
+  /// Nom court : l'en-tête de colonne.
   nom           String
-  /// Quelle photo de référence joindre : face | dos | cote | detail | ouvert
-  roleReference String
-  /// Texte injecté dans {angle} du bloc commun.
-  angle         String @db.Text
-  ordre         Int    @default(0)
+  /// Banc de test (angles archivés) : face | dos | cote | detail | ouvert.
+  /// Vide pour les prompts d'angle : la photo jointe est celle de la ligne.
+  roleReference String    @default("")
+  /// Texte envoyé, après le prompt maître (« Angle: … »).
+  angle         String    @db.Text
+  ordre         Int       @default(0)
+  /// null = actif. Les 7 angles du banc de test sont archivés au 20/10.
+  archiveLe     DateTime?
 
   createdAt DateTime @default(now())
 
@@ -394,12 +411,35 @@ model StudioEssai {
   /// valide | rejete | null. C'est CE champ qui alimente les statistiques, pas
   /// `verifIA` : le verdict du modèle n'est qu'une aide.
   decision      String?
+  /// La vraie photo de la ligne. Restrict : une photo qui a servi ne se
+  /// supprime pas, sa case se déverrouillerait. null pour le banc de test.
+  referenceId   String?
+  reference     StudioReference? @relation(fields: [referenceId], references: [id], onDelete: Restrict)
+  /// Le sac dont l'annonce reçoit l'image une fois validée (« SDN15 »). Pas
+  /// de clé étrangère vers Article, comme StudioReference.sku.
+  skuCible      String?
 
   createdAt DateTime @default(now())
 
+  /// Le numéro court par colonne (coloris × angle × modèle), pas par case :
+  /// le « premier essai » d'une case est celui sans `essaiParentId`.
   @@unique([colorisId, angleId, modele, numero])
   @@index([colorisId])
   @@index([angleId])
+  @@index([referenceId, angleId])
+  @@index([skuCible])
+}
+
+/// Réglages du Studio, un par compte.
+model StudioReglages {
+  id           String   @id @default(cuid())
+  /// Envoyé une fois en tête de conversation Gemini, placé en tête de chaque
+  /// génération par API, suivi du prompt d'angle.
+  promptMaitre String   @db.Text @default("")
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 /// Modèle d'image épinglé par un compte, pour le sélecteur des lignes d'angle.
@@ -429,6 +469,8 @@ model StudioEchec {
   message     String        @db.Text
   lancementId String?
   coutReelUsd Float?
+  referenceId String?
+  reference   StudioReference? @relation(fields: [referenceId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 

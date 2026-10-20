@@ -33,6 +33,8 @@ export interface SacbaseColoris {
   sacs: SacbaseBag[];
   /** Sacs invendus physiquement à Paris, donc photographiables aujourd'hui. */
   chezMoi: number;
+  /** Génération du modèle (« V1 », « V2 », « V3 »), null si SacBase ne la donne pas. */
+  generation: string | null;
 }
 
 export interface SacbaseCatalogue {
@@ -108,9 +110,12 @@ export function parseColorisCatalogue(v: unknown): SacbaseCatalogue | null {
       sacs.push({ sku: s.sku, statut: s.statut, vendu: s.vendu });
     }
     if (!isCount(c.chezMoi) || c.chezMoi > sacs.length) return null;
+    // Absente toléré (SacBase d'avant le 20/10) ; présente, une chaîne. "" = inconnue.
+    if (c.generation !== undefined && c.generation !== null && typeof c.generation !== "string") return null;
+    const generation = typeof c.generation === "string" && c.generation.trim() ? c.generation.trim() : null;
 
     cles.add(c.cle);
-    coloris.push({ cle: c.cle, modele: c.modele, coloris: c.coloris, image: c.image, sacs, chezMoi: c.chezMoi });
+    coloris.push({ cle: c.cle, modele: c.modele, coloris: c.coloris, image: c.image, sacs, chezMoi: c.chezMoi, generation });
   }
 
   return { genere: v.genere, coloris, ecartes };
@@ -190,4 +195,40 @@ export async function resolveSkuToCle(
   const source = await getColoris(opts);
   if (source.kind === "off") return { cle: null, kind: "off" };
   return { cle: buildSkuIndex(source.data).get(sku) ?? null, kind: source.kind };
+}
+
+// ── Vignettes ───────────────────────────────────────────────────────────────
+
+/** Chemin de vignette SacBase acceptable : sous /img/, sans remontée ni requête. */
+const VIGNETTE_RE = /^\/img\/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*\/)*[A-Za-z0-9_-][A-Za-z0-9._-]*\.(?:jpe?g|png|webp)$/i;
+export const estCheminVignette = (p: string) => VIGNETTE_RE.test(p) && !p.includes("..");
+
+/**
+ * La vignette d'un coloris, lue chez SacBase avec le jeton du Studio : SacBase
+ * protège /img derrière sa session, et le jeton ne doit jamais partir au
+ * navigateur. Le chemin vient du catalogue (jamais du client) et doit être un
+ * /img/… Rend null si SacBase est injoignable, la clé inconnue ou l'image absente.
+ */
+export async function lireVignette(
+  cle: string,
+  opts: { now?: number; fetchImpl?: typeof fetch } = {},
+): Promise<{ octets: ArrayBuffer; contentType: string } | null> {
+  const cfg = getSacbaseConfig();
+  if (!cfg) return null;
+  const source = await getColoris(opts);
+  if (source.kind === "off") return null;
+  const chemin = source.data.coloris.find((c) => c.cle === cle)?.image ?? "";
+  if (!estCheminVignette(chemin)) return null;
+  try {
+    const res = await (opts.fetchImpl ?? fetch)(cfg.url + chemin, {
+      headers: { Authorization: "Bearer " + cfg.token },
+      cache: "no-store",
+      signal: AbortSignal.timeout(COLORIS_TIMEOUT_MS),
+    });
+    const type = res.headers.get("content-type") ?? "";
+    if (!res.ok || !type.startsWith("image/")) return null;
+    return { octets: await res.arrayBuffer(), contentType: type };
+  } catch {
+    return null;
+  }
 }

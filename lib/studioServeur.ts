@@ -1,24 +1,39 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { ANGLES_AMORCAGE } from "@/lib/studioAngles";
+import { cleCase, etatsDesCases, sacsCibles, usageAngles, type EtatCase } from "@/lib/studioCases";
 import { buildSkuIndex, getColoris, type SacbaseCatalogue, type SacbaseColoris, type SacbaseColorisSource } from "@/lib/studioColoris";
-import { avancement, planRattachement, type Avancement } from "@/lib/studioFiche";
+import { planRattachement } from "@/lib/studioFiche";
 
 /**
- * Lectures et écritures du Studio IA en base. Toutes scopées par userId.
+ * Lectures et écritures du Studio en base. Toutes scopées par userId.
  *
- * ⚠️ Cloisonnement (spec §7) : ce module ne lit ni n'écrit `Article`. La seule
- * question posée au stock — « ce SKU est-il un sac Hipobuy ? » — est posée par
- * la route des références, en lecture, avec `whereSacbase`.
+ * ⚠️ Cloisonnement (spec §7) : ce module n'écrit jamais `Article`. Il le LIT
+ * pour une seule question — le statut des sacs d'un coloris — parce qu'une
+ * case se verrouille quand le sac qui l'a reçue a son annonce (règle du 20/10).
  */
 
-/** Amorce les 7 modèles d'angle au premier passage d'un compte. */
-export async function assurerAngles(userId: string): Promise<void> {
-  const n = await prisma.studioAngle.count({ where: { userId } });
-  if (n > 0) return;
-  await prisma.studioAngle.createMany({
-    data: ANGLES_AMORCAGE.map((a) => ({ ...a, userId })),
+/** Statut MyFlip de chaque SKU demandé (lecture seule). Un SKU absent du stock n'y figure pas. */
+export async function statutsDesSkus(userId: string, skus: readonly string[]): Promise<Map<string, string>> {
+  if (skus.length === 0) return new Map();
+  const lignes = await prisma.article.findMany({
+    where: { userId, sku: { in: [...new Set(skus)] } },
+    select: { sku: true, statut: true },
   });
+  return new Map(lignes.map((l) => [l.sku, l.statut]));
+}
+
+/** Prompts d'angle actifs (colonnes du tableau), dans l'ordre. */
+export function anglesActifs(userId: string) {
+  return prisma.studioAngle.findMany({
+    where: { userId, archiveLe: null },
+    orderBy: [{ ordre: "asc" }, { createdAt: "asc" }],
+    select: { id: true, nom: true, angle: true, ordre: true },
+  });
+}
+
+export async function lirePromptMaitre(userId: string): Promise<{ texte: string; modifieLe: Date | null }> {
+  const r = await prisma.studioReglages.findUnique({ where: { userId }, select: { promptMaitre: true, updatedAt: true } });
+  return { texte: r?.promptMaitre ?? "", modifieLe: r?.updatedAt ?? null };
 }
 
 /** Crée le coloris à la première référence ou à la première ouverture (spec §4). */
@@ -73,87 +88,108 @@ function etatDe(source: SacbaseColorisSource): EtatSacbase {
   return { kind: "off", reason: source.reason };
 }
 
-export type LigneGrille = {
+export type CarteColoris = {
   cle: string;
   modele: string;
   coloris: string;
-  /** Vignette du catalogue SacBase, repère d'affichage seulement. null hors catalogue. */
-  image: string | null;
+  /** « V1 », « V2 », « V3 », ou null si SacBase ne la donne pas. */
+  generation: string | null;
+  /** La vignette passe par /api/studio/vignette (SacBase protège /img). null hors catalogue. */
+  vignette: string | null;
   chezMoi: number | null;
-  sacs: number | null;
-  avancement: Avancement;
+  vendus: number | null;
+  /** Vraies photos du tableau (prises numérotées). */
+  prises: number;
+  /** Cases libres / cases du tableau (prises × prompts d'angle actifs). */
+  libres: number;
+  cases: number;
+  aJuger: number;
+  /** Prochain sac à préparer : le premier sac sans annonce. */
+  prochain: string | null;
 };
 
 export type DonneesGrille = {
   sacbase: EtatSacbase;
-  /** URL publique de SacBase pour les vignettes, null si inconnue. */
-  sacbaseUrl: string | null;
-  lignes: LigneGrille[];
+  cartes: CarteColoris[];
+  nbAngles: number;
   orphelines: number;
   rattachees: number;
 };
 
 /**
- * La grille /studio : tous les coloris du catalogue SacBase, plus ceux déjà
+ * L'accueil /studio : tous les coloris du catalogue SacBase, plus ceux déjà
  * connus en base (pour que le Studio reste utilisable quand SacBase tombe).
  */
 export async function chargerGrille(userId: string): Promise<DonneesGrille> {
   const source = await getColoris();
   const rattachees = source.kind === "off" ? 0 : await rattacherOrphelines(userId, source.data);
+  const catalogue = source.kind === "off" ? [] : source.data.coloris;
 
-  const [enBase, orphelines] = await Promise.all([
+  const [enBase, angles, orphelines, statuts] = await Promise.all([
     prisma.studioColoris.findMany({
       where: { userId },
       select: {
         cle: true,
         modele: true,
         coloris: true,
-        _count: { select: { references: true } },
-        essais: { select: { angleId: true, decision: true, verifIA: true } },
+        references: { where: { ordre: { not: null } }, select: { id: true } },
+        essais: { select: { referenceId: true, angleId: true, decision: true, skuCible: true } },
       },
     }),
+    anglesActifs(userId),
     prisma.studioReference.count({ where: { userId, colorisId: null } }),
+    statutsDesSkus(userId, catalogue.flatMap((c) => c.sacs.map((s) => s.sku))),
   ]);
+  const statutDe = (sku: string) => statuts.get(sku) ?? null;
   const parCle = new Map(enBase.map((c) => [c.cle, c]));
 
-  const lignes: LigneGrille[] = [];
+  const compter = (b: (typeof enBase)[number] | undefined) => {
+    if (!b) return { prises: 0, libres: 0, cases: 0, aJuger: 0 };
+    const etats = etatsDesCases(b.references, angles, b.essais, statutDe);
+    let libres = 0;
+    for (const e of etats.values()) if (e.kind === "libre") libres++;
+    return {
+      prises: b.references.length,
+      libres,
+      cases: etats.size,
+      // Les essais du banc de test (sans photo de ligne) ne se jugent plus dans la fiche.
+      aJuger: b.essais.filter((e) => e.referenceId && e.decision === null).length,
+    };
+  };
+
+  const cartes: CarteColoris[] = [];
   const vus = new Set<string>();
-  if (source.kind !== "off") {
-    for (const c of source.data.coloris) {
-      const b = parCle.get(c.cle);
-      vus.add(c.cle);
-      lignes.push({
-        cle: c.cle,
-        modele: c.modele,
-        coloris: c.coloris,
-        image: c.image || null,
-        chezMoi: c.chezMoi,
-        sacs: c.sacs.length,
-        avancement: avancement(b?._count.references ?? 0, b?.essais ?? []),
-      });
-    }
+  for (const c of catalogue) {
+    vus.add(c.cle);
+    cartes.push({
+      cle: c.cle,
+      modele: c.modele,
+      coloris: c.coloris,
+      generation: c.generation,
+      vignette: c.image ? `/api/studio/vignette?cle=${encodeURIComponent(c.cle)}` : null,
+      chezMoi: c.chezMoi,
+      vendus: c.sacs.filter((s) => s.vendu).length,
+      prochain: sacsCibles(c.sacs, statutDe)[0] ?? null,
+      ...compter(parCle.get(c.cle)),
+    });
   }
   for (const b of enBase) {
     if (vus.has(b.cle)) continue;
-    lignes.push({
+    cartes.push({
       cle: b.cle,
       modele: b.modele,
       coloris: b.coloris,
-      image: null,
+      generation: null,
+      vignette: null,
       chezMoi: null,
-      sacs: null,
-      avancement: avancement(b._count.references, b.essais),
+      vendus: null,
+      prochain: null,
+      ...compter(b),
     });
   }
-  lignes.sort((a, b) => a.cle.localeCompare(b.cle, "fr", { numeric: true }));
+  cartes.sort((a, b) => a.cle.localeCompare(b.cle, "fr", { numeric: true }));
 
-  return {
-    sacbase: etatDe(source),
-    sacbaseUrl: process.env.SACBASE_URL?.trim().replace(/\/+$/, "") || null,
-    lignes,
-    orphelines,
-    rattachees,
-  };
+  return { sacbase: etatDe(source), cartes, nbAngles: angles.length, orphelines, rattachees };
 }
 
 /**
@@ -169,48 +205,81 @@ export async function chargerFiche(userId: string, cle: string) {
   if (!coloris && duCatalogue) coloris = await assurerColoris(userId, duCatalogue);
   if (!coloris) return null;
 
-  await assurerAngles(userId);
-  const [references, angles, essais] = await Promise.all([
+  const [lignes, angles, essais, promptMaitre] = await Promise.all([
     prisma.studioReference.findMany({
-      where: { userId, colorisId: coloris.id },
-      orderBy: { createdAt: "asc" },
-      select: { id: true, role: true, sku: true, origine: true, createdAt: true },
+      where: { userId, colorisId: coloris.id, ordre: { not: null } },
+      orderBy: [{ ordre: "asc" }, { createdAt: "asc" }],
+      select: { id: true, ordre: true, prise: true, sku: true },
     }),
-    prisma.studioAngle.findMany({ where: { userId }, orderBy: [{ ordre: "asc" }, { createdAt: "asc" }] }),
+    anglesActifs(userId),
     prisma.studioEssai.findMany({
-      where: { colorisId: coloris.id, coloris: { userId } },
-      orderBy: [{ angleId: "asc" }, { modele: "asc" }, { numero: "asc" }],
+      where: { colorisId: coloris.id, coloris: { userId }, referenceId: { not: null } },
+      orderBy: [{ createdAt: "asc" }],
       select: {
         id: true,
+        referenceId: true,
         angleId: true,
         numero: true,
         source: true,
         modele: true,
         coutEstimeUsd: true,
         coutReelUsd: true,
-        lancementId: true,
         essaiParentId: true,
         promptUtilise: true,
         verifIA: true,
         decision: true,
+        skuCible: true,
         createdAt: true,
         urlImage: true,
       },
     }),
+    lirePromptMaitre(userId),
   ]);
+
+  const sacs = duCatalogue?.sacs ?? [];
+  const statuts = await statutsDesSkus(userId, [...sacs.map((s) => s.sku), ...essais.flatMap((e) => (e.skuCible ? [e.skuCible] : []))]);
+  const statutDe = (sku: string) => statuts.get(sku) ?? null;
+  const etats = etatsDesCases(lignes, angles, essais, statutDe);
+  const cases: Record<string, EtatCase> = {};
+  for (const l of lignes) for (const a of angles) cases[cleCase(l.id, a.id)] = etats.get(cleCase(l.id, a.id))!;
 
   return {
     sacbase: etatDe(source),
     coloris: { id: coloris.id, cle: coloris.cle, modele: coloris.modele, coloris: coloris.coloris, details: coloris.details },
-    catalogue: duCatalogue ? { chezMoi: duCatalogue.chezMoi, sacs: duCatalogue.sacs } : null,
-    references,
-    angles: angles.map((a) => ({ id: a.id, nom: a.nom, roleReference: a.roleReference, angle: a.angle, ordre: a.ordre })),
+    generation: duCatalogue?.generation ?? null,
+    vignette: duCatalogue?.image ? `/api/studio/vignette?cle=${encodeURIComponent(cle)}` : null,
+    sacs: sacs.map((s) => ({ sku: s.sku, statut: statutDe(s.sku) ?? s.statut, vendu: s.vendu })),
+    cibles: sacsCibles(sacs, statutDe),
+    lignes: lignes.map((l) => ({ id: l.id, ordre: l.ordre as number, prise: l.prise })),
+    angles,
+    cases,
+    promptMaitre: promptMaitre.texte,
     // L'URL privée du blob ne sort pas du serveur : l'écran passe par /api/studio/image.
-    essais: essais.map(({ urlImage, ...e }) => ({ ...e, purge: !urlImage })),
+    essais: essais.map(({ urlImage, referenceId, ...e }) => ({ ...e, referenceId: referenceId as string, purge: !urlImage })),
   };
 }
 
 export type DonneesFiche = NonNullable<Awaited<ReturnType<typeof chargerFiche>>>;
+
+/** L'onglet Studio de /parametres : prompt maître, prompts d'angle actifs et leur utilisation. */
+export async function chargerPromptsStudio(userId: string) {
+  const [maitre, angles, essais] = await Promise.all([
+    lirePromptMaitre(userId),
+    anglesActifs(userId),
+    prisma.studioEssai.findMany({
+      where: { coloris: { userId }, angle: { archiveLe: null } },
+      select: { colorisId: true, referenceId: true, angleId: true, decision: true, skuCible: true },
+    }),
+  ]);
+  const usage = usageAngles(essais);
+  return {
+    promptMaitre: maitre.texte,
+    modifieLe: maitre.modifieLe?.toISOString() ?? null,
+    angles: angles.map((a) => ({ ...a, cases: usage.get(a.id)?.cases ?? 0, skus: usage.get(a.id)?.skus ?? [] })),
+  };
+}
+
+export type DonneesPromptsStudio = Awaited<ReturnType<typeof chargerPromptsStudio>>;
 
 /** Les essais du compte, pour le bilan, avec les libellés des angles et des coloris. */
 export async function chargerBilan(userId: string) {

@@ -1,10 +1,9 @@
-// Conservation des vraies photos d'un sac Hipobuy comme références du Studio IA.
-//
-// ⚠️ C'est le SEUL point de contact entre la mise en vente et le Studio, et il
-// ne va que dans un sens : la photo part vers POST /api/studio/references, rien
-// ne revient. Aucun import de `lib/studio*` ici (le test
-// lib/studioCloisonnement.test.ts le vérifie) : on parle à une route, pas à un
-// module.
+// Les deux contacts entre la mise en vente et le Studio, et eux seuls :
+//   1. les vraies photos d'un sac Hipobuy partent vers POST /api/studio/references ;
+//   2. les images que le Studio a générées ET qu'Aramis a VALIDÉES pour ce sac
+//      reviennent par GET /api/studio/annonce (règle du 20/10).
+// Aucun import de `lib/studio*` ici (le test lib/studioCloisonnement.test.ts le
+// vérifie) : on parle à des routes, pas à des modules.
 //
 // Best-effort, toujours : cette fonction ne lève jamais et ne bloque rien. Une
 // panne du Blob ou de SacBase ne doit pas plus gêner une mise en vente qu'une
@@ -79,5 +78,37 @@ export async function conserverReferences(
     await envoyer();
   } catch (e) {
     console.warn("[mise-en-vente] références Studio non conservées :", e instanceof Error ? e.name : e);
+  }
+}
+
+/**
+ * Les images du Studio VALIDÉES par Aramis pour ce sac (règle du 20/10 : une
+ * image générée et validée part dans l'annonce du sac choisi), en fichiers
+ * prêts pour le pipeline photo, dans l'ordre des prises.
+ *
+ * Le second et dernier contact avec le Studio, toujours par une route : seule
+ * la décision d'Aramis compte, le serveur ne rend que `decision = "valide"`.
+ * Best-effort comme le reste : une panne rend [], jamais une erreur. Ces
+ * fichiers ne doivent JAMAIS repartir vers `conserverReferences` : une image
+ * générée n'est pas une vraie photo.
+ */
+export async function imagesValideesStudio(sku: string): Promise<{ essaiId: string; fichier: File }[]> {
+  try {
+    const res = await fetch(`/api/studio/annonce?sku=${encodeURIComponent(sku)}`, { cache: "no-store" });
+    if (!res.ok) return [];
+    const j = (await res.json()) as { images?: { essaiId?: unknown; ordre?: unknown }[] };
+    const images = (j.images ?? []).filter((i): i is { essaiId: string; ordre: number } => typeof i.essaiId === "string" && typeof i.ordre === "number");
+    const out: { essaiId: string; fichier: File }[] = [];
+    for (const i of images) {
+      const img = await fetch(`/api/studio/image?essai=${encodeURIComponent(i.essaiId)}`);
+      if (!img.ok) continue;
+      const blob = await img.blob();
+      const ext = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : "jpg";
+      out.push({ essaiId: i.essaiId, fichier: new File([blob], `studio-${String(i.ordre).padStart(2, "0")}.${ext}`, { type: blob.type || "image/jpeg" }) });
+    }
+    return out;
+  } catch (e) {
+    console.warn("[mise-en-vente] images Studio non chargées :", e instanceof Error ? e.name : e);
+    return [];
   }
 }

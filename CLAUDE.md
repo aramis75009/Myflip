@@ -177,27 +177,36 @@ SacBase n'ouvre aucune route d'écriture. Code : `lib/sacbaseAuth.ts`,
   ⚠️ **Pas dans l'API Hermes** (`POST /api/hermes/stock/statut` n'active pas
   l'option) : décision laissée à Aramis. Pas de rattrapage des articles existants.
 
-### Studio IA — `/studio` (banc de test, 19/10/2026)
+### Studio — `/studio` (variantes d'angle, 20/10/2026)
 
-Banc de test pour mesurer quel modèle d'image reproduit le plus fidèlement un sac
-sous d'autres angles, et à quel prix. **Ce n'est pas une fonctionnalité de vente.**
-Spec : `docs/superpowers/specs/2026-10-17-studio-ia-design.md` (§2 « pas de clé
-API » remplacé par le PRD `2026-10-19-studio-ia-generation-api-prd.md`), plans :
-`docs/superpowers/plans/2026-10-18-studio-ia.md` et
-`2026-10-19-studio-ia-generation-api.md`. Desktop uniquement : les règles
-mobile de ce fichier ne s'appliquent pas à ces écrans.
+Génère des variantes d'angle des vraies photos d'un sac ; **une image validée par
+Aramis part dans l'annonce du sac cible** (`StudioEssai.skuCible`). Ce n'est plus
+un banc de test. Spec : `docs/superpowers/specs/2026-10-17-studio-ia-design.md`
+(§2 remplacé par le PRD `2026-10-19-studio-ia-generation-api-prd.md`, §7
+assoupli le 20/10), maquettes : projet Claude Design « Fiche coloris -
+lisibilite », tour 2. Desktop uniquement : les règles mobile de ce fichier ne
+s'appliquent pas à ces écrans.
 
-- **Écrans** : `/studio` (grille des coloris SacBase, filtre « doublons chez
-  moi »), `/studio/[cle]` (références, détails à préserver, une ligne par angle :
-  prompt à copier, références à télécharger, dépôt des essais, comparaison,
-  verdict IA, décision), `/studio/bilan`. Pages serveur (`lib/studioServeur.ts`)
-  + composants client sous `app/studio/_components/`, `router.refresh()` après
-  chaque écriture. Bandeau « Banc de test » posé dans `app/studio/layout.tsx`.
-- **Parcours** : sur une ligne d'angle, Aramis coche un ou plusieurs modèles
-  d'image OpenRouter et clique « Générer » ; ou il génère ailleurs (application
-  Gemini) et dépose l'image (`source = manuel`, `modele = "manuel"`). Chaque
-  image est notée par le modèle de vision (`lib/studioVerif.ts`). Le verdict IA
-  est une aide : **seule `StudioEssai.decision` alimente le bilan**.
+- **Écrans** : `/studio` (accueil : filtres V1/V2/V3, « Doublons chez moi »,
+  « À juger », « À photographier », vignettes via `/api/studio/vignette`),
+  `/studio/[cle]` (fiche : file « À juger », puis tableau **une ligne par vraie
+  photo × une colonne par prompt d'angle**), `/studio/bilan`, et l'onglet
+  « Studio » de `/parametres` (`?onglet=studio`, `components/parametres/PromptsStudio.tsx`).
+- **Prompts** : un **prompt maître** par compte (`StudioReglages`), collé une
+  fois par conversation Gemini, placé en tête de chaque appel API ; des **prompts
+  d'angle** courts (`StudioAngle`, « Angle: … »). Aucun amorçage : Aramis les
+  saisit. Un angle qui a pris une case ne se supprime pas, et changer son texte
+  **archive l'ancien et crée une nouvelle version** (`archiveLe`).
+- **Cases** (`lib/studioCases.ts`, pur) : une case = (vraie photo, prompt
+  d'angle). Verrouillée si un essai non rejeté y existe (« à juger »,
+  « validée », ou « en vente » quand l'`Article` du `skuCible` n'est plus En
+  stock / Photos prêtes). **Un rejet libère la case.** Choix automatique : la
+  première case libre de chaque photo pas encore couverte pour le sac cible.
+  Le serveur revérifie le verrou (409 `case_prise`) ; seule une correction
+  (`essaiParentId`) régénère une case prise.
+- **Vraies photos** : `StudioReference.ordre` (1 à 15) = la ligne,
+  `prise` = son nom (liste fixe `PRISES`). `ordre` null = photo gardée hors
+  tableau (photos conservées à la mise en vente).
 - **Génération par API (19/10)** : `POST /api/studio/generations`, **une requête
   par modèle** en parallèle (`maxDuration = 300`), regroupées par `lancementId`.
   Modules : `lib/studioModeles.ts` (pur, isomorphe : tarif, estimation, devis,
@@ -207,7 +216,7 @@ mobile de ce fichier ne s'appliquent pas à ces écrans.
   erreurs typées), `lib/studioLancement.ts` (orchestration à dépendances
   injectées, testée sans réseau). Catalogue et favoris : `GET /api/studio/modeles`,
   `POST|DELETE /api/studio/modeles/favoris`.
-- ⚠️ **Seuil de 0,10 $ par lancement** (un angle × les modèles cochés), **vérifié
+- ⚠️ **Seuil de 0,10 $ par lancement** (les cases choisies × le modèle, `nbCases`), **vérifié
   côté serveur** : total estimé > 0,10 $ strict, ou un seul tarif inconnu (« au
   jeton », au mégapixel, absent) ⇒ 409 `confirmation_requise` sans `confirme:
   true`. **Jamais un prix inventé** : l'estimation est un majorant (max des
@@ -219,23 +228,26 @@ mobile de ce fichier ne s'appliquent pas à ces écrans.
   déploiement (même trou que Trello). La vérification IA garde, elle, la cascade
   de `resoudreReglages`.
 - **Numérotation par coloris × angle × modèle** (unique
-  `colorisId, angleId, modele, numero`) : trois modèles lancés ensemble font
-  chacun leur essai n° 1. « Corriger un détail » sur un essai API régénère avec
+  `colorisId, angleId, modele, numero`, gardé tel quel au 20/10) : le numéro
+  court par colonne, pas par case ; le « premier essai » d'une case est celui
+  sans `essaiParentId`. « Corriger un détail » sur un essai API régénère avec
   le même modèle, l'image ratée en 1re référence ; l'essai raté passe `rejete`,
   le nouveau pointe vers lui (`essaiParentId`).
 - **Échecs** dans `StudioEchec` (code, message, coût éventuel) : ni numéro
   d'essai ni taux, comptés à part au bilan (blocages `securite` distingués).
   `incertain` (502/504, délai) = peut-être facturé : vérifier l'activité
   OpenRouter avant de relancer.
-- **Six tables** (migrations `20261018120000_studio_ia` et
-  `20261019120000_studio_generation_api`, écrites à la main ; la seconde ajoute
+- **Sept tables** (migrations `20261018120000_studio_ia`,
+  `20261019120000_studio_generation_api` et `20261020120000_studio_variantes_angle`,
+  écrites à la main, sans DROP de donnée ; la troisième ajoute `StudioReglages`,
+  `StudioAngle.archiveLe` (les 7 angles du banc archivés), `StudioReference.ordre/prise`,
+  `StudioEssai.referenceId` (RESTRICT) / `skuCible`, `StudioEchec.referenceId` ; la seconde ajoute
   à `StudioEssai` `modele` (NOT NULL, défaut `manuel`), `coutEstimeUsd`,
   `coutReelUsd`, `lancementId`, `essaiParentId`, plus `StudioModeleFavori` et
   `StudioEchec`) :
   `StudioColoris` (clé SacBase `5039-black-pink`, détails un par ligne),
   `StudioReference` (vraie photo ; `colorisId` null = pas encore rattachée),
-  `StudioAngle` (7 modèles amorcés au premier passage, éditables ;
-  `StudioEssai.angleId` en `RESTRICT`), `StudioEssai` (`source` manuel | api).
+  `StudioAngle` (prompts d'angle, `StudioEssai.angleId` en `RESTRICT`), `StudioEssai` (`source` manuel | api).
   Aucune contrainte vers `Article`.
 - **Vercel Blob, store `myflip-studio`, privé** (`lib/studioBlob.ts`). Deux
   préfixes et seulement deux : `references/<userId>/<sha256>.jpg` (vraies
@@ -251,6 +263,11 @@ mobile de ce fichier ne s'appliquent pas à ces écrans.
   jamais). Les pages et la route des références l'appellent **une fois** puis
   construisent l'index `sku → cle`. Les photos non rattachées le sont au
   prochain chargement d'une page Studio où SacBase répond.
+- **Images validées → annonce** : quand la mise en vente résout le SKU d'un sac
+  Hipobuy, `imagesValideesStudio` (`_referencesPhotos.ts`) lit
+  `GET /api/studio/annonce?sku=` (essais `decision = "valide"` de ce
+  `skuCible`, ordre des prises) et ajoute les images à la fiche, **sans** les
+  renvoyer vers `conserverReferences` (`ajouterPhotos(…, { studio: true })`).
 - **Photos de mise en vente conservées** : `app/mise-en-vente/_referencesPhotos.ts`,
   appelé sans `await` depuis `ajouterPhotos`. Best-effort : aucun toast, aucune
   erreur remontée, une panne Blob ou SacBase ne bloque jamais une annonce. Sacs
@@ -259,21 +276,23 @@ mobile de ce fichier ne s'appliquent pas à ces écrans.
   conservée est celle du dépôt, non tournée.
 - **Un essai rejeté se purge** (image effacée du Blob), **la ligne reste** avec
   `urlImage = ""` : effacer un rejet gonflerait le taux de réussite.
-- ⚠️ **Cloisonnement — exigence non négociable (spec §7)**, gardé par
+- ⚠️ **Cloisonnement (spec §7, assoupli le 20/10)**, gardé par
   **`lib/studioCloisonnement.test.ts`** : `app/mise-en-vente/**`,
   `app/api/hermes/**`, `app/api/sacbase/**` et `extension-vinted/*.js`
   n'importent aucun `lib/studio*` ; `lib/studio*`, `app/api/studio/**` et
   `app/studio/**` n'importent rien de la vente, de l'export ni de l'extension, et
-  n'écrivent jamais sur `Article` ; le seul appel de la vente vers le Studio est
-  `/api/studio/references`. Pas de bouton « utiliser dans une annonce », pas
-  d'export groupé des images générées. Ne pas affaiblir ce test pour faire passer
-  un changement.
-- **Non fait, connu** : le bloc commun du prompt n'est pas éditable (aucune
-  colonne pour le ranger : `BLOC_COMMUN_PAR_DEFAUT` de `lib/studioAngles.ts`) ;
-  les vignettes du catalogue ne s'affichent pas (SacBase protège `/img` derrière
-  sa session, la grille montre le modèle à la place) ; **aucune génération réelle par API n'a encore
-  été faite** (premier test prévu en prod) ; lancer un coloris entier d'un coup est
-  hors périmètre (`TODOS.md`).
+  n'écrivent jamais sur `Article` (ils le LISENT pour le statut des sacs). Côté
+  vente, un seul fichier parle au Studio (`_referencesPhotos.ts`) et seulement à
+  `/api/studio/references`, `/api/studio/annonce` et `/api/studio/image` ; la
+  route de l'annonce ne rend que les images **validées par Aramis**, jamais selon
+  l'avis IA. Ne pas affaiblir ce test pour faire passer un changement.
+- **Vignettes** : `GET /api/studio/vignette?cle=` relaie `/img/…` de SacBase
+  avec `SACBASE_STUDIO_TOKEN` (SacBase accepte ce jeton en GET sur `/img/*`
+  depuis le 20/10) ; le chemin vient du catalogue, jamais du client.
+- **Non fait, connu** : **aucune génération réelle par API n'a encore été
+  faite** (premier test prévu en prod) ; pas de déclaration manuelle des cases
+  utilisées avant le Studio (décision du 20/10) ; choisir plusieurs sacs d'un
+  coup dans la fiche est hors périmètre.
 
 ---
 

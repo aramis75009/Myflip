@@ -29,8 +29,9 @@ const BODY = {
         { sku: "SDN1", statut: "Vendu", vendu: true },
       ],
       chezMoi: 1,
+      generation: "V3" as string | null,
     },
-    { cle: "5880-white", modele: "5880", coloris: "White", image: "", sacs: [], chezMoi: 0 },
+    { cle: "5880-white", modele: "5880", coloris: "White", image: "", sacs: [], chezMoi: 0, generation: null as string | null },
   ],
   ecartes: ["Sans nom exploitable"],
 };
@@ -92,6 +93,16 @@ describe("parseColorisCatalogue", () => {
     expect(parseColorisCatalogue(BODY)).toEqual(BODY);
   });
 
+  it("reads a missing or empty generation as null (SacBase before 20/10)", () => {
+    const parsed = parseColorisCatalogue(
+      mutated((b) => {
+        delete (b.coloris[0] as { generation?: unknown }).generation;
+        b.coloris[1].generation = " ";
+      }),
+    );
+    expect(parsed?.coloris.map((c) => c.generation)).toEqual([null, null]);
+  });
+
   it("drops unknown fields", () => {
     const parsed = parseColorisCatalogue(
       mutated((b) => {
@@ -151,6 +162,7 @@ describe("parseColorisCatalogue", () => {
     ["`chezMoi` fractional", mutated((b) => void (b.coloris[0].chezMoi = 0.5))],
     ["`chezMoi` as a string", mutated((b) => void Object.assign(b.coloris[0], { chezMoi: "1" }))],
     ["`chezMoi` above the number of bags", mutated((b) => void (b.coloris[0].chezMoi = 3))],
+    ["`generation` not a string", mutated((b) => void Object.assign(b.coloris[0], { generation: 3 }))],
   ])("rejects: %s", (_label, input) => {
     expect(parseColorisCatalogue(input)).toBeNull();
   });
@@ -360,5 +372,16 @@ describe("resolveSkuToCle", () => {
     const fetchImpl = vi.fn<typeof fetch>();
     expect(await resolveSkuToCle("SDN3", { fetchImpl })).toEqual({ cle: null, kind: "off" });
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+});
+
+describe("estCheminVignette", () => {
+  it("n'accepte qu'un fichier image sous /img/, sans remontée", async () => {
+    const { estCheminVignette } = await import("./studioColoris");
+    expect(estCheminVignette("/img/5039_black_pink.jpg")).toBe(true);
+    expect(estCheminVignette("/img/catalogue/6006-dark-blue.png")).toBe(true);
+    for (const p of ["/img/../api/studio/coloris.png", "/api/x.jpg", "https://evil/img/a.jpg", "/img/a.jpg?x=1", "/img/a.svg", "", "/img/.hidden.jpg"]) {
+      expect(estCheminVignette(p), p).toBe(false);
+    }
   });
 });

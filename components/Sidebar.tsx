@@ -52,7 +52,7 @@ const NAV: NavItem[] = [
   { href: "/compte", label: "Mon compte", short: "MOI", icon: UserCircle },
   {
     href: "/studio",
-    label: "Studio (test)",
+    label: "Studio",
     short: "STUDIO",
     icon: FlaskConical,
     section: "secondaire",

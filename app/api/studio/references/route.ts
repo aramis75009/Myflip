@@ -4,6 +4,7 @@ import { getUserId, unauthorized } from "@/lib/apiAuth";
 import { whereSacbase } from "@/lib/sacbaseStock";
 import { EMPREINTE_RE, deposerImage, erreurFichier } from "@/lib/studioBlob";
 import { buildSkuIndex, getColoris } from "@/lib/studioColoris";
+import { MAX_PRISES, nomPrise } from "@/lib/studioCases";
 import { estOrigine, estRole, roleSuggere } from "@/lib/studioFiche";
 import { assurerColoris } from "@/lib/studioServeur";
 
@@ -24,6 +25,9 @@ const MAX_FICHIERS = 12;
  *   photo       un ou plusieurs JPEG (compressés côté client, ~1600 px)
  *   empreinte   une par photo, SHA-256 du fichier d'origine (dédoublonnage)
  *   role        facultatif, un par photo ; sinon suggéré par l'ordre
+ *   ordre       facultatif (import de la fiche), un par photo : le numéro de la
+ *               prise (1 à 15), donc la ligne du tableau. Une photo déjà
+ *               conservée (même empreinte) sans numéro prend celui-ci.
  *
  * Sens unique (spec §7) : une photo ENTRE dans le Studio, rien n'en sort. Pour
  * la mise en vente, l'appel est best-effort côté client : une erreur ici ne
@@ -52,6 +56,12 @@ export async function POST(req: NextRequest) {
   const fichiers = form.getAll("photo").filter((f): f is File => typeof f !== "string");
   const empreintes = form.getAll("empreinte").map(String);
   const roles = form.getAll("role").map(String);
+  const ordres = form.getAll("ordre").map((o) => Number.parseInt(String(o), 10));
+  if (ordres.length > 0) {
+    if (origine !== "studio" || ordres.length !== fichiers.length || !ordres.every((o) => Number.isInteger(o) && o >= 1 && o <= MAX_PRISES)) {
+      return NextResponse.json({ error: `Numéros de prise invalides (1 à ${MAX_PRISES}, un par photo).` }, { status: 400 });
+    }
+  }
   if (fichiers.length === 0) return NextResponse.json({ error: "Aucune photo." }, { status: 400 });
   if (fichiers.length > MAX_FICHIERS) {
     return NextResponse.json({ error: `${MAX_FICHIERS} photos au plus par envoi.` }, { status: 400 });
@@ -90,15 +100,25 @@ export async function POST(req: NextRequest) {
     // ── Envoi, en sautant les photos déjà conservées ───────────────────────
     const deja = await prisma.studioReference.findMany({
       where: { userId, OR: empreintes.map((e) => ({ urlImage: { endsWith: `/${e}.jpg` } })) },
-      select: { urlImage: true },
+      select: { id: true, urlImage: true, ordre: true },
     });
-    const connues = new Set(deja.map((d) => d.urlImage.slice(d.urlImage.lastIndexOf("/") + 1, -".jpg".length)));
+    const empreinteDe = (url: string) => url.slice(url.lastIndexOf("/") + 1, -".jpg".length);
+    const connues = new Set(deja.map((d) => empreinteDe(d.urlImage)));
 
     let conservees = 0;
     let doublons = 0;
     for (let i = 0; i < fichiers.length; i++) {
       if (connues.has(empreintes[i])) {
-        doublons++;
+        // Déjà conservée (souvent à la mise en vente) : elle devient la ligne
+        // demandée si elle n'en est pas déjà une.
+        const libre = ordres.length > 0 ? deja.find((d) => empreinteDe(d.urlImage) === empreintes[i] && d.ordre === null) : undefined;
+        if (libre) {
+          await prisma.studioReference.update({
+            where: { id: libre.id },
+            data: { colorisId, ordre: ordres[i], prise: nomPrise(ordres[i]) },
+          });
+          conservees++;
+        } else doublons++;
         continue;
       }
       connues.add(empreintes[i]);
@@ -111,6 +131,7 @@ export async function POST(req: NextRequest) {
           origine,
           role: estRole(roles[i]) ? roles[i] : roleSuggere(position + i),
           urlImage: url,
+          ...(ordres.length > 0 ? { ordre: ordres[i], prise: nomPrise(ordres[i]) } : {}),
         },
       });
       conservees++;

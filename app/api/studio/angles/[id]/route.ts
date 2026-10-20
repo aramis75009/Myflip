@@ -1,39 +1,66 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId, notFound, unauthorized } from "@/lib/apiAuth";
-import { estRole } from "@/lib/studioFiche";
+import { lireSaisieAngle } from "@/lib/studioPrompts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
+/** L'angle a-t-il déjà pris une case (un essai non rejeté, sur n'importe quel coloris) ? */
+const aServi = (angleId: string) =>
+  prisma.studioEssai.count({ where: { angleId, OR: [{ decision: null }, { decision: { not: "rejete" } }] } }).then((n) => n > 0);
+
 /**
- * PATCH /api/studio/angles/[id] — édite un modèle d'angle (nom, rôle de la
- * photo à joindre, texte injecté dans {angle}). Les essais déjà déposés gardent
- * le prompt de leur dépôt (`promptUtilise`) : éditer un angle ne réécrit pas
- * les mesures passées.
+ * PATCH /api/studio/angles/[id] — modifie un prompt d'angle (nom court, texte).
+ *
+ * Décision 2 du 20/10 : un angle qui a déjà pris une case n'est pas réécrit.
+ * L'ancien est archivé et une nouvelle version prend sa place (même rang) :
+ * les cases déjà prises restent attachées à l'ancien texte, la nouvelle
+ * colonne repart libre. Un angle jamais utilisé est modifié sur place.
  */
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   const userId = await getUserId();
   if (!userId) return unauthorized();
   const { id } = await params;
-  const body = (await req.json().catch(() => ({}))) as { nom?: unknown; angle?: unknown; roleReference?: unknown };
+  const saisie = lireSaisieAngle(await req.json().catch(() => null));
+  if ("erreur" in saisie) return NextResponse.json({ error: saisie.erreur }, { status: 400 });
 
-  const data: { nom?: string; angle?: string; roleReference?: string } = {};
-  if (body.nom !== undefined) {
-    if (typeof body.nom !== "string" || !body.nom.trim()) return NextResponse.json({ error: "Nom requis." }, { status: 400 });
-    data.nom = body.nom.trim();
+  const angle = await prisma.studioAngle.findFirst({ where: { id, userId, archiveLe: null } });
+  if (!angle) return notFound("Angle");
+
+  // Un simple renommage ne change pas ce qui est envoyé : sur place, même s'il a servi.
+  if (saisie.angle === angle.angle || !(await aServi(id))) {
+    await prisma.studioAngle.update({ where: { id }, data: saisie });
+    return NextResponse.json({ id, version: false });
   }
-  if (body.angle !== undefined) {
-    if (typeof body.angle !== "string" || !body.angle.trim()) return NextResponse.json({ error: "Texte d'angle requis." }, { status: 400 });
-    data.angle = body.angle.trim();
+  const nouveau = await prisma.$transaction(async (tx) => {
+    await tx.studioAngle.update({ where: { id }, data: { archiveLe: new Date() } });
+    return tx.studioAngle.create({
+      data: { userId, nom: saisie.nom, angle: saisie.angle, ordre: angle.ordre },
+      select: { id: true },
+    });
+  });
+  return NextResponse.json({ id: nouveau.id, version: true });
+}
+
+/**
+ * DELETE /api/studio/angles/[id] — retire un prompt d'angle. Un angle qui a
+ * pris une case ne se retire pas (409). Un angle qui n'a que des essais
+ * rejetés est archivé (ses mesures restent au bilan) ; sinon il est supprimé.
+ */
+export async function DELETE(_req: NextRequest, { params }: Ctx) {
+  const userId = await getUserId();
+  if (!userId) return unauthorized();
+  const { id } = await params;
+  const angle = await prisma.studioAngle.findFirst({ where: { id, userId, archiveLe: null }, select: { id: true } });
+  if (!angle) return notFound("Angle");
+  if (await aServi(id)) {
+    return NextResponse.json({ error: "Ce prompt d'angle a déjà servi : il ne peut plus être supprimé." }, { status: 409 });
   }
-  if (body.roleReference !== undefined) {
-    if (!estRole(body.roleReference)) return NextResponse.json({ error: "Rôle inconnu." }, { status: 400 });
-    data.roleReference = body.roleReference;
-  }
-  const res = await prisma.studioAngle.updateMany({ where: { id, userId }, data });
-  if (res.count === 0) return notFound("Angle");
+  const traces = await prisma.studioEssai.count({ where: { angleId: id } }) + (await prisma.studioEchec.count({ where: { angleId: id } }));
+  if (traces > 0) await prisma.studioAngle.update({ where: { id }, data: { archiveLe: new Date() } });
+  else await prisma.studioAngle.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

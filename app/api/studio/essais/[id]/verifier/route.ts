@@ -27,6 +27,7 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
     where: { id, coloris: { userId } },
     select: {
       urlImage: true,
+      reference: { select: { id: true, role: true, createdAt: true, urlImage: true } },
       angle: { select: { angle: true, roleReference: true } },
       coloris: {
         select: {
@@ -39,7 +40,8 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
   if (!essai) return notFound("Essai");
   if (!essai.urlImage) return NextResponse.json({ error: "Image purgée.", code: "invalid_input" }, { status: 409 });
 
-  const refs = referencesPourAngle(essai.coloris.references, essai.angle.roleReference);
+  // Une case se compare à SA vraie photo ; un essai du banc de test, aux références de son rôle.
+  const refs = essai.reference ? [essai.reference] : referencesPourAngle(essai.coloris.references, essai.angle.roleReference);
   if (refs.length === 0) {
     return NextResponse.json(
       { error: "Aucune vraie photo pour ce coloris : ajoute une référence d'abord.", code: "invalid_input" },
