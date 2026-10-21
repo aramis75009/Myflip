@@ -475,6 +475,7 @@ NEXTAUTH_URL
 INVITE_CODES            # codes d'invitation acceptés sur /signup ; absente = aucune inscription
 ENCRYPTION_KEY          # 32 octets hex : chiffre les secrets de UserSettings (AES-256-GCM)
 OPENROUTER_API_KEY      # génération d'annonces + assistant : repli quand le compte n'a pas sa clé (JAMAIS pour la génération d'images du Studio)
+OPENROUTER_BASE_URL     # e2e seulement : serveur factice local ; absente = https://openrouter.ai/api/v1 (lib/openrouterBase.ts, toute adresse non locale est ignorée)
 TRELLO_API_KEY          # clé de l'APPLICATION MyFlip (trello.com/power-ups/admin)
 TRELLO_API_SECRET       # « OAuth Secret » : signe l'OAuth et valide les webhooks
 RESEND_API_KEY

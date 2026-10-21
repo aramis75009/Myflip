@@ -10,6 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "e2e": "playwright test",
+    "e2e:avant": "CAPTURES_SERIE=avant playwright test",
+    "e2e:rapport": "playwright show-report",
     "seed": "tsx prisma/seed.ts",
     "setup-trello": "npx tsx scripts/setup-trello-webhook.ts",
     "migrer-trello": "tsx scripts/migrer-trello-env.ts",
@@ -37,10 +40,13 @@
     "sonner": "^2.0.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.63.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "embedded-postgres": "17.10.0-beta.17",
     "eslint": "^8",
     "eslint-config-next": "^15.5.19",
     "postcss": "^8",

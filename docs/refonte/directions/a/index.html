@@ -1,0 +1,2247 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f5f7f9">
+<title>Vernier, piste A</title>
+<meta name="description" content="MyFlip, direction visuelle A « Vernier » : un instrument de précision pour la revente. Planche de référence clair et sombre.">
+<script>
+/* Thème posé AVANT le premier paint (pas de flash, bouton juste dès l'affichage). */
+(function(){try{var t=localStorage.getItem('vernier-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Fragment+Mono&display=swap">
+<style>
+/* =====================================================================
+   VERNIER — tokens. Couleurs en canaux R G B : rgb(var(--x) / .9) marche,
+   donc Tailwind 3 peut exposer `bg-surface/90` via rgb(var(--surface) / <alpha-value>).
+   ===================================================================== */
+:root{
+  --font-sans: "Archivo", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Fragment Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --wide: 116%;           /* largeur Archivo des titres */
+
+  /* Typographie : 8 tailles, en rem, rien sous 11 px */
+  --t-micro: .6875rem;    /* 11 */
+  --t-xs: .75rem;         /* 12 */
+  --t-sm: .8125rem;       /* 13 */
+  --t-base: .875rem;      /* 14 */
+  --t-md: 1rem;           /* 16 */
+  --t-lg: 1.25rem;        /* 20 */
+  --t-xl: 1.75rem;        /* 28 */
+  --t-display: clamp(2.5rem, 1.9rem + 1.6vw, 3.5rem); /* 40 → 56 */
+
+  /* Espacements (pas de 4 px) */
+  --sp-1: .25rem; --sp-2: .5rem; --sp-3: .75rem; --sp-4: 1rem; --sp-5: 1.25rem;
+  --sp-6: 1.5rem; --sp-8: 2rem; --sp-10: 2.5rem; --sp-12: 3rem; --sp-16: 4rem;
+
+  /* Rayons : petits, hiérarchisés */
+  --r-xs: 3px; --r-sm: 5px; --r-md: 8px; --r-lg: 12px; --r-full: 999px;
+
+  /* Z-index nommés */
+  --z-raised: 10; --z-sticky: 20; --z-dock: 30; --z-overlay: 40;
+  --z-modal: 50; --z-popover: 60; --z-toast: 70; --z-tooltip: 80;
+
+  /* Mouvement */
+  --d-fast: 120ms; --d-base: 180ms; --d-slow: 240ms;
+  --ease-out: cubic-bezier(.2,.8,.2,1);
+  --ease-in-out: cubic-bezier(.6,0,.3,1);
+  --ease-in: cubic-bezier(.4,0,1,1);
+
+  /* Cadre */
+  --sidebar-w: 232px; --topbar-h: 56px; --dock-h: 60px;
+  --sh-k: 1;
+}
+
+/* ---------- Thème clair (défaut) ---------- */
+:root, [data-theme="light"]{
+  --bg: 245 247 249;
+  --surface: 255 255 255;
+  --surface-2: 239 241 244;
+  --surface-3: 229 232 236;
+  --line: 221 224 228;
+  --line-strong: 130 134 142;
+  --ink: 23 27 33;
+  --ink-2: 68 72 79;
+  --ink-3: 96 101 109;
+  --accent: 30 84 228;
+  --accent-hover: 19 67 199;
+  --accent-ink: 255 255 255;
+  --accent-text: 29 82 222;
+  --accent-soft: 232 240 255;
+  --focus: 30 84 228;
+  --pos: 5 119 59;   --pos-soft: 228 248 232;
+  --neg: 194 40 38;  --neg-soft: 255 236 233;
+  --danger: 194 40 38; --danger-ink: 255 255 255;
+  --warn: 152 92 0;  --warn-soft: 255 241 218;
+  --veil: 15 18 22;
+  --shadow: 20 22 27;
+  --bar: 23 27 33;   --bar-ink: 255 255 255;
+  --photo-bg: 236 234 230;
+  --sh-k: 1;
+  --st-brouillon: 130 134 142; --st-brouillon-ink: 82 85 92;   --st-brouillon-soft: 239 240 242;
+  --st-stock: 159 132 0;       --st-stock-ink: 108 82 0;       --st-stock-soft: 247 240 216;
+  --st-lavage: 0 151 172;      --st-lavage-ink: 0 100 120;     --st-lavage-soft: 220 246 251;
+  --st-repasse: 141 115 209;   --st-repasse-ink: 92 66 149;    --st-repasse-soft: 241 236 255;
+  --st-photos: 199 91 144;     --st-photos-ink: 136 48 93;     --st-photos-soft: 255 231 243;
+  --st-vente: 36 143 204;      --st-vente-ink: 0 91 149;       --st-vente-soft: 221 244 255;
+  --st-livraison: 188 115 0;   --st-livraison-ink: 130 67 0;   --st-livraison-soft: 255 236 216;
+  --st-compta: 211 93 49;      --st-compta-ink: 142 53 16;     --st-compta-soft: 255 233 223;
+  --st-vendu: 57 157 87;       --st-vendu-ink: 0 104 42;       --st-vendu-soft: 224 247 228;
+  --st-perdu: 90 100 117;      --st-perdu-ink: 76 86 102;      --st-perdu-soft: 237 240 245;
+  --ch-ft: 0 148 155;  --ch-e18: 198 108 0;  --ch-vc: 144 61 139;
+}
+/* ---------- Thème sombre : choisi, pas inversé ---------- */
+[data-theme="dark"]{
+  --bg: 20 22 25;
+  --surface: 28 30 34;
+  --surface-2: 34 37 41;
+  --surface-3: 42 45 50;
+  --line: 48 51 56;
+  --line-strong: 113 117 124;
+  --ink: 240 242 244;
+  --ink-2: 193 196 201;
+  --ink-3: 158 162 168;
+  --accent: 46 101 238;
+  --accent-hover: 37 89 221;
+  --accent-ink: 255 255 255;
+  --accent-text: 144 182 255;
+  --accent-soft: 29 45 78;
+  --focus: 144 182 255;
+  --pos: 106 209 138;  --pos-soft: 27 52 34;
+  --neg: 251 130 118;  --neg-soft: 72 37 33;
+  --danger: 205 58 50; --danger-ink: 255 255 255;
+  --warn: 232 180 94;  --warn-soft: 61 45 20;
+  --veil: 1 2 2;
+  --shadow: 0 0 1;
+  --bar: 58 61 68;     --bar-ink: 244 245 248;
+  --photo-bg: 236 234 230;
+  --sh-k: 2.4;
+  --st-brouillon: 142 146 153; --st-brouillon-ink: 206 209 214; --st-brouillon-soft: 45 46 48;
+  --st-stock: 198 173 71;      --st-stock-ink: 225 209 150;     --st-stock-soft: 53 45 17;
+  --st-lavage: 79 191 212;     --st-lavage-ink: 158 221 234;    --st-lavage-soft: 19 51 57;
+  --st-repasse: 180 156 249;   --st-repasse-ink: 212 199 255;   --st-repasse-soft: 48 41 68;
+  --st-photos: 241 134 183;    --st-photos-ink: 251 188 214;    --st-photos-soft: 65 35 48;
+  --st-vente: 92 184 244;      --st-vente-ink: 162 217 255;     --st-vente-soft: 22 49 66;
+  --st-livraison: 229 156 70;  --st-livraison-ink: 245 200 152; --st-livraison-soft: 62 41 16;
+  --st-compta: 253 137 96;     --st-compta-ink: 255 192 170;    --st-compta-soft: 67 37 26;
+  --st-vendu: 106 197 128;     --st-vendu-ink: 172 224 182;     --st-vendu-soft: 26 53 32;
+  --st-perdu: 125 135 152;     --st-perdu-ink: 203 209 221;     --st-perdu-soft: 43 46 51;
+  --ch-ft: 16 166 173;  --ch-e18: 204 122 32;  --ch-vc: 179 87 173;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg: 20 22 25; --surface: 28 30 34; --surface-2: 34 37 41; --surface-3: 42 45 50;
+    --line: 48 51 56; --line-strong: 113 117 124;
+    --ink: 240 242 244; --ink-2: 193 196 201; --ink-3: 158 162 168;
+    --accent: 46 101 238; --accent-hover: 37 89 221; --accent-ink: 255 255 255;
+    --accent-text: 144 182 255; --accent-soft: 29 45 78; --focus: 144 182 255;
+    --pos: 106 209 138; --pos-soft: 27 52 34; --neg: 251 130 118; --neg-soft: 72 37 33; --danger: 205 58 50; --danger-ink: 255 255 255;
+    --warn: 232 180 94; --warn-soft: 61 45 20; --veil: 1 2 2; --shadow: 0 0 1;
+    --bar: 58 61 68; --bar-ink: 244 245 248; --sh-k: 2.4;
+    --st-brouillon: 142 146 153; --st-brouillon-ink: 206 209 214; --st-brouillon-soft: 45 46 48;
+    --st-stock: 198 173 71; --st-stock-ink: 225 209 150; --st-stock-soft: 53 45 17;
+    --st-lavage: 79 191 212; --st-lavage-ink: 158 221 234; --st-lavage-soft: 19 51 57;
+    --st-repasse: 180 156 249; --st-repasse-ink: 212 199 255; --st-repasse-soft: 48 41 68;
+    --st-photos: 241 134 183; --st-photos-ink: 251 188 214; --st-photos-soft: 65 35 48;
+    --st-vente: 92 184 244; --st-vente-ink: 162 217 255; --st-vente-soft: 22 49 66;
+    --st-livraison: 229 156 70; --st-livraison-ink: 245 200 152; --st-livraison-soft: 62 41 16;
+    --st-compta: 253 137 96; --st-compta-ink: 255 192 170; --st-compta-soft: 67 37 26;
+    --st-vendu: 106 197 128; --st-vendu-ink: 172 224 182; --st-vendu-soft: 26 53 32;
+    --st-perdu: 125 135 152; --st-perdu-ink: 203 209 221; --st-perdu-soft: 43 46 51;
+    --ch-ft: 16 166 173; --ch-e18: 204 122 32; --ch-vc: 179 87 173;
+  }
+}
+html{ color-scheme: light; }
+html[data-theme="dark"]{ color-scheme: dark; }
+@media (prefers-color-scheme: dark){ html:not([data-theme="light"]){ color-scheme: dark; } }
+
+@media (prefers-reduced-motion: reduce){
+  :root{ --d-fast: 0ms; --d-base: 0ms; --d-slow: 0ms; }
+}
+
+/* =====================================================================
+   Base
+   ===================================================================== */
+*,*::before,*::after{ box-sizing: border-box; }
+html{ -webkit-text-size-adjust: 100%; scrollbar-gutter: stable; scroll-padding-top: calc(var(--topbar-h) + 12px); }
+body{
+  margin: 0; background: rgb(var(--bg)); color: rgb(var(--ink));
+  font-family: var(--font-sans); font-size: var(--t-base); line-height: 1.45;
+  font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased;
+  scrollbar-color: rgb(var(--line-strong)) rgb(var(--bg));
+}
+h1,h2,h3,h4,p,ol,ul,dl,dd,figure{ margin: 0; }
+ol,ul{ padding: 0; list-style: none; }
+button,input,select,textarea{ font: inherit; color: inherit; }
+button{ cursor: pointer; }
+a{ color: rgb(var(--accent-text)); text-underline-offset: 3px; }
+svg{ flex-shrink: 0; }
+::selection{ background: rgb(var(--accent) / .22); }
+:focus-visible{ outline: 2px solid rgb(var(--focus)); outline-offset: 2px; }
+.sr-only{ position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.ico{ width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.ico-sm{ width: 15px; height: 15px; }
+.num{ font-variant-numeric: tabular-nums; }
+.prose{ font-variant-numeric: proportional-nums; }
+.sku{ font-family: var(--font-mono); font-size: var(--t-sm); letter-spacing: .01em; color: rgb(var(--ink)); white-space: nowrap; }
+.mono{ font-family: var(--font-mono); font-size: .92em; }
+.muted{ color: rgb(var(--ink-3)); }
+.ink2{ color: rgb(var(--ink-2)); }
+.r{ text-align: right; }
+
+/* Titres */
+.h1{ font-size: var(--t-xl); font-weight: 620; line-height: 1.12; font-stretch: var(--wide); letter-spacing: -.012em; }
+.h2{ font-size: var(--t-lg); font-weight: 600; line-height: 1.2; font-stretch: var(--wide); letter-spacing: -.006em; }
+.h3{ font-size: var(--t-md); font-weight: 600; line-height: 1.3; }
+.label{ font-size: var(--t-sm); font-weight: 500; color: rgb(var(--ink-3)); line-height: 1.3; }
+.sub{ color: rgb(var(--ink-3)); font-size: var(--t-base); margin-top: var(--sp-1); }
+.hint{ color: rgb(var(--ink-3)); font-size: var(--t-sm); }
+
+/* =====================================================================
+   Cadre : menu latéral, barre du haut, dock
+   ===================================================================== */
+.app{ display: grid; grid-template-columns: var(--sidebar-w) minmax(0,1fr); min-height: 100dvh; }
+.sidebar{
+  position: sticky; top: 0; height: 100dvh; display: flex; flex-direction: column;
+  background: rgb(var(--surface)); border-right: 1px solid rgb(var(--line));
+  padding: var(--sp-3) var(--sp-3) var(--sp-3); overflow-y: auto; z-index: var(--z-sticky);
+}
+.brand{ display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 6px; margin-bottom: var(--sp-3); color: rgb(var(--ink)); text-decoration: none; }
+.brand-mark{ width: 22px; height: 22px; }
+.brand-mark rect{ fill: rgb(var(--accent)); }
+.brand-mark path{ stroke: rgb(var(--accent-ink)); }
+.brand-name{ font-weight: 650; font-size: var(--t-md); font-stretch: 118%; letter-spacing: -.01em; }
+.nav-group{ margin-top: var(--sp-4); }
+.nav-group:first-of-type{ margin-top: 0; }
+.nav-label{ font-size: var(--t-xs); font-weight: 500; color: rgb(var(--ink-3)); padding: 0 10px; margin-bottom: 4px; }
+.nav{ display: grid; gap: 1px; }
+.nav a{
+  position: relative; display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px;
+  border-radius: var(--r-sm); color: rgb(var(--ink-2)); text-decoration: none; font-weight: 500;
+  transition: background-color var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out);
+}
+.nav a:hover{ background: rgb(var(--surface-3)); color: rgb(var(--ink)); }
+.nav a[aria-current="page"]{ background: rgb(var(--accent-soft)); color: rgb(var(--accent-text)); font-weight: 600; }
+.nav a[aria-current="page"]::before{
+  content: ""; position: absolute; left: calc(var(--sp-3) * -1); top: 8px; bottom: 8px; width: 3px;
+  background: rgb(var(--accent)); border-radius: 0 2px 2px 0;
+}
+.nav .count{ margin-left: auto; font-size: var(--t-xs); color: rgb(var(--ink-3)); font-weight: 500; }
+.nav a[aria-current="page"] .count{ color: rgb(var(--accent-text)); }
+.nav .badge{ margin-left: auto; min-width: 20px; height: 18px; padding: 0 5px; display: inline-grid; place-items: center; border-radius: var(--r-xs); font-size: var(--t-micro); font-weight: 600; background: rgb(var(--st-compta-soft)); color: rgb(var(--st-compta-ink)); }
+.nav-demo{ border-top: 1px dashed rgb(var(--line)); padding-top: var(--sp-3); }
+.side-foot{ margin-top: auto; padding-top: var(--sp-4); }
+.legal{ display: flex; flex-wrap: wrap; gap: 2px 10px; padding: var(--sp-3) 10px 0; font-size: var(--t-xs); color: rgb(var(--ink-3)); border-top: 1px solid rgb(var(--line)); margin-top: var(--sp-3); }
+.legal a{ color: inherit; text-decoration: none; }
+.legal a:hover{ color: rgb(var(--ink)); text-decoration: underline; }
+
+.main{ min-width: 0; }
+.topbar{
+  position: sticky; top: 0; z-index: var(--z-sticky); height: var(--topbar-h);
+  display: flex; align-items: center; gap: var(--sp-4); padding: 0 var(--sp-8);
+  background: rgb(var(--bg) / .9); backdrop-filter: saturate(1.4) blur(12px); -webkit-backdrop-filter: saturate(1.4) blur(12px);
+  border-bottom: 1px solid rgb(var(--line));
+}
+.top-title{ font-weight: 600; font-size: var(--t-md); white-space: nowrap; }
+.top-title small{ font-weight: 400; color: rgb(var(--ink-3)); font-size: var(--t-sm); margin-left: var(--sp-2); }
+.top-search{ margin-left: auto; position: relative; width: min(360px, 34vw); }
+.top-search .ico{ position: absolute; left: 10px; top: 50%; translate: 0 -50%; color: rgb(var(--ink-3)); width: 16px; height: 16px; }
+.top-search input{ width: 100%; height: 34px; padding: 0 44px 0 34px; border-radius: var(--r-sm); border: 1px solid rgb(var(--line)); background: rgb(var(--surface)); font-size: var(--t-base); }
+.top-search input::placeholder{ color: rgb(var(--ink-3)); }
+.top-search .kbd{ position: absolute; right: 8px; top: 50%; translate: 0 -50%; }
+.top-actions{ display: flex; align-items: center; gap: var(--sp-2); }
+.avatar{ width: 32px; height: 32px; border-radius: var(--r-full); display: grid; place-items: center; background: rgb(var(--surface-3)); color: rgb(var(--ink)); font-size: var(--t-xs); font-weight: 650; border: 1px solid rgb(var(--line)); }
+.top-actions .theme-cycle{ display: none; }
+
+.dock{ display: none; }
+
+/* Rail replié (tablette) */
+@media (min-width: 768px) and (max-width: 1099px){
+  :root{ --sidebar-w: 64px; }
+  .sidebar{ padding-inline: var(--sp-2); }
+  .brand-name,.nav-label,.nav a span,.nav .count,.legal,.nav-demo-label{ display: none; }
+  .nav a{ justify-content: center; padding: 0; height: 40px; }
+  .nav .badge{ position: absolute; top: 2px; right: 2px; margin: 0; }
+  .nav a[aria-current="page"]::before{ left: calc(var(--sp-2) * -1); }
+  .brand{ justify-content: center; padding: 0; }
+  .topbar{ padding: 0 var(--sp-6); }
+}
+
+/* Mobile : dock + menu Plus */
+@media (max-width: 767px){
+  .app{ display: block; }
+  .sidebar{ display: none; }
+  .topbar{ padding: 0 var(--sp-4); gap: var(--sp-2); padding-top: env(safe-area-inset-top); height: calc(var(--topbar-h) + env(safe-area-inset-top)); }
+  .top-search,.top-actions .theme-seg,.top-actions .bell{ display: none; }
+  .top-actions .theme-cycle{ display: inline-flex; }
+  .top-actions{ margin-left: auto; }
+  .dock{
+    display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-dock);
+    height: calc(var(--dock-h) + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
+    background: rgb(var(--surface)); border-top: 1px solid rgb(var(--line));
+  }
+  .dock a,.dock button{
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    min-height: 44px; border: 0; background: none; color: rgb(var(--ink-3)); text-decoration: none;
+    font-size: var(--t-micro); font-weight: 500;
+  }
+  .dock .ico{ width: 22px; height: 22px; }
+  .dock [aria-current="page"]{ color: rgb(var(--accent-text)); font-weight: 600; }
+  .dock [aria-current="page"]::before{ content: ""; position: absolute; top: -1px; left: 28%; right: 28%; height: 2px; background: rgb(var(--accent)); border-radius: 0 0 2px 2px; }
+  .dock .dbadge{ position: absolute; top: 6px; left: calc(50% + 6px); min-width: 16px; height: 16px; padding: 0 4px; border-radius: var(--r-full); font-size: var(--t-micro); font-weight: 650; line-height: 16px; text-align: center; background: rgb(var(--st-compta)); color: rgb(var(--surface)); }
+}
+
+/* =====================================================================
+   Primitives
+   ===================================================================== */
+.kbd{
+  display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px;
+  font: 500 var(--t-micro)/1 var(--font-sans); color: rgb(var(--ink-2));
+  background: rgb(var(--surface)); border: 1px solid rgb(var(--line)); border-bottom-width: 2px; border-radius: var(--r-xs);
+}
+.btn{
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  height: 36px; padding: 0 14px; border-radius: var(--r-sm); border: 1px solid transparent;
+  font-size: var(--t-base); font-weight: 550; line-height: 1; white-space: nowrap; text-decoration: none;
+  transition: background-color var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out), transform var(--d-fast) var(--ease-out);
+}
+.btn:active:not(:disabled){ transform: translateY(1px); }
+.btn .ico{ width: 16px; height: 16px; }
+.btn-primary{ background: rgb(var(--accent)); color: rgb(var(--accent-ink)); }
+.btn-primary:hover{ background: rgb(var(--accent-hover)); }
+.btn-primary .kbd{ background: rgb(255 255 255 / .14); border-color: rgb(255 255 255 / .35); color: rgb(var(--accent-ink)); }
+.btn-secondary{ background: rgb(var(--surface)); border-color: rgb(var(--line-strong)); color: rgb(var(--ink)); }
+.btn-secondary:hover{ background: rgb(var(--surface-2)); }
+.btn-ghost{ background: transparent; color: rgb(var(--ink-2)); }
+.btn-ghost:hover{ background: rgb(var(--surface-3)); color: rgb(var(--ink)); }
+.btn-danger{ background: rgb(var(--danger)); color: rgb(var(--danger-ink)); }
+.btn-danger:hover{ background: rgb(var(--danger) / .88); }
+.btn-sm{ height: 30px; padding: 0 10px; font-size: var(--t-sm); }
+.btn-lg{ height: 44px; padding: 0 18px; font-size: var(--t-md); }
+.btn-icon{ width: 36px; padding: 0; }
+.btn-icon.btn-sm{ width: 30px; }
+.btn:disabled,.btn[aria-disabled="true"]:not([aria-busy="true"]){ background: rgb(var(--surface-3)); color: rgb(var(--ink-3)); border-color: transparent; cursor: not-allowed; }
+.btn[aria-busy="true"]{ cursor: progress; }
+.btn-primary[aria-busy="true"]{ background: rgb(var(--accent-hover)); }
+.spinner{ width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin 700ms linear infinite; }
+@keyframes spin{ to{ transform: rotate(1turn); } }
+@media (prefers-reduced-motion: reduce){ .spinner{ animation: none; border-right-color: currentColor; opacity: .55; } }
+
+.seg{ display: inline-flex; padding: 2px; gap: 2px; background: rgb(var(--surface-2)); border: 1px solid rgb(var(--line)); border-radius: var(--r-sm); }
+.seg button{ height: 28px; padding: 0 10px; border: 0; border-radius: 4px; background: transparent; color: rgb(var(--ink-2)); font-size: var(--t-sm); font-weight: 500; display: inline-flex; align-items: center; gap: 6px; transition: background-color var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out); }
+.seg button:hover{ color: rgb(var(--ink)); }
+.seg button[aria-pressed="true"]{ background: rgb(var(--surface)); color: rgb(var(--ink)); box-shadow: 0 0 0 1px rgb(var(--line)), 0 1px 2px rgb(var(--shadow) / calc(.08 * var(--sh-k))); }
+.seg .ico{ width: 15px; height: 15px; }
+
+/* Champs */
+.field{ display: grid; gap: 6px; align-content: start; }
+.field > label,.field-label{ font-size: var(--t-sm); font-weight: 550; color: rgb(var(--ink-2)); }
+.field-help{ font-size: var(--t-xs); color: rgb(var(--ink-3)); }
+.field-error{ font-size: var(--t-xs); color: rgb(var(--neg)); display: flex; gap: 6px; align-items: center; font-weight: 500; }
+.field-error .ico{ width: 14px; height: 14px; }
+.input,.select select,.textarea{
+  width: 100%; height: 36px; padding: 0 10px; border: 1px solid rgb(var(--line-strong)); border-radius: var(--r-sm);
+  background: rgb(var(--surface)); color: rgb(var(--ink)); font-size: var(--t-base);
+  transition: border-color var(--d-fast) var(--ease-out), box-shadow var(--d-fast) var(--ease-out);
+}
+.textarea{ height: auto; min-height: 84px; padding: 8px 10px; line-height: 1.45; resize: vertical; }
+.input::placeholder,.textarea::placeholder{ color: rgb(var(--ink-3)); }
+.input:hover,.select select:hover{ border-color: rgb(var(--ink-3)); }
+.input:focus-visible,.select select:focus-visible,.textarea:focus-visible,.input.is-focus{
+  outline: 2px solid rgb(var(--focus)); outline-offset: 1px; border-color: rgb(var(--accent));
+}
+.input[aria-invalid="true"]{ border-color: rgb(var(--neg)); box-shadow: inset 0 0 0 1px rgb(var(--neg)); }
+.input:disabled,.select select:disabled{ background: rgb(var(--surface-2)); color: rgb(var(--ink-3)); border-color: rgb(var(--line)); cursor: not-allowed; }
+.affix{ position: relative; }
+.affix .input{ padding-right: 30px; text-align: right; }
+.affix .unit{ position: absolute; right: 10px; top: 50%; translate: 0 -50%; color: rgb(var(--ink-3)); pointer-events: none; }
+.affix .lead{ position: absolute; left: 10px; top: 50%; translate: 0 -50%; color: rgb(var(--ink-3)); width: 16px; height: 16px; pointer-events: none; }
+.affix .input.has-lead{ padding-left: 34px; text-align: left; padding-right: 10px; }
+.select{ position: relative; }
+.select select{ appearance: none; -webkit-appearance: none; padding-right: 30px; cursor: pointer; }
+.select .ico{ position: absolute; right: 8px; top: 50%; translate: 0 -50%; width: 16px; height: 16px; color: rgb(var(--ink-3)); pointer-events: none; }
+.check{
+  appearance: none; -webkit-appearance: none; width: 16px; height: 16px; margin: 0; flex: none;
+  border: 1.5px solid rgb(var(--line-strong)); border-radius: var(--r-xs); background: rgb(var(--surface));
+  display: inline-grid; place-content: center; cursor: pointer;
+  transition: background-color var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out);
+}
+.check::before{ content: ""; width: 10px; height: 10px; transform: scale(0); transition: transform var(--d-fast) var(--ease-out);
+  background: rgb(var(--accent-ink)); clip-path: polygon(14% 52%, 0 66%, 38% 100%, 100% 22%, 86% 8%, 37% 70%); }
+.check:checked,.check:indeterminate{ background: rgb(var(--accent)); border-color: rgb(var(--accent)); }
+.check:checked::before{ transform: scale(1); }
+.check:indeterminate::before{ transform: scale(1); clip-path: inset(40% 10% 40% 10%); }
+.check:disabled{ background: rgb(var(--surface-2)); border-color: rgb(var(--line)); cursor: not-allowed; }
+.check-row{ display: inline-flex; align-items: center; gap: 10px; min-height: 32px; cursor: pointer; font-size: var(--t-base); color: rgb(var(--ink)); }
+@media (max-width: 767px){
+  .input,.select select,.textarea,.top-search input{ font-size: var(--t-md); height: 44px; }
+  .textarea{ height: auto; }
+  .btn{ min-height: 44px; }
+  .btn-sm{ min-height: 40px; }
+  .check-row{ min-height: 44px; }
+  .check{ width: 20px; height: 20px; }
+}
+
+/* Panneaux */
+.panel{ background: rgb(var(--surface)); border: 1px solid rgb(var(--line)); border-radius: var(--r-md); }
+.panel-head{ display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid rgb(var(--line)); min-height: 52px; }
+.panel-head .h3 + .hint{ margin-top: 2px; }
+.panel-head .head-actions{ flex-wrap: nowrap; }
+.panel-body{ padding: var(--sp-4); }
+
+/* Statuts : glyphe de cycle + libellé */
+[data-s="brouillon"]{ --s: var(--st-brouillon); --s-ink: var(--st-brouillon-ink); --s-soft: var(--st-brouillon-soft); }
+[data-s="stock"]{ --s: var(--st-stock); --s-ink: var(--st-stock-ink); --s-soft: var(--st-stock-soft); }
+[data-s="lavage"]{ --s: var(--st-lavage); --s-ink: var(--st-lavage-ink); --s-soft: var(--st-lavage-soft); }
+[data-s="repasse"]{ --s: var(--st-repasse); --s-ink: var(--st-repasse-ink); --s-soft: var(--st-repasse-soft); }
+[data-s="photos"]{ --s: var(--st-photos); --s-ink: var(--st-photos-ink); --s-soft: var(--st-photos-soft); }
+[data-s="vente"]{ --s: var(--st-vente); --s-ink: var(--st-vente-ink); --s-soft: var(--st-vente-soft); }
+[data-s="livraison"]{ --s: var(--st-livraison); --s-ink: var(--st-livraison-ink); --s-soft: var(--st-livraison-soft); }
+[data-s="compta"]{ --s: var(--st-compta); --s-ink: var(--st-compta-ink); --s-soft: var(--st-compta-soft); }
+[data-s="vendu"]{ --s: var(--st-vendu); --s-ink: var(--st-vendu-ink); --s-soft: var(--st-vendu-soft); }
+[data-s="perdu"]{ --s: var(--st-perdu); --s-ink: var(--st-perdu-ink); --s-soft: var(--st-perdu-soft); }
+.glyph{ display: inline-flex; width: 14px; height: 14px; color: rgb(var(--s)); }
+.glyph svg{ width: 100%; height: 100%; }
+.pill{
+  display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px 0 5px; border-radius: var(--r-xs);
+  background: rgb(var(--s-soft)); color: rgb(var(--s-ink)); font-size: var(--t-xs); font-weight: 550; white-space: nowrap;
+}
+.st-select{ position: relative; display: inline-flex; align-items: center; }
+.st-select .glyph{ position: absolute; left: 6px; pointer-events: none; }
+.st-select select{
+  appearance: none; -webkit-appearance: none; height: 26px; padding: 0 24px 0 25px; border-radius: var(--r-xs);
+  background: rgb(var(--s-soft)); color: rgb(var(--s-ink)); border: 1px solid transparent; font-size: var(--t-xs); font-weight: 550; cursor: pointer;
+  transition: border-color var(--d-fast) var(--ease-out), background-color var(--d-base) var(--ease-out), color var(--d-base) var(--ease-out);
+}
+.st-select select:hover{ border-color: rgb(var(--s)); }
+.st-select .chev{ position: absolute; right: 6px; width: 12px; height: 12px; color: rgb(var(--s-ink)); pointer-events: none; }
+.chan{ display: inline-flex; align-items: center; gap: 7px; color: rgb(var(--ink-2)); font-size: var(--t-sm); white-space: nowrap; }
+.chan::before{ content: ""; width: 9px; height: 9px; border-radius: 2px; background: rgb(var(--c)); flex: none; }
+[data-c="ft"]{ --c: var(--ch-ft); } [data-c="e18"]{ --c: var(--ch-e18); } [data-c="vc"]{ --c: var(--ch-vc); }
+.tag{ display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 7px; border-radius: var(--r-xs); font-size: var(--t-xs); font-weight: 550; white-space: nowrap; background: rgb(var(--surface-3)); color: rgb(var(--ink-2)); }
+.tag .ico{ width: 13px; height: 13px; }
+.tag-warn{ background: rgb(var(--warn-soft)); color: rgb(var(--warn)); }
+.tag-neg{ background: rgb(var(--neg-soft)); color: rgb(var(--neg)); }
+.tag-pos{ background: rgb(var(--pos-soft)); color: rgb(var(--pos)); }
+.tag-accent{ background: rgb(var(--accent-soft)); color: rgb(var(--accent-text)); }
+.delta{ display: inline-flex; align-items: center; gap: 4px; font-size: var(--t-sm); font-weight: 550; }
+.delta .ico{ width: 14px; height: 14px; stroke-width: 2; }
+.delta.pos{ color: rgb(var(--pos)); } .delta.neg{ color: rgb(var(--neg)); }
+
+/* =====================================================================
+   Écrans
+   ===================================================================== */
+.screen{ padding: var(--sp-8) var(--sp-8) var(--sp-12); border-bottom: 1px solid rgb(var(--line)); }
+.screen-inner{ max-width: 1240px; }
+.ribbon{ display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-4); font-size: var(--t-xs); color: rgb(var(--ink-3)); }
+.ribbon code{ font-family: var(--font-mono); font-size: var(--t-xs); color: rgb(var(--ink-2)); background: rgb(var(--surface-2)); border: 1px solid rgb(var(--line)); border-radius: var(--r-xs); padding: 1px 6px; }
+.screen-head{ display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-4); flex-wrap: wrap; margin-bottom: var(--sp-5); }
+.head-actions{ display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.stack{ display: grid; gap: var(--sp-4); }
+.stack > *,.row-2 > *,.states > *,.motion-grid > *,.sys-grid > *{ min-width: 0; }
+
+/* Vernier : réglette graduée (signature) */
+.vernier{ position: relative; height: 66px; }
+.v-track{ position: absolute; left: 0; right: 0; top: 24px; height: 10px; background: rgb(var(--surface-3)); border-radius: 2px; }
+.v-fill{ position: absolute; left: 0; top: 24px; height: 10px; background: rgb(var(--accent)); border-radius: 2px 0 0 2px; }
+.v-tick{ position: absolute; top: 37px; width: 1px; height: 4px; background: rgb(var(--line-strong)); }
+.v-tick.major{ height: 9px; background: rgb(var(--ink-3)); }
+.v-lab{ position: absolute; top: 49px; translate: -50% 0; font-size: var(--t-micro); color: rgb(var(--ink-3)); white-space: nowrap; }
+.v-lab.first{ translate: 0 0; } .v-lab.last{ translate: -100% 0; }
+.v-needle{ position: absolute; top: 18px; width: 2px; height: 24px; margin-left: -1px; background: rgb(var(--ink)); border-radius: 1px; }
+.v-needle-lab{ position: absolute; top: 0; translate: -50% 0; font-size: var(--t-xs); font-weight: 650; color: rgb(var(--ink)); white-space: nowrap; }
+.v-pace{ position: absolute; top: 20px; width: 0; height: 18px; border-left: 1.5px solid rgb(var(--ink-2)); }
+.v-pace::after{ content: ""; position: absolute; top: -5px; left: -5px; border: 4px solid transparent; border-top: 5px solid rgb(var(--ink-2)); }
+.v-pace-lab{ position: absolute; top: 2px; translate: -50% 0; font-size: var(--t-micro); color: rgb(var(--ink-2)); white-space: nowrap; }
+.v-pace-lab b{ font-weight: 600; }
+
+/* Tableau de bord */
+.month{ padding: var(--sp-5) var(--sp-6) var(--sp-4); }
+.month-grid{ display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: var(--sp-6); align-items: start; }
+.month-grid > div + div{ border-left: 1px solid rgb(var(--line)); padding-left: var(--sp-6); }
+.display{ font-size: var(--t-display); font-weight: 640; line-height: 1; letter-spacing: -.03em; margin-top: var(--sp-2); }
+.display .cur{ font-weight: 500; color: rgb(var(--ink-2)); letter-spacing: 0; margin-left: .12em; font-size: .62em; }
+.big{ font-size: var(--t-xl); font-weight: 620; line-height: 1.05; letter-spacing: -.02em; margin-top: var(--sp-2); }
+.m-sub{ margin-top: var(--sp-2); color: rgb(var(--ink-2)); font-size: var(--t-base); }
+.m-sub strong{ color: rgb(var(--ink)); font-weight: 650; }
+.month .vernier{ margin-top: var(--sp-5); }
+.m-foot{ margin-top: var(--sp-2); color: rgb(var(--ink-2)); font-size: var(--t-sm); display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; }
+.kpis{ display: grid; grid-template-columns: repeat(4, 1fr); }
+.kpi{ padding: var(--sp-4) var(--sp-5); }
+.kpi + .kpi{ border-left: 1px solid rgb(var(--line)); }
+.kpi-v{ font-size: var(--t-xl); font-weight: 620; letter-spacing: -.02em; line-height: 1.1; margin: var(--sp-2) 0 var(--sp-1); }
+.kpi-v small{ font-size: var(--t-md); font-weight: 500; color: rgb(var(--ink-2)); margin-left: 2px; }
+.row-2{ display: grid; grid-template-columns: 1.7fr 1fr; gap: var(--sp-4); }
+.row-2.even{ grid-template-columns: 1fr 1fr; }
+
+/* Graphique en colonnes (HTML, net à toutes les tailles) */
+.chart-panel{ display: flex; flex-direction: column; }
+.chart{ flex: 1; min-height: 248px; display: grid; grid-template-columns: 52px 1fr; grid-template-rows: 1fr auto; padding: var(--sp-4) var(--sp-4) var(--sp-2) var(--sp-2); }
+.y-axis{ position: relative; }
+.y-axis span{ position: absolute; right: 8px; translate: 0 50%; font-size: var(--t-micro); color: rgb(var(--ink-3)); }
+.plot{ position: relative; border-bottom: 1px solid rgb(var(--line-strong)); }
+.grid-line{ position: absolute; left: 0; right: 0; height: 1px; background: rgb(var(--line)); }
+.pace-line{ position: absolute; left: 0; right: 0; height: 0; border-top: 1.5px solid rgb(var(--ink-2)); z-index: 2; }
+.pace-line span{ position: absolute; left: 4px; bottom: 3px; font-size: var(--t-micro); color: rgb(var(--ink-2)); background: rgb(var(--surface)); padding: 0 4px; font-weight: 550; }
+.cols{ position: absolute; inset: 0; display: flex; gap: 2px; }
+.col{ flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; position: relative; outline-offset: -2px; border-radius: var(--r-xs); }
+.col .bar{ width: min(24px, 56%); background: rgb(var(--accent)); border-radius: 4px 4px 0 0; position: relative; transition: background-color var(--d-fast) var(--ease-out); }
+.col.partial .bar{ background: repeating-linear-gradient(135deg, rgb(var(--accent)) 0 2px, rgb(var(--accent) / .28) 2px 6px); }
+.col:hover .bar,.col:focus-visible .bar{ background: rgb(var(--accent-hover)); }
+.col .val{ font-size: var(--t-micro); color: rgb(var(--ink-2)); font-weight: 550; margin-bottom: 4px; white-space: nowrap; }
+.x-axis{ grid-column: 2; display: flex; gap: 2px; padding-top: 6px; }
+.x-axis span{ flex: 1; text-align: center; font-size: var(--t-micro); color: rgb(var(--ink-3)); white-space: nowrap; }
+.tooltip{ position: fixed; z-index: var(--z-tooltip); pointer-events: none; background: rgb(var(--bar)); color: rgb(var(--bar-ink)); font-size: var(--t-xs); padding: 6px 8px; border-radius: var(--r-xs); box-shadow: 0 4px 12px rgb(var(--shadow) / calc(.18 * var(--sh-k))); opacity: 0; transition: opacity var(--d-fast) var(--ease-out); white-space: nowrap; }
+.tooltip.on{ opacity: 1; }
+.tooltip b{ font-weight: 650; }
+.values{ border-top: 1px solid rgb(var(--line)); padding: 0 var(--sp-4); }
+.values summary{ cursor: pointer; color: rgb(var(--ink-2)); font-size: var(--t-sm); padding: var(--sp-3) 0; font-weight: 500; }
+.mini-table{ width: 100%; border-collapse: collapse; font-size: var(--t-sm); margin-bottom: var(--sp-3); }
+.mini-table th,.mini-table td{ padding: 5px 0; border-top: 1px solid rgb(var(--line)); text-align: left; font-weight: 400; }
+.mini-table th{ color: rgb(var(--ink-3)); font-weight: 500; }
+.mini-table td.r,.mini-table th.r{ text-align: right; }
+.stackbar{ display: flex; gap: 2px; height: 14px; margin: var(--sp-2) 0 var(--sp-4); }
+.stackbar span{ background: rgb(var(--c)); height: 100%; }
+.stackbar span:first-child{ border-radius: 4px 0 0 4px; } .stackbar span:last-child{ border-radius: 0 4px 4px 0; }
+.legend{ display: grid; gap: var(--sp-2); }
+.legend li{ display: grid; grid-template-columns: 1fr auto 52px; gap: var(--sp-3); align-items: baseline; font-size: var(--t-sm); }
+.legend .amt{ font-weight: 600; } .legend .pct{ color: rgb(var(--ink-3)); text-align: right; }
+.brands{ display: grid; gap: 10px; margin-top: var(--sp-2); }
+.brands li{ display: grid; grid-template-columns: 112px 1fr 76px; gap: var(--sp-3); align-items: center; font-size: var(--t-sm); }
+.brands .track{ height: 8px; background: rgb(var(--surface-2)); border-radius: 0 4px 4px 0; }
+.brands .track i{ display: block; height: 100%; background: rgb(var(--ink-3)); border-radius: 0 4px 4px 0; }
+.brands .amt{ text-align: right; font-weight: 550; }
+.split{ border-top: 1px solid rgb(var(--line)); margin: var(--sp-4) calc(var(--sp-4) * -1) 0; padding: var(--sp-4) var(--sp-4) 0; }
+
+/* Stock */
+.toolbar{ display: flex; flex-wrap: wrap; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid rgb(var(--line)); align-items: center; }
+.toolbar .affix{ width: 220px; }
+.toolbar .select{ width: 196px; }
+.toolbar .spacer{ flex: 1; }
+.chips{ display: flex; flex-wrap: wrap; gap: 6px; padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid rgb(var(--line)); }
+.chip{ display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 9px 0 7px; border-radius: var(--r-sm); border: 1px solid rgb(var(--line)); background: rgb(var(--surface)); color: rgb(var(--ink-2)); font-size: var(--t-sm); font-weight: 500; transition: background-color var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out); }
+.chip:hover{ border-color: rgb(var(--line-strong)); color: rgb(var(--ink)); }
+.chip b{ font-weight: 500; color: rgb(var(--ink-3)); font-size: var(--t-xs); }
+.chip[aria-pressed="true"]{ background: rgb(var(--ink)); border-color: rgb(var(--ink)); color: rgb(var(--surface)); }
+.chip[aria-pressed="true"] b{ color: rgb(var(--surface) / .75); }
+.mobile-filter{ display: none; }
+.table-wrap{
+  overflow-x: auto; position: relative;
+  background:
+    linear-gradient(to right, rgb(var(--surface)) 30%, rgb(var(--surface) / 0)) left center / 40px 100% no-repeat local,
+    linear-gradient(to left, rgb(var(--surface)) 30%, rgb(var(--surface) / 0)) right center / 40px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgb(var(--shadow) / calc(.14 * var(--sh-k))), transparent) left center / 12px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgb(var(--shadow) / calc(.14 * var(--sh-k))), transparent) right center / 12px 100% no-repeat scroll;
+}
+.tbl{ width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--t-sm); min-width: 940px; }
+.tbl th{ position: sticky; top: 0; z-index: var(--z-raised); background: rgb(var(--surface-2)); color: rgb(var(--ink-3)); font-weight: 550; font-size: var(--t-xs); text-align: left; height: 34px; padding: 0 var(--sp-3); border-bottom: 1px solid rgb(var(--line)); white-space: nowrap; }
+.tbl th.r{ text-align: right; }
+.tbl th button{ border: 0; background: none; padding: 0; color: inherit; font: inherit; display: inline-flex; align-items: center; gap: 4px; }
+.tbl th button .ico{ width: 13px; height: 13px; }
+.tbl th[aria-sort] button{ color: rgb(var(--ink)); }
+.tbl td{ height: 44px; padding: 0 var(--sp-3); border-bottom: 1px solid rgb(var(--line)); white-space: nowrap; }
+.tbl tr:last-child td{ border-bottom: 0; }
+.tbl tbody tr{ transition: background-color var(--d-fast) var(--ease-out); }
+.tbl tbody tr:hover{ background: rgb(var(--surface-2)); }
+.tbl tbody tr.sel{ background: rgb(var(--accent-soft)); }
+.tbl tbody tr.sel td:first-child{ box-shadow: inset 3px 0 0 rgb(var(--accent)); }
+.tbl .c-check{ width: 44px; padding-right: 0; }
+.tbl .strong{ font-weight: 600; color: rgb(var(--ink)); }
+.art b{ font-weight: 550; color: rgb(var(--ink)); }
+.art span{ color: rgb(var(--ink-3)); margin-left: 6px; }
+.coef{ display: inline-flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.micro{ position: relative; width: 40px; height: 14px; }
+.micro i{ position: absolute; bottom: 2px; width: 1px; height: 4px; background: rgb(var(--line-strong)); }
+.micro::after{ content: ""; position: absolute; left: 0; right: 0; bottom: 2px; height: 1px; background: rgb(var(--line-strong)); }
+.micro b{ position: absolute; bottom: 0; width: 2px; height: 12px; margin-left: -1px; background: rgb(var(--ink-2)); border-radius: 1px; }
+.cards{ display: none; }
+
+.bulk{
+  position: sticky; bottom: var(--sp-4); z-index: var(--z-sticky); margin: var(--sp-3) var(--sp-4) var(--sp-4);
+  display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; padding: 8px 8px 8px 14px;
+  background: rgb(var(--bar)); color: rgb(var(--bar-ink)); border-radius: var(--r-md);
+  box-shadow: 0 8px 24px -6px rgb(var(--shadow) / calc(.35 * var(--sh-k)));
+  transition: opacity var(--d-base) var(--ease-out), transform var(--d-base) var(--ease-out);
+}
+.bulk[data-state="closed"]{ opacity: 0; transform: translateY(8px); pointer-events: none; }
+.bulk .count{ font-weight: 600; margin-right: var(--sp-2); white-space: nowrap; }
+.bulk .btn-bar{ background: rgb(var(--bar-ink) / .1); color: rgb(var(--bar-ink)); border-color: rgb(var(--bar-ink) / .22); height: 32px; padding: 0 12px; font-size: var(--t-sm); }
+.bulk .btn-bar:hover{ background: rgb(var(--bar-ink) / .18); }
+.bulk .btn-bar.go{ background: rgb(var(--accent)); color: rgb(var(--accent-ink)); border-color: transparent; }
+.bulk .btn-bar.go:hover{ background: rgb(var(--accent-hover)); }
+.bulk .close{ margin-left: auto; }
+.bulk select{ appearance: none; -webkit-appearance: none; height: 32px; border-radius: var(--r-sm); padding: 0 28px 0 10px; background: rgb(var(--bar-ink) / .1); color: rgb(var(--bar-ink)); border: 1px solid rgb(var(--bar-ink) / .22); font-size: var(--t-sm); font-weight: 550; }
+.bulk select option{ color: rgb(var(--ink)); background: rgb(var(--surface)); }
+.bulk .bsel{ position: relative; }
+.bulk .bsel .ico{ position: absolute; right: 8px; top: 50%; translate: 0 -50%; width: 14px; height: 14px; pointer-events: none; }
+.list-foot{ display: flex; justify-content: space-between; padding: var(--sp-3) var(--sp-4); color: rgb(var(--ink-3)); font-size: var(--t-sm); border-top: 1px solid rgb(var(--line)); }
+
+/* Studio */
+.crumbs{ display: flex; gap: 6px; align-items: center; font-size: var(--t-sm); color: rgb(var(--ink-3)); margin-bottom: var(--sp-2); flex-wrap: wrap; }
+.crumbs a{ color: rgb(var(--ink-2)); text-decoration: none; }
+.crumbs a:hover{ text-decoration: underline; }
+.crumbs .ico{ width: 13px; height: 13px; }
+.meta-line{ display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; margin-top: var(--sp-2); }
+.next{ position: relative; padding: var(--sp-4) var(--sp-5); display: grid; grid-template-columns: minmax(240px, 1fr) auto; gap: var(--sp-5); align-items: center; overflow: hidden; }
+.next::before{ content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: rgb(var(--accent)); }
+.next-title{ font-size: var(--t-lg); font-weight: 620; font-stretch: 108%; margin-top: 2px; }
+.steps{ display: flex; gap: 0; counter-reset: st; }
+.steps li{ position: relative; display: grid; gap: 2px; padding: 0 var(--sp-4); min-width: 96px; }
+.steps li + li{ border-left: 1px solid rgb(var(--line)); }
+.steps .n{ display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-xs); color: rgb(var(--ink-3)); font-weight: 500; }
+.steps .n i{ width: 18px; height: 18px; border-radius: var(--r-full); display: inline-grid; place-items: center; font-style: normal; font-size: var(--t-micro); font-weight: 650; border: 1.5px solid rgb(var(--line-strong)); color: rgb(var(--ink-2)); }
+.steps .done .n i{ background: rgb(var(--ink-2)); border-color: rgb(var(--ink-2)); color: rgb(var(--surface)); }
+.steps .now .n i{ background: rgb(var(--accent)); border-color: rgb(var(--accent)); color: rgb(var(--accent-ink)); }
+.steps .now .n{ color: rgb(var(--accent-text)); font-weight: 600; }
+.steps .v{ font-size: var(--t-sm); font-weight: 600; color: rgb(var(--ink)); }
+.judge-grid{ display: grid; grid-template-columns: 1fr 1fr 340px; gap: var(--sp-4); padding: var(--sp-4); }
+.shot{ display: grid; gap: var(--sp-2); align-content: start; }
+.shot .frame{ position: relative; aspect-ratio: 1; border-radius: var(--r-sm); overflow: hidden; background: rgb(var(--photo-bg)); border: 1px solid rgb(var(--line)); }
+.shot .frame svg{ width: 100%; height: 100%; display: block; }
+.shot figcaption{ display: flex; justify-content: space-between; gap: var(--sp-2); font-size: var(--t-sm); color: rgb(var(--ink-2)); }
+.shot figcaption b{ font-weight: 600; color: rgb(var(--ink)); }
+.shot .corner{ position: absolute; left: 8px; top: 8px; }
+.side{ display: grid; gap: var(--sp-3); align-content: start; }
+.ai{ border: 1px solid rgb(var(--line)); border-radius: var(--r-sm); background: rgb(var(--surface-2)); padding: var(--sp-3); display: grid; gap: var(--sp-2); }
+.ai-head{ display: flex; align-items: center; gap: var(--sp-2); font-weight: 600; font-size: var(--t-sm); }
+.ai-head .ico{ width: 16px; height: 16px; color: rgb(var(--ink-2)); }
+.ai-head .tag{ margin-left: auto; }
+.ai p{ font-size: var(--t-sm); color: rgb(var(--ink-2)); line-height: 1.5; }
+.checks{ display: grid; gap: 4px; font-size: var(--t-sm); }
+.checks li{ display: flex; gap: 8px; align-items: center; }
+.checks .ico{ width: 15px; height: 15px; stroke-width: 2; }
+.checks .ok .ico{ color: rgb(var(--pos)); }
+.checks .ko .ico{ color: rgb(var(--warn)); }
+.ai small{ font-size: var(--t-xs); color: rgb(var(--ink-3)); }
+.facts{ display: grid; grid-template-columns: auto 1fr; gap: 4px var(--sp-3); font-size: var(--t-sm); }
+.facts dt{ color: rgb(var(--ink-3)); }
+.facts dd{ text-align: right; font-weight: 550; }
+.decide{ display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.decide .btn{ height: 44px; }
+.toast-demo{ position: relative; }
+.history{ border-top: 1px solid rgb(var(--line)); padding: var(--sp-3) var(--sp-4) var(--sp-4); }
+.history ol{ display: grid; gap: 6px; margin-top: var(--sp-2); }
+.history li{ display: grid; grid-template-columns: 40px 1fr auto; gap: var(--sp-3); align-items: center; font-size: var(--t-sm); padding: 6px; border-radius: var(--r-sm); }
+.history li.cur{ background: rgb(var(--surface-2)); }
+.history .th{ width: 40px; height: 40px; border-radius: var(--r-xs); overflow: hidden; background: rgb(var(--photo-bg)); }
+.history .th svg{ width: 100%; height: 100%; display: block; }
+.history .t1{ font-weight: 550; }
+.history .t2{ color: rgb(var(--ink-3)); font-size: var(--t-xs); }
+
+.models .budget{ display: flex; align-items: flex-end; gap: var(--sp-4); flex-wrap: wrap; padding: var(--sp-4); border-bottom: 1px solid rgb(var(--line)); }
+.models .budget .affix{ width: 120px; }
+.mfilters{ display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid rgb(var(--line)); }
+.mfilters .affix{ width: 240px; }
+.toggle{ height: 30px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--r-sm); border: 1px solid rgb(var(--line)); background: rgb(var(--surface)); color: rgb(var(--ink-2)); font-size: var(--t-sm); font-weight: 500; }
+.toggle[aria-pressed="true"]{ border-color: rgb(var(--accent)); color: rgb(var(--accent-text)); background: rgb(var(--accent-soft)); }
+.toggle .ico{ width: 14px; height: 14px; }
+.mrow,.mhead{ display: grid; grid-template-columns: 40px minmax(200px, 1.6fr) 96px 220px 128px 104px 92px; gap: var(--sp-3); align-items: center; padding: 0 var(--sp-4); }
+.mhead{ height: 34px; background: rgb(var(--surface-2)); color: rgb(var(--ink-3)); font-size: var(--t-xs); font-weight: 550; border-bottom: 1px solid rgb(var(--line)); }
+.mrow{ min-height: 64px; border-bottom: 1px solid rgb(var(--line)); font-size: var(--t-sm); padding-top: 8px; padding-bottom: 8px; }
+.mrow.picked{ background: rgb(var(--accent-soft)); box-shadow: inset 3px 0 0 rgb(var(--accent)); }
+.mname b{ display: block; font-weight: 600; font-size: var(--t-base); }
+.mname span{ display: block; font-family: var(--font-mono); font-size: var(--t-xs); color: rgb(var(--ink-3)); overflow: hidden; text-overflow: ellipsis; }
+.mrow .mlabel{ display: none; }
+.star{ width: 32px; height: 32px; display: grid; place-items: center; border: 0; background: none; border-radius: var(--r-sm); color: rgb(var(--ink-3)); }
+.star:hover{ background: rgb(var(--surface-3)); color: rgb(var(--ink)); }
+.star .ico{ width: 18px; height: 18px; transition: transform var(--d-fast) var(--ease-out), fill var(--d-fast) var(--ease-out); }
+.star[aria-pressed="true"]{ color: rgb(var(--accent-text)); }
+.star[aria-pressed="true"] .ico{ fill: currentColor; }
+.star:active .ico{ transform: scale(.85); }
+.cost{ display: grid; gap: 2px; }
+.cost .line1{ display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.cost b{ font-weight: 650; }
+.mv{ position: relative; height: 22px; width: 100%; max-width: 200px; margin-top: 10px; }
+.mv .t{ position: absolute; left: 0; right: 0; top: 14px; height: 1px; background: rgb(var(--line-strong)); }
+.mv .over{ position: absolute; top: 10px; height: 9px; background: repeating-linear-gradient(135deg, rgb(var(--warn) / .45) 0 1.5px, transparent 1.5px 5px); }
+.mv i{ position: absolute; top: 12px; width: 1px; height: 5px; background: rgb(var(--line-strong)); }
+.mv i.maj{ top: 9px; height: 11px; background: rgb(var(--ink-3)); }
+.mv .bud{ position: absolute; top: 4px; height: 18px; width: 0; border-left: 1.5px solid rgb(var(--ink)); }
+.mv .bud::after{ content: "budget 1\00a0€"; white-space: nowrap; position: absolute; left: 4px; top: -9px; font-size: var(--t-micro); line-height: 1; color: rgb(var(--ink-2)); font-weight: 600; }
+.mv b{ position: absolute; top: 10px; width: 9px; height: 9px; margin-left: -4.5px; border-radius: 50%; background: rgb(var(--accent)); box-shadow: 0 0 0 2px rgb(var(--surface)); }
+.mv b.over-b{ background: rgb(var(--warn)); }
+.rate b{ font-weight: 650; } .rate span{ color: rgb(var(--ink-3)); font-size: var(--t-xs); display: block; }
+.mfoot{ display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; padding: var(--sp-3) var(--sp-4); background: rgb(var(--surface-2)); border-radius: 0 0 var(--r-md) var(--r-md); }
+.mfoot .sum{ font-size: var(--t-sm); color: rgb(var(--ink-2)); }
+.mfoot .sum b{ color: rgb(var(--ink)); font-weight: 650; }
+.mfoot .btn{ margin-left: auto; }
+.folds{ display: grid; }
+.folds details{ border-top: 1px solid rgb(var(--line)); }
+.folds details:first-child{ border-top: 0; }
+.folds summary{ list-style: none; display: grid; grid-template-columns: 20px 1fr auto; gap: var(--sp-3); align-items: center; padding: var(--sp-3) var(--sp-4); cursor: pointer; font-weight: 550; }
+.folds summary::-webkit-details-marker{ display: none; }
+.folds summary .ico{ width: 16px; height: 16px; color: rgb(var(--ink-3)); transition: transform var(--d-base) var(--ease-out); }
+.folds details[open] summary .ico{ transform: rotate(90deg); }
+.folds summary span:last-child{ font-weight: 400; color: rgb(var(--ink-3)); font-size: var(--t-sm); }
+.folds .fold-body{ padding: 0 var(--sp-4) var(--sp-4) calc(var(--sp-4) + 32px); color: rgb(var(--ink-2)); font-size: var(--t-sm); }
+
+/* Toasts */
+.toasts{ position: fixed; right: var(--sp-6); bottom: var(--sp-6); z-index: var(--z-toast); display: grid; gap: var(--sp-2); width: min(380px, calc(100vw - 32px)); }
+.toast{
+  display: grid; grid-template-columns: auto 1fr auto; gap: var(--sp-3); align-items: center; position: relative; overflow: hidden;
+  padding: 10px 10px 10px 12px; border-radius: var(--r-md); background: rgb(var(--surface)); color: rgb(var(--ink));
+  border: 1px solid rgb(var(--line)); box-shadow: 0 2px 6px rgb(var(--shadow) / calc(.06 * var(--sh-k))), 0 16px 40px -12px rgb(var(--shadow) / calc(.28 * var(--sh-k)));
+  transition: opacity var(--d-base) var(--ease-out), transform var(--d-base) var(--ease-out);
+}
+.toast[data-state="closed"]{ opacity: 0; transform: translateY(8px); }
+.toast .ti{ width: 22px; height: 22px; border-radius: var(--r-full); display: grid; place-items: center; }
+.toast .ti .ico{ width: 14px; height: 14px; stroke-width: 2.2; }
+.toast.ok .ti{ background: rgb(var(--pos-soft)); color: rgb(var(--pos)); }
+.toast.bad .ti{ background: rgb(var(--neg-soft)); color: rgb(var(--neg)); }
+.toast.info .ti{ background: rgb(var(--surface-3)); color: rgb(var(--ink-2)); }
+.toast .tt{ font-size: var(--t-sm); font-weight: 600; }
+.toast .td{ font-size: var(--t-xs); color: rgb(var(--ink-3)); }
+.toast .tbtn{ height: 30px; padding: 0 10px; border-radius: var(--r-sm); border: 1px solid rgb(var(--line-strong)); background: rgb(var(--surface)); font-size: var(--t-sm); font-weight: 600; color: rgb(var(--ink)); display: inline-flex; align-items: center; gap: 6px; }
+.toast .tbtn:hover{ background: rgb(var(--surface-2)); }
+.toast .timer{ position: absolute; left: 0; bottom: 0; height: 2px; background: rgb(var(--accent)); width: 100%; transform-origin: left; }
+.toast-static{ width: 100%; max-width: 380px; }
+
+/* Superpositions */
+.veil{ position: fixed; inset: 0; z-index: var(--z-overlay); background: rgb(var(--veil) / .5); opacity: 0; transition: opacity var(--d-slow) var(--ease-out); }
+.veil[data-state="open"]{ opacity: 1; }
+.dialog{
+  position: fixed; z-index: var(--z-modal); left: 50%; top: 50%; width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow: auto;
+  background: rgb(var(--surface)); border: 1px solid rgb(var(--line)); border-radius: var(--r-lg);
+  box-shadow: 0 2px 6px rgb(var(--shadow) / calc(.08 * var(--sh-k))), 0 28px 64px -16px rgb(var(--shadow) / calc(.36 * var(--sh-k)));
+  transform: translate(-50%, -48%) scale(.98); opacity: 0; transition: opacity var(--d-slow) var(--ease-out), transform var(--d-slow) var(--ease-out);
+}
+.dialog[data-state="open"]{ opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.drawer{
+  position: fixed; z-index: var(--z-modal); top: 0; right: 0; bottom: 0; width: min(440px, 100vw); overflow: auto;
+  background: rgb(var(--surface)); border-left: 1px solid rgb(var(--line));
+  box-shadow: -24px 0 64px -24px rgb(var(--shadow) / calc(.36 * var(--sh-k)));
+  transform: translateX(24px); opacity: 0; transition: opacity var(--d-slow) var(--ease-out), transform var(--d-slow) var(--ease-out);
+}
+.drawer:not([hidden]){ display: flex; flex-direction: column; }
+.drawer[data-state="open"]{ transform: none; opacity: 1; }
+.sheet{
+  position: fixed; z-index: var(--z-modal); left: 0; right: 0; bottom: 0; max-height: 80dvh; overflow: auto;
+  background: rgb(var(--surface)); border-radius: var(--r-lg) var(--r-lg) 0 0; border-top: 1px solid rgb(var(--line));
+  padding: var(--sp-2) var(--sp-4) calc(var(--sp-4) + env(safe-area-inset-bottom));
+  transform: translateY(16px); opacity: 0; transition: opacity var(--d-slow) var(--ease-out), transform var(--d-slow) var(--ease-out);
+}
+.sheet[data-state="open"]{ transform: none; opacity: 1; }
+.sheet .grab{ width: 36px; height: 4px; border-radius: 2px; background: rgb(var(--line-strong)); margin: 4px auto var(--sp-3); }
+.sheet-head{ display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-1); }
+.sheet-list{ display: grid; }
+.sheet-list a{ display: flex; align-items: center; gap: var(--sp-3); min-height: 48px; padding: 0 var(--sp-2); color: rgb(var(--ink)); text-decoration: none; font-weight: 500; border-bottom: 1px solid rgb(var(--line)); font-size: var(--t-md); }
+.sheet-list a .ico{ color: rgb(var(--ink-3)); }
+.sheet-list a small{ margin-left: auto; color: rgb(var(--ink-3)); font-size: var(--t-xs); }
+.sheet-label{ font-size: var(--t-xs); color: rgb(var(--ink-3)); margin: var(--sp-4) 0 var(--sp-1); font-weight: 500; }
+.dlg-head{ display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-5) var(--sp-5) var(--sp-2); }
+.dlg-head .h2{ font-size: var(--t-lg); }
+.dlg-head .btn{ margin-left: auto; margin-top: -4px; margin-right: -6px; }
+.dlg-body{ padding: var(--sp-2) var(--sp-5) var(--sp-4); display: grid; gap: var(--sp-3); color: rgb(var(--ink-2)); }
+.dlg-body > .pill{ justify-self: start; }
+.dlg-foot{ display: flex; justify-content: flex-end; gap: var(--sp-2); padding: var(--sp-3) var(--sp-5) var(--sp-5); }
+.quote{ width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
+.quote td{ padding: 7px 0; border-bottom: 1px solid rgb(var(--line)); }
+.quote td.r{ text-align: right; font-weight: 550; color: rgb(var(--ink)); }
+.quote tr.total td{ border-bottom: 0; padding-top: 10px; font-size: var(--t-base); font-weight: 650; color: rgb(var(--ink)); }
+.quote tr.over td.r{ color: rgb(var(--warn)); }
+
+/* Scènes de démonstration (modale / tiroir montrés ouverts) */
+.stage{ position: relative; height: 360px; overflow: hidden; border-radius: var(--r-md); border: 1px solid rgb(var(--line)); background: rgb(var(--bg)); }
+.stage .fake{ position: absolute; inset: 0; padding: var(--sp-4); display: grid; gap: 10px; align-content: start; }
+.stage .fake i{ display: block; height: 12px; border-radius: 3px; background: rgb(var(--surface-3)); }
+.stage .fake i:nth-child(3n){ width: 70%; } .stage .fake i:nth-child(4n){ width: 85%; }
+.stage .veil{ position: absolute; opacity: 1; }
+.stage .dialog{ position: absolute; opacity: 1; transform: translate(-50%, -50%); width: min(400px, calc(100% - 32px)); }
+.stage .drawer{ position: absolute; opacity: 1; transform: none; width: min(340px, 86%); }
+
+/* États */
+.states{ display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-4); }
+.state{ padding: var(--sp-6) var(--sp-5); display: grid; justify-items: start; gap: var(--sp-2); align-content: start; min-height: 228px; }
+.state .sic{ width: 40px; height: 40px; display: grid; place-items: center; border-radius: var(--r-sm); background: rgb(var(--surface-2)); border: 1px solid rgb(var(--line)); color: rgb(var(--ink-2)); margin-bottom: var(--sp-2); }
+.state.err .sic{ background: rgb(var(--neg-soft)); color: rgb(var(--neg)); border-color: transparent; }
+.state p{ color: rgb(var(--ink-2)); font-size: var(--t-sm); max-width: 36ch; }
+.state code{ font-family: var(--font-mono); font-size: var(--t-xs); color: rgb(var(--ink-3)); }
+.state .btn{ margin-top: var(--sp-2); }
+.sk{ display: block; border-radius: 3px; background: rgb(var(--surface-3)); position: relative; overflow: hidden; }
+.sk::after{ content: ""; position: absolute; inset: 0; translate: -100% 0; background: linear-gradient(90deg, transparent, rgb(var(--surface) / .55), transparent); animation: shimmer 1.4s var(--ease-in-out) infinite; }
+@keyframes shimmer{ to{ translate: 100% 0; } }
+@media (prefers-reduced-motion: reduce){ .sk::after{ animation: none; display: none; } }
+.sk-rows{ display: grid; gap: 12px; width: 100%; }
+.sk-row{ display: grid; grid-template-columns: 16px 64px 1fr 56px 72px; gap: 12px; align-items: center; }
+
+/* Statuts et canaux */
+.cycle{ position: relative; padding: var(--sp-6) var(--sp-5) var(--sp-5); overflow: hidden; }
+.cycle-rule{ position: relative; height: 12px; margin: 0 6% var(--sp-3); }
+.cycle-rule .base{ position: absolute; left: 0; right: 0; top: 0; height: 1px; background: rgb(var(--line-strong)); }
+.cycle-rule i{ position: absolute; top: 0; width: 1px; height: 5px; background: rgb(var(--line-strong)); }
+.cycle-rule i.major{ height: 11px; background: rgb(var(--ink-3)); }
+.cycle-stations{ display: grid; grid-template-columns: repeat(8, 1fr); text-align: center; gap: var(--sp-2); }
+.station{ display: grid; justify-items: center; gap: 6px; font-size: var(--t-sm); font-weight: 550; color: rgb(var(--ink)); }
+.station .glyph{ width: 22px; height: 22px; }
+.station small{ font-weight: 400; color: rgb(var(--ink-3)); font-size: var(--t-xs); }
+.off-track{ display: flex; gap: var(--sp-6); margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: 1px dashed rgb(var(--line)); font-size: var(--t-sm); color: rgb(var(--ink-2)); flex-wrap: wrap; }
+.off-track span{ display: inline-flex; gap: 8px; align-items: center; }
+.st-table{ width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
+.st-table th,.st-table td{ padding: 8px var(--sp-4); border-bottom: 1px solid rgb(var(--line)); text-align: left; vertical-align: middle; }
+.st-table th{ font-size: var(--t-xs); color: rgb(var(--ink-3)); font-weight: 550; background: rgb(var(--surface-2)); }
+.st-table tr:last-child td{ border-bottom: 0; }
+.dual{ display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.dual > div{ padding: 6px 10px; display: flex; align-items: center; gap: 10px; }
+.dual > div:first-child{ background: rgb(var(--surface)); }
+.dual > div:last-child{ background: rgb(var(--surface)); }
+.chan-grid{ display: grid; grid-template-columns: repeat(3, 1fr); }
+.chan-card{ padding: var(--sp-4) var(--sp-5); display: grid; gap: 6px; }
+.chan-card + .chan-card{ border-left: 1px solid rgb(var(--line)); }
+.chan-card .chan{ font-size: var(--t-base); color: rgb(var(--ink)); font-weight: 600; }
+.chan-card .chan::before{ width: 12px; height: 12px; }
+
+/* Mouvement */
+.motion-grid{ display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-4); }
+.mo{ display: grid; grid-template-rows: auto 1fr auto; }
+.mo .panel-body{ min-height: 170px; display: grid; place-items: center; background: rgb(var(--surface-2)); border-bottom: 1px solid rgb(var(--line)); }
+.mo-foot{ display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); font-size: var(--t-xs); color: rgb(var(--ink-3)); }
+.mo-foot code{ font-family: var(--font-mono); color: rgb(var(--ink-2)); white-space: nowrap; }
+.appear{ width: 100%; max-width: 280px; transition: opacity var(--d-base) var(--ease-out), transform var(--d-base) var(--ease-out); }
+.appear[data-state="closed"]{ opacity: 0; transform: translateY(8px); }
+.flip-list{ width: 100%; max-width: 300px; display: grid; gap: 6px; }
+.flip-list li{ display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r-sm); background: rgb(var(--surface)); border: 1px solid rgb(var(--line)); font-size: var(--t-sm); will-change: transform; }
+.flip-list li .pill{ margin-left: auto; }
+.succ{ display: grid; justify-items: center; gap: var(--sp-3); }
+.succ-btn{ min-width: 168px; }
+.succ-btn svg.draw path{ stroke-dasharray: 24; stroke-dashoffset: 24; transition: stroke-dashoffset var(--d-base) var(--ease-out); }
+.succ-btn.done svg.draw path{ stroke-dashoffset: 0; }
+.succ-btn.done{ background: rgb(var(--pos)); color: rgb(var(--surface)); }
+.rm-note{ font-size: var(--t-sm); color: rgb(var(--ink-2)); display: flex; gap: var(--sp-2); align-items: center; margin-bottom: var(--sp-4); flex-wrap: wrap; }
+
+/* Landing */
+.browser{ border: 1px solid rgb(var(--line)); border-radius: var(--r-lg); overflow: hidden; background: rgb(var(--bg)); box-shadow: 0 24px 64px -32px rgb(var(--shadow) / calc(.3 * var(--sh-k))); }
+.browser-bar{ display: flex; align-items: center; gap: var(--sp-3); height: 36px; padding: 0 var(--sp-3); background: rgb(var(--surface-2)); border-bottom: 1px solid rgb(var(--line)); }
+.browser-bar .dots{ display: flex; gap: 6px; } .browser-bar .dots i{ width: 10px; height: 10px; border-radius: 50%; background: rgb(var(--line-strong) / .5); }
+.browser-bar .url{ flex: 1; max-width: 360px; margin: 0 auto; height: 22px; border-radius: var(--r-xs); background: rgb(var(--surface)); border: 1px solid rgb(var(--line)); font-size: var(--t-xs); color: rgb(var(--ink-3)); display: grid; place-items: center; }
+.lnav{ display: flex; align-items: center; gap: var(--sp-6); padding: var(--sp-4) var(--sp-8); background: rgb(var(--bg) / .92); border-bottom: 1px solid rgb(var(--line)); }
+.lnav .links{ display: flex; gap: var(--sp-5); font-size: var(--t-base); color: rgb(var(--ink-2)); margin-left: var(--sp-4); }
+.lnav .links a{ color: inherit; text-decoration: none; }
+.lnav .cta{ margin-left: auto; display: flex; gap: var(--sp-2); }
+.hero{ display: grid; grid-template-columns: 1.05fr 1fr; gap: var(--sp-10); padding: var(--sp-16) var(--sp-8) var(--sp-12); align-items: center; }
+.hero h2{ font-size: var(--t-display); font-weight: 650; line-height: 1.02; letter-spacing: -.03em; font-stretch: 112%; text-wrap: balance; }
+.hero p.lead{ font-size: var(--t-md); color: rgb(var(--ink-2)); line-height: 1.6; margin-top: var(--sp-5); max-width: 52ch; }
+.hero .ctas{ display: flex; gap: var(--sp-3); margin-top: var(--sp-6); flex-wrap: wrap; }
+.hero .fine{ margin-top: var(--sp-3); font-size: var(--t-sm); color: rgb(var(--ink-3)); }
+.life{ padding: var(--sp-5); }
+.life-head{ display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-5); }
+.life-head .sku{ font-size: var(--t-md); }
+.life-rule{ position: relative; height: 92px; margin: 0 4px; }
+.lr-axis{ position: absolute; left: 0; right: 0; top: 56px; height: 1px; background: rgb(var(--line-strong)); }
+.lr-day{ position: absolute; top: 56px; width: 1px; height: 4px; background: rgb(var(--line-strong)); }
+.lr-day.wk{ height: 9px; background: rgb(var(--ink-3)); }
+.lr-dlab{ position: absolute; top: 70px; translate: -50% 0; font-size: var(--t-micro); color: rgb(var(--ink-3)); white-space: nowrap; }
+.lr-span{ position: absolute; top: 52px; height: 9px; background: rgb(var(--accent) / .16); border-left: 2px solid rgb(var(--accent)); border-right: 2px solid rgb(var(--accent)); }
+.lr-mark{ position: absolute; top: 48px; width: 17px; height: 17px; translate: -50% 0; display: grid; place-items: center; background: rgb(var(--surface)); border-radius: 50%; }
+.lr-mark .glyph{ width: 15px; height: 15px; }
+.lr-key{ position: absolute; top: 0; translate: -50% 0; display: grid; justify-items: center; line-height: 1.25; font-size: var(--t-xs); font-weight: 600; white-space: nowrap; }
+.lr-key em{ font-style: normal; font-weight: 400; color: rgb(var(--ink-3)); }
+.lr-key.first{ translate: -9px 0; justify-items: start; } .lr-key.last{ translate: calc(-100% + 9px) 0; justify-items: end; }
+.lr-legend{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px var(--sp-3); margin-top: var(--sp-4); padding-top: var(--sp-3); border-top: 1px dashed rgb(var(--line)); }
+.lr-legend li{ display: flex; align-items: center; gap: 6px; font-size: var(--t-xs); color: rgb(var(--ink-2)); white-space: nowrap; }
+.lr-legend em{ font-style: normal; color: rgb(var(--ink-3)); margin-left: auto; }
+.life-sum{ display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid rgb(var(--line)); margin: var(--sp-4) calc(var(--sp-5) * -1) calc(var(--sp-5) * -1); }
+.life-sum div{ padding: var(--sp-3) var(--sp-5); }
+.life-sum div + div{ border-left: 1px solid rgb(var(--line)); }
+.life-sum b{ display: block; font-size: var(--t-lg); font-weight: 620; letter-spacing: -.01em; }
+.life-sum span{ font-size: var(--t-xs); color: rgb(var(--ink-3)); }
+
+/* Système */
+.sys-grid{ display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
+.tok{ width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
+.tok th,.tok td{ padding: 7px var(--sp-3); border-bottom: 1px solid rgb(var(--line)); text-align: left; vertical-align: middle; }
+.tok th{ font-size: var(--t-xs); color: rgb(var(--ink-3)); font-weight: 550; background: rgb(var(--surface-2)); position: sticky; top: 0; }
+.tok td code{ font-family: var(--font-mono); font-size: var(--t-xs); color: rgb(var(--ink-2)); }
+.tok tr:last-child td{ border-bottom: 0; }
+.sw{ display: inline-block; width: 28px; height: 20px; border-radius: var(--r-xs); background: rgb(var(--sv)); box-shadow: inset 0 0 0 1px rgb(0 0 0 / .12); vertical-align: middle; }
+.ratio{ display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.ratio .tag{ height: 18px; font-size: var(--t-micro); padding: 0 5px; }
+.scroll-y{ max-height: 520px; overflow: auto; }
+.type-row{ display: grid; grid-template-columns: 96px 150px 1fr; gap: var(--sp-4); align-items: baseline; padding: 10px var(--sp-4); border-bottom: 1px solid rgb(var(--line)); }
+.type-row:last-child{ border-bottom: 0; }
+.type-row code{ font-family: var(--font-mono); font-size: var(--t-xs); color: rgb(var(--ink-2)); }
+.type-row .px{ font-size: var(--t-xs); color: rgb(var(--ink-3)); }
+.type-row .smp{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scale-list{ display: grid; gap: 8px; }
+.scale-list li{ display: grid; grid-template-columns: 96px 60px 1fr; gap: var(--sp-3); align-items: center; font-size: var(--t-xs); }
+.scale-list code{ font-family: var(--font-mono); color: rgb(var(--ink-2)); }
+.scale-list .barv{ height: 10px; background: rgb(var(--accent) / .85); border-radius: 1px; }
+.radii{ display: flex; gap: var(--sp-4); flex-wrap: wrap; }
+.radii div{ display: grid; gap: 6px; justify-items: center; font-size: var(--t-xs); color: rgb(var(--ink-3)); }
+.radii i{ width: 56px; height: 40px; border: 1.5px solid rgb(var(--ink-3)); background: rgb(var(--surface-2)); }
+.shadows{ display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-4); }
+.shadows div{ height: 72px; border-radius: var(--r-md); background: rgb(var(--surface)); display: grid; place-items: center; font-size: var(--t-xs); color: rgb(var(--ink-2)); border: 1px solid rgb(var(--line)); }
+.zl{ display: grid; gap: 4px; }
+.zl li{ display: grid; grid-template-columns: 28px 120px 1fr; gap: var(--sp-3); align-items: center; font-size: var(--t-sm); padding: 4px 0; border-bottom: 1px solid rgb(var(--line)); }
+.zl li:last-child{ border-bottom: 0; }
+.zl b{ font-weight: 650; text-align: right; } .zl code{ font-family: var(--font-mono); font-size: var(--t-xs); color: rgb(var(--ink-2)); }
+.glyphs{ display: flex; gap: var(--sp-5); flex-wrap: wrap; font-size: var(--t-xl); align-items: baseline; }
+.glyphs .m{ font-family: var(--font-mono); font-size: var(--t-lg); }
+.note{ font-size: var(--t-sm); color: rgb(var(--ink-2)); line-height: 1.55; }
+.note b{ color: rgb(var(--ink)); }
+
+/* =====================================================================
+   Responsive
+   ===================================================================== */
+@media (max-width: 1199px){
+  .judge-grid{ grid-template-columns: 1fr 1fr; }
+  .judge-grid .side{ grid-column: 1 / -1; grid-template-columns: 1fr 1fr; }
+  .mrow,.mhead{ grid-template-columns: 40px minmax(180px,1.4fr) 88px 200px 116px 96px 84px; }
+}
+@media (max-width: 1099px){
+  .month-grid{ grid-template-columns: 1fr 1fr; }
+  .month-grid > div:first-child{ grid-column: 1 / -1; }
+  .month-grid > div + div{ border-left: 0; padding-left: 0; }
+  .month-grid > div:last-child{ border-left: 1px solid rgb(var(--line)); padding-left: var(--sp-6); }
+  .row-2,.row-2.even{ grid-template-columns: 1fr; }
+  .next{ grid-template-columns: 1fr; }
+  .steps{ overflow: hidden; flex-wrap: wrap; row-gap: var(--sp-3); }
+  .mhead{ display: none; }
+  .mrow{ grid-template-columns: 40px 1fr 1fr; grid-template-areas: "star name name" ". price cost" ". rate avg" ". pick pick"; padding-block: var(--sp-3); }
+  .mrow > .c-star{ grid-area: star; } .mrow > .mname{ grid-area: name; } .mrow > .c-price{ grid-area: price; } .mrow > .cost{ grid-area: cost; }
+  .mrow > .rate{ grid-area: rate; } .mrow > .c-avg{ grid-area: avg; } .mrow > .c-pick{ grid-area: pick; }
+  .mrow .mlabel{ display: block; font-size: var(--t-xs); color: rgb(var(--ink-3)); }
+  .motion-grid,.states{ grid-template-columns: 1fr; }
+  .sys-grid{ grid-template-columns: 1fr; }
+  .hero{ grid-template-columns: 1fr; padding: var(--sp-10) var(--sp-6); }
+  .lnav .links{ display: none; }
+}
+@media (max-width: 767px){
+  .screen{ padding: var(--sp-6) var(--sp-4) var(--sp-10); }
+  .main{ padding-bottom: calc(var(--dock-h) + env(safe-area-inset-bottom)); }
+  .h1{ font-size: var(--t-xl); }
+  .month{ padding: var(--sp-4); }
+  .month-grid{ grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
+  .month-grid > div:last-child{ padding-left: var(--sp-4); }
+  .big{ font-size: var(--t-lg); }
+  .v-lab.odd{ display: none; }
+  .v-pace-lab{ display: none; }
+  .kpis{ grid-template-columns: 1fr 1fr; }
+  .kpi{ padding: var(--sp-3) var(--sp-4); }
+  .kpi:nth-child(3){ border-left: 0; }
+  .kpi:nth-child(n+3){ border-top: 1px solid rgb(var(--line)); }
+  .kpi-v{ font-size: var(--t-lg); }
+  .chart{ grid-template-columns: 44px 1fr; min-height: 220px; }
+  .col .val{ display: none; }
+  .col.lab .val{ display: block; }
+  .x-axis span:nth-child(even){ visibility: hidden; }
+  .brands li{ grid-template-columns: 100px 1fr 72px; }
+  .toolbar .affix,.toolbar .select{ width: 100%; }
+  .toolbar .select.desk,.toolbar .desk{ display: none; }
+  .chips{ display: none; }
+  .mobile-filter{ display: block; padding: 0 var(--sp-4) var(--sp-3); border-bottom: 1px solid rgb(var(--line)); }
+  .table-wrap{ display: none; }
+  .cards{ display: grid; }
+  .card{ display: grid; grid-template-columns: 28px 1fr auto; gap: 4px var(--sp-2); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid rgb(var(--line)); font-size: var(--t-base); align-items: center; }
+  .card.sel{ background: rgb(var(--accent-soft)); box-shadow: inset 3px 0 0 rgb(var(--accent)); }
+  .card .sku{ font-size: var(--t-base); }
+  .card .l2{ grid-column: 2 / -1; color: rgb(var(--ink-2)); }
+  .card .l3{ grid-column: 2 / -1; display: flex; gap: var(--sp-4); color: rgb(var(--ink-2)); font-size: var(--t-sm); flex-wrap: wrap; }
+  .card .l3 b{ color: rgb(var(--ink)); font-weight: 600; }
+  .card .pill{ justify-self: end; }
+  .bulk{ bottom: calc(var(--dock-h) + env(safe-area-inset-bottom) + var(--sp-2)); margin: var(--sp-3); padding: 8px; }
+  .bulk .count{ width: 100%; margin: 0 0 2px 6px; }
+  .bulk .hide-m{ display: none; }
+  .bulk .close{ position: absolute; top: 6px; right: 6px; }
+  .list-foot{ flex-direction: column; gap: 4px; }
+  .judge-grid{ grid-template-columns: 1fr 1fr; gap: var(--sp-3); padding: var(--sp-3); }
+  .judge-grid .side{ grid-template-columns: 1fr; }
+  .shot figcaption{ flex-direction: column; gap: 0; font-size: var(--t-xs); }
+  .steps li{ min-width: 0; flex: 1 1 30%; padding: 0 var(--sp-3); }
+  .steps li:nth-child(4){ border-left: 0; }
+  .mfilters .affix{ width: 100%; }
+  .panel-head{ flex-wrap: wrap; }
+  .mrow{ align-items: start; }
+  .folds summary{ grid-template-columns: 20px 1fr; row-gap: 2px; }
+  .folds summary span:last-child{ grid-column: 2; }
+  .mfoot .btn{ width: 100%; margin-left: 0; }
+  .models .budget .affix{ width: 140px; }
+  .history li{ grid-template-columns: 40px 1fr; }
+  .history li > :last-child{ grid-column: 2; }
+  .cycle-stations{ grid-template-columns: repeat(4, 1fr); row-gap: var(--sp-5); }
+  .cycle-rule{ display: none; }
+  .st-table .hide-m{ display: none; }
+  .chan-grid{ grid-template-columns: 1fr; }
+  .chan-card + .chan-card{ border-left: 0; border-top: 1px solid rgb(var(--line)); }
+  .dual{ grid-template-columns: 1fr; }
+  .hero{ padding: var(--sp-8) var(--sp-4); gap: var(--sp-8); }
+  .lnav{ padding: var(--sp-3) var(--sp-4); }
+  .lnav .cta .btn-ghost{ display: none; }
+  .lr-mark{ width: 15px; height: 15px; } .lr-mark .glyph{ width: 13px; height: 13px; }
+  .lr-legend{ grid-template-columns: 1fr 1fr; }
+  .life-sum b{ font-size: var(--t-md); }
+  .life-sum div{ padding: var(--sp-3); }
+  .shadows{ grid-template-columns: 1fr; }
+  .type-row{ grid-template-columns: 84px 1fr; }
+  .type-row .px{ display: none; }
+  .tok .hide-m{ display: none; }
+  .toasts{ right: var(--sp-4); left: var(--sp-4); width: auto; bottom: calc(var(--dock-h) + env(safe-area-inset-bottom) + var(--sp-2)); }
+  .stage{ height: 400px; }
+}
+@media (min-width: 768px){ .only-m{ display: none; } }
+</style>
+</head>
+<body>
+
+<!-- ===================== Icônes (sprite, pas display:none pour garder les dégradés) ===================== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="leather" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34343a"/><stop offset=".55" stop-color="#1c1c20"/><stop offset="1" stop-color="#121214"/></linearGradient>
+    <linearGradient id="leatherSide" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#151518"/><stop offset="1" stop-color="#0b0b0d"/></linearGradient>
+    <linearGradient id="pocket" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c2c31"/><stop offset="1" stop-color="#18181b"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e2c67a"/><stop offset="1" stop-color="#9a7a2c"/></linearGradient>
+    <radialGradient id="studioA" cx=".5" cy=".38" r=".75"><stop offset="0" stop-color="#f1efeb"/><stop offset="1" stop-color="#d3d0ca"/></radialGradient>
+    <radialGradient id="studioB" cx=".5" cy=".42" r=".8"><stop offset="0" stop-color="#f6f6f4"/><stop offset="1" stop-color="#dcdcd9"/></radialGradient>
+    <filter id="soft" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="4"/></filter>
+  </defs>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4.5 16a7.5 7.5 0 1 1 15 0"/><path d="M12 16l3.5-4.5"/><path d="M4.5 19.5h15"/></symbol>
+  <symbol id="i-stock" viewBox="0 0 24 24"><path d="M4 7.5 12 4l8 3.5-8 3.5z"/><path d="M4 12l8 3.5 8-3.5"/><path d="M4 16.5 12 20l8-3.5"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3.5 12V4.5a1 1 0 0 1 1-1H12l8.5 8.5-8.5 8.5z"/><circle cx="8" cy="8" r="1.4"/></symbol>
+  <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 3.5h12v17l-3-1.8-3 1.8-3-1.8-3 1.8z"/><path d="M9 8.5h6M9 12h6M9 15.5h3"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4z"/><path d="M3.5 7.5 12 11.5l8.5-4M12 11.5v9"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 7.5h3.2L9 5h6l1.8 2.5H20a.5.5 0 0 1 .5.5v10.5a.5.5 0 0 1-.5.5H4a.5.5 0 0 1-.5-.5V8a.5.5 0 0 1 .5-.5z"/><circle cx="12" cy="13" r="3.6"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 16.5v-5M12 16.5V6.5M17 16.5v-8"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="1.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.8"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.6A7.8 7.8 0 1 1 9.4 4.5a6.2 6.2 0 0 0 10.1 10.1z"/></symbol>
+  <symbol id="i-auto" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="12" rx="1.5"/><path d="M8.5 20h7M12 16.5V20"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z"/><path d="M10 20.5h4"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6.5 9.5 5.5 5.5 5.5-5.5"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m14.5 6-6 6 6 6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9.5 6 6 6-6 6"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.8l2.5 5.2 5.7.8-4.1 4 1 5.7L12 16.8l-5.1 2.7 1-5.7-4.1-4 5.7-.8z"/></symbol>
+  <symbol id="i-up-arrow" viewBox="0 0 24 24"><path d="M12 19V5.5M6.5 11 12 5.5l5.5 5.5"/></symbol>
+  <symbol id="i-down-arrow" viewBox="0 0 24 24"><path d="M12 5v13.5M6.5 13 12 18.5l5.5-5.5"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 21 19.5H3z"/><path d="M12 10v4.5M12 17v.2"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.2"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 11A7.5 7.5 0 0 0 6.4 6.6L4.5 8.5"/><path d="M4.5 4.5v4h4"/><path d="M4.5 13a7.5 7.5 0 0 0 13.1 4.4l1.9-1.9"/><path d="M19.5 19.5v-4h-4"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4.5 9.5 9 5"/><path d="M4.5 9.5H14a5.5 5.5 0 0 1 0 11h-3"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></symbol>
+  <symbol id="i-columns" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M9.5 4.5v15M15 4.5v15"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 24 24"><path d="M8 5v14M4.5 15.5 8 19l3.5-3.5M16 19V5M12.5 8.5 16 5l3.5 3.5"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3L4.5 9"/><path d="M4.5 4.5V9H9"/><path d="M12 8.5V12l2.5 2"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4.5 19.5h4l10-10-4-4-10 10z"/><path d="m13 7 4 4"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M3.5 13.5 6 5h12l2.5 8.5v5a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1z"/><path d="M3.5 13.5H8l1.5 2.5h5l1.5-2.5h4.5"/></symbol>
+  <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M4 4l16 16"/><path d="M9.5 16.5a3.5 3.5 0 0 1 5 0M6.5 13a8 8 0 0 1 4.5-2.4M17.5 13a8 8 0 0 0-2-1.5M3.5 9.5a12 12 0 0 1 3.4-2.3M20.5 9.5A12 12 0 0 0 10.6 6"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7.5 5.5v13l11-6.5z"/></symbol>
+
+  <!-- Sac 5039 noir et rose : vraie photo, vue de dos (prise posée à la main, légèrement tournée) -->
+  <symbol id="bag-back" viewBox="0 0 240 240">
+    <rect width="240" height="240" fill="url(#studioA)"/>
+    <ellipse cx="122" cy="200" rx="80" ry="8" fill="#000" opacity=".22" filter="url(#soft)"/>
+    <g transform="rotate(-2 120 140)">
+      <path d="M88 98C88 46 152 46 152 98" fill="none" stroke="#141416" stroke-width="7" stroke-linecap="round"/>
+      <path d="M88 98C88 46 152 46 152 98" fill="none" stroke="#e8a2bb" stroke-width="1.2" stroke-dasharray="2.5 3" opacity=".9"/>
+      <circle cx="88" cy="99" r="4.2" fill="none" stroke="url(#gold)" stroke-width="2.4"/>
+      <circle cx="152" cy="99" r="4.2" fill="none" stroke="url(#gold)" stroke-width="2.4"/>
+      <path d="M56 102h128l11 92a4 4 0 0 1-4 4.5H49a4 4 0 0 1-4-4.5z" fill="url(#leather)"/>
+      <path d="M56 102h128l1 7H55z" fill="#e8a2bb"/>
+      <path d="M55 109 45.3 193.6M185 109l9.7 84.6" stroke="#e8a2bb" stroke-width="2"/>
+      <path d="M68 124h104l4 52H64z" fill="url(#pocket)"/>
+      <path d="M68 124h104" stroke="#e8a2bb" stroke-width="2.4"/>
+      <path d="M70 129h100" stroke="#e8a2bb" stroke-width=".9" stroke-dasharray="3 3" opacity=".75"/>
+      <rect x="111" y="143" width="18" height="8" rx="1.5" fill="url(#gold)"/>
+      <path d="M58 112c14 50 12 70 6 82" stroke="#fff" stroke-width="6" opacity=".05" fill="none"/>
+    </g>
+  </symbol>
+  <!-- Image générée : trois quarts arrière, fond plus propre, liseré du soufflet plus épais -->
+  <symbol id="bag-34" viewBox="0 0 240 240">
+    <rect width="240" height="240" fill="url(#studioB)"/>
+    <ellipse cx="124" cy="202" rx="86" ry="8" fill="#000" opacity=".2" filter="url(#soft)"/>
+    <path d="M70 101C72 50 136 44 140 95" fill="none" stroke="#111113" stroke-width="7" stroke-linecap="round"/>
+    <path d="M84 103C86 58 146 52 152 97" fill="none" stroke="#1c1c1f" stroke-width="7" stroke-linecap="round"/>
+    <path d="M84 103C86 58 146 52 152 97" fill="none" stroke="#e8a2bb" stroke-width="1.2" stroke-dasharray="2.5 3" opacity=".9"/>
+    <path d="M160 96l38 12 5 82-34 8z" fill="url(#leatherSide)"/>
+    <path d="M160 96l38 12" stroke="#e8a2bb" stroke-width="4"/>
+    <path d="M198 108l5 82" stroke="#e8a2bb" stroke-width="3.6"/>
+    <path d="M44 104l116-8 9 102-130 2z" fill="url(#leather)"/>
+    <path d="M44 104l116-8 .6 7-116.4 8z" fill="#e8a2bb"/>
+    <path d="M44.2 111 39 200" stroke="#e8a2bb" stroke-width="2"/>
+    <path d="M56 126l96-6 4 54-104 4z" fill="url(#pocket)"/>
+    <path d="M56 126l96-6" stroke="#e8a2bb" stroke-width="2.4"/>
+    <rect x="96" y="143" width="18" height="8" rx="1.5" fill="url(#gold)" transform="rotate(-3 105 147)"/>
+    <circle cx="70" cy="102" r="4.2" fill="none" stroke="url(#gold)" stroke-width="2.4"/>
+    <circle cx="152" cy="98" r="4.2" fill="none" stroke="url(#gold)" stroke-width="2.4"/>
+    <path d="M50 116c8 40 6 64 0 80" stroke="#fff" stroke-width="7" opacity=".06" fill="none"/>
+  </symbol>
+</svg>
+
+<div class="app">
+  <!-- ===================== Menu latéral ===================== -->
+  <aside class="sidebar" aria-label="Menu principal">
+    <a class="brand" href="#tableau" aria-label="MyFlip, tableau de bord">
+      <svg class="brand-mark" viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" rx="5"/><path d="M5.5 15.5v-8M8.5 15.5v-4M11 15.5V5.5M13.5 15.5v-4M16.5 15.5v-6" stroke-width="1.7" stroke-linecap="round" fill="none"/></svg>
+      <span class="brand-name">MyFlip</span>
+    </a>
+    <nav>
+      <div class="nav-group">
+        <p class="nav-label">Au quotidien</p>
+        <div class="nav">
+          <a href="#tableau" data-nav="tableau" aria-current="page"><svg class="ico"><use href="#i-gauge"/></svg><span>Tableau de bord</span></a>
+          <a href="#stock" data-nav="stock"><svg class="ico"><use href="#i-stock"/></svg><span>Stock</span><b class="count">1&#8239;243</b></a>
+          <a href="#" data-inert><svg class="ico"><use href="#i-tag"/></svg><span>Mise en vente</span></a>
+          <a href="#" data-inert><svg class="ico"><use href="#i-receipt"/></svg><span>À comptabiliser</span><b class="badge" aria-label="4 ventes à comptabiliser">4</b></a>
+          <a href="#" data-inert><svg class="ico"><use href="#i-box"/></svg><span>Commandes</span></a>
+        </div>
+      </div>
+      <div class="nav-group">
+        <p class="nav-label">Studio</p>
+        <div class="nav">
+          <a href="#studio" data-nav="studio"><svg class="ico"><use href="#i-camera"/></svg><span>Coloris</span><b class="count">3 à juger</b></a>
+          <a href="#" data-inert><svg class="ico"><use href="#i-chart"/></svg><span>Bilan</span></a>
+        </div>
+      </div>
+      <div class="nav-group">
+        <p class="nav-label">Analyse</p>
+        <div class="nav">
+          <a href="#" data-inert><svg class="ico"><use href="#i-cal"/></svg><span>Calendrier</span></a>
+          <a href="#" data-inert><svg class="ico"><use href="#i-chart"/></svg><span>Statistiques</span></a>
+        </div>
+      </div>
+      <div class="nav-group nav-demo">
+        <p class="nav-label nav-demo-label">Planche de la direction</p>
+        <div class="nav">
+          <a href="#composants" data-nav="composants"><svg class="ico"><use href="#i-columns"/></svg><span>Composants</span></a>
+          <a href="#statuts" data-nav="statuts"><svg class="ico"><use href="#i-tag"/></svg><span>Statuts et états</span></a>
+          <a href="#mouvement" data-nav="mouvement"><svg class="ico"><use href="#i-play"/></svg><span>Mouvement</span></a>
+          <a href="#landing" data-nav="landing"><svg class="ico"><use href="#i-auto"/></svg><span>Page publique</span></a>
+          <a href="#systeme" data-nav="systeme"><svg class="ico"><use href="#i-sliders"/></svg><span>Système</span></a>
+        </div>
+      </div>
+    </nav>
+    <div class="side-foot">
+      <div class="nav">
+        <a href="#" data-inert><svg class="ico"><use href="#i-sliders"/></svg><span>Réglages</span></a>
+        <a href="#" data-inert><svg class="ico"><use href="#i-user"/></svg><span>Mon compte</span></a>
+      </div>
+      <p class="legal"><a href="#">Mentions légales</a><a href="#">CGU</a><a href="#">Confidentialité</a><span>© 2026 MyFlip</span></p>
+    </div>
+  </aside>
+
+  <div class="main">
+    <!-- ===================== Barre du haut ===================== -->
+    <header class="topbar">
+      <p class="top-title" id="topTitle">Tableau de bord</p>
+      <div class="top-search" role="search">
+        <svg class="ico"><use href="#i-search"/></svg>
+        <label class="sr-only" for="q">Rechercher</label>
+        <input id="q" type="search" placeholder="Rechercher un SKU, une marque, une commande" autocomplete="off">
+        <span class="kbd" aria-hidden="true">⌘K</span>
+      </div>
+      <div class="top-actions">
+        <div class="seg theme-seg" role="group" aria-label="Thème">
+          <button type="button" data-theme-set="light" aria-pressed="false"><svg class="ico"><use href="#i-sun"/></svg>Clair</button>
+          <button type="button" data-theme-set="dark" aria-pressed="false"><svg class="ico"><use href="#i-moon"/></svg>Sombre</button>
+          <button type="button" data-theme-set="auto" aria-pressed="true"><svg class="ico"><use href="#i-auto"/></svg>Auto</button>
+        </div>
+        <button class="btn btn-ghost btn-icon theme-cycle" type="button" id="themeCycle" aria-label="Thème : automatique. Changer"><svg class="ico"><use href="#i-auto"/></svg></button>
+        <button class="btn btn-ghost btn-icon bell" type="button" aria-label="Notifications, 4 à traiter"><svg class="ico"><use href="#i-bell"/></svg></button>
+        <span class="avatar" aria-label="Aramis">AR</span>
+      </div>
+    </header>
+
+    <main id="contenu">
+      <!-- ===================================================== TABLEAU DE BORD -->
+      <section class="screen" id="tableau" data-title="Tableau de bord" aria-labelledby="t-dash">
+        <div class="screen-inner">
+          <p class="ribbon">Écran <code>/dashboard</code></p>
+          <div class="screen-head">
+            <div>
+              <h1 class="h1" id="t-dash">Octobre 2026</h1>
+              <p class="sub">Lundi 20 octobre, il reste 11 jours dans le mois.</p>
+            </div>
+            <div class="seg" role="group" aria-label="Période affichée">
+              <button type="button" aria-pressed="true">Mois</button>
+              <button type="button" aria-pressed="false">30 jours</button>
+              <button type="button" aria-pressed="false">Trimestre</button>
+              <button type="button" aria-pressed="false">Tout</button>
+            </div>
+          </div>
+
+          <div class="stack">
+            <article class="panel month" aria-labelledby="m-ca">
+              <div class="month-grid">
+                <div>
+                  <h2 class="label" id="m-ca">Chiffre d’affaires du mois</h2>
+                  <p class="display num">4&#8239;862,50<span class="cur">€</span></p>
+                  <p class="m-sub"><strong>81&nbsp;%</strong> de ton objectif de 6&#8239;000&nbsp;€</p>
+                </div>
+                <div>
+                  <h3 class="label">Marge brute</h3>
+                  <p class="big num">3&#8239;412,80&nbsp;€</p>
+                  <p class="hint">70,2&nbsp;% du chiffre d’affaires, pour 1&#8239;449,70&nbsp;€ d’achats</p>
+                </div>
+                <div>
+                  <h3 class="label">Reste à vendre</h3>
+                  <p class="big num">1&#8239;137,50&nbsp;€</p>
+                  <p class="hint">soit 103&nbsp;€ par jour pendant 11 jours</p>
+                </div>
+              </div>
+              <div class="vernier" id="vMonth" role="img"
+                aria-label="Réglette de l’objectif : 4 862,50 € vendus sur 6 000 €. Le rythme attendu au 20 octobre est de 3 871 €."
+                data-max="6000" data-value="4862.5" data-major="1000" data-minor="250" data-pace="3871"></div>
+              <p class="m-foot"><span class="delta pos"><svg class="ico"><use href="#i-up-arrow"/></svg>991&nbsp;€ d’avance</span><span>sur le rythme qui mène à l’objectif (3&#8239;871&nbsp;€ attendus au 20 octobre).</span></p>
+            </article>
+
+            <section class="panel kpis" aria-label="Indicateurs du mois">
+              <div class="kpi"><h3 class="label">Ventes</h3><p class="kpi-v num">112</p><p class="delta pos"><svg class="ico"><use href="#i-up-arrow"/></svg>15 de plus qu’au 20 septembre</p></div>
+              <div class="kpi"><h3 class="label">Panier moyen</h3><p class="kpi-v num">43,42<small>€</small></p><p class="delta neg"><svg class="ico"><use href="#i-down-arrow"/></svg>1,80&nbsp;€ de moins</p></div>
+              <div class="kpi"><h3 class="label">Délai médian de vente</h3><p class="kpi-v num">9<small>jours</small></p><p class="delta pos"><svg class="ico"><use href="#i-down-arrow"/></svg>2 jours plus rapide</p></div>
+              <div class="kpi"><h3 class="label">Articles en vente</h3><p class="kpi-v num">412</p><p class="hint">15&#8239;380&nbsp;€ affichés sur Vinted</p></div>
+            </section>
+
+            <div class="row-2">
+              <article class="panel chart-panel" aria-labelledby="c-week">
+                <div class="panel-head">
+                  <div><h3 class="h3" id="c-week">Chiffre d’affaires par semaine</h3><p class="hint">8 dernières semaines, la semaine en cours est hachurée</p></div>
+                </div>
+                <div class="chart" id="weekChart" aria-describedby="c-week-desc">
+                  <div class="y-axis" aria-hidden="true"></div>
+                  <div class="plot"></div>
+                  <div class="x-axis" aria-hidden="true"></div>
+                </div>
+                <p class="sr-only" id="c-week-desc">Le chiffre d’affaires hebdomadaire monte de 980 € début septembre à 1 842 € la semaine du 29 septembre. La ligne marque le rythme visé de 1 355 € par semaine.</p>
+                <details class="values">
+                  <summary>Voir les valeurs</summary>
+                  <table class="mini-table" id="weekTable"><thead><tr><th>Semaine du</th><th class="r">Chiffre d’affaires</th></tr></thead><tbody></tbody></table>
+                </details>
+              </article>
+
+              <article class="panel" aria-labelledby="c-chan">
+                <div class="panel-head"><div><h3 class="h3" id="c-chan">Par compte de vente</h3><p class="hint">Octobre, 4&#8239;862,50&nbsp;€</p></div></div>
+                <div class="panel-body">
+                  <div class="stackbar" role="img" aria-label="Fripandtrend 63,8 %, Enorab18 29,2 %, Vestiaire Collective 7,0 %">
+                    <span data-c="ft" style="width:63.84%"></span><span data-c="e18" style="width:29.17%"></span><span data-c="vc" style="width:6.99%"></span>
+                  </div>
+                  <ul class="legend">
+                    <li><span class="chan" data-c="ft">Fripandtrend</span><span class="amt num">3&#8239;104,00&nbsp;€</span><span class="pct num">63,8&nbsp;%</span></li>
+                    <li><span class="chan" data-c="e18">Enorab18</span><span class="amt num">1&#8239;418,50&nbsp;€</span><span class="pct num">29,2&nbsp;%</span></li>
+                    <li><span class="chan" data-c="vc">Vestiaire Collective</span><span class="amt num">340,00&nbsp;€</span><span class="pct num">7,0&nbsp;%</span></li>
+                  </ul>
+                  <div class="split">
+                    <h4 class="label">Par marque</h4>
+                    <ul class="brands">
+                      <li><span>Ralph Lauren</span><span class="track"><i style="width:100%"></i></span><span class="amt num">1&#8239;712,00&nbsp;€</span></li>
+                      <li><span>Lacoste</span><span class="track"><i style="width:64%"></i></span><span class="amt num">1&#8239;096,50&nbsp;€</span></li>
+                      <li><span>Tommy Hilfiger</span><span class="track"><i style="width:47%"></i></span><span class="amt num">804,00&nbsp;€</span></li>
+                      <li><span>Adidas</span><span class="track"><i style="width:30%"></i></span><span class="amt num">512,00&nbsp;€</span></li>
+                      <li><span>Autres</span><span class="track"><i style="width:43%"></i></span><span class="amt num">738,00&nbsp;€</span></li>
+                    </ul>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================== STOCK -->
+      <section class="screen" id="stock" data-title="Stock" aria-labelledby="t-stock">
+        <div class="screen-inner">
+          <p class="ribbon">Écran <code>/stock</code></p>
+          <div class="screen-head">
+            <div><h1 class="h1" id="t-stock">Stock</h1><p class="sub">1&#8239;243 articles, dont 412 en vente</p></div>
+            <div class="head-actions">
+              <button class="btn btn-ghost" type="button"><svg class="ico"><use href="#i-download"/></svg>Exporter en CSV</button>
+              <button class="btn btn-secondary" type="button"><svg class="ico"><use href="#i-plus"/></svg>Nouvelle commande</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="toolbar">
+              <div class="affix"><svg class="ico lead"><use href="#i-search"/></svg><label class="sr-only" for="sq">Rechercher un SKU</label><input class="input has-lead" id="sq" type="search" placeholder="Rechercher un SKU"></div>
+              <div class="select desk"><label class="sr-only" for="fm">Filtrer par marque</label><select id="fm"><option>Toutes les marques</option><option>Ralph Lauren</option><option>Lacoste</option><option>Tommy Hilfiger</option><option>Adidas</option><option>Dickies</option><option>Helly Hansen</option><option>COOGI</option></select><svg class="ico"><use href="#i-down"/></svg></div>
+              <div class="select desk"><label class="sr-only" for="fl">Filtrer par lot</label><select id="fl"><option>Tous les lots</option><option>Polo Ralph Lauren</option><option>Short Adidas</option><option>Crazy Polaires</option></select><svg class="ico"><use href="#i-down"/></svg></div>
+              <div class="select desk"><label class="sr-only" for="fc">Filtrer par commande</label><select id="fc"><option>Toutes les commandes</option><option>Hipobuy, 3 oct.</option><option>Vinted lot, 28 sept.</option></select><svg class="ico"><use href="#i-down"/></svg></div>
+              <span class="spacer desk"></span>
+              <button class="btn btn-ghost btn-sm desk" type="button"><svg class="ico"><use href="#i-columns"/></svg>Colonnes</button>
+            </div>
+            <div class="chips" role="group" aria-label="Filtrer par statut" id="chips"></div>
+            <div class="mobile-filter"><div class="select"><label class="sr-only" for="fs">Filtrer par statut</label><select id="fs"></select><svg class="ico"><use href="#i-down"/></svg></div></div>
+
+            <div class="table-wrap" tabindex="0" aria-label="Tableau du stock, défile horizontalement si l’écran est étroit">
+              <table class="tbl" id="stockTable">
+                <thead><tr>
+                  <th class="c-check"><input class="check" type="checkbox" id="allRows" aria-label="Tout sélectionner"></th>
+                  <th aria-sort="ascending"><button type="button">SKU<svg class="ico"><use href="#i-up-arrow"/></svg></button></th>
+                  <th>Article</th>
+                  <th>Lot</th>
+                  <th class="r">Achat</th>
+                  <th class="r">Vente</th>
+                  <th class="r">Coefficient</th>
+                  <th>Statut</th>
+                  <th>Compte</th>
+                  <th class="r">En vente depuis</th>
+                </tr></thead>
+                <tbody id="stockBody"></tbody>
+              </table>
+            </div>
+            <div class="cards" id="stockCards"></div>
+
+            <div class="bulk" id="bulk" data-state="open" role="region" aria-label="Actions sur la sélection">
+              <span class="count" id="bulkCount" aria-live="polite">3 articles sélectionnés</span>
+              <span class="bsel"><label class="sr-only" for="bulkSt">Changer le statut</label><select id="bulkSt"><option>Changer le statut</option></select><svg class="ico"><use href="#i-down"/></svg></span>
+              <button class="btn btn-bar go" type="button">Marquer vendus</button>
+              <span class="bsel hide-m"><label class="sr-only" for="bulkCh">Compte de vente</label><select id="bulkCh"><option>Compte de vente</option><option>Fripandtrend</option><option>Enorab18</option><option>Vestiaire Collective</option></select><svg class="ico"><use href="#i-down"/></svg></span>
+              <button class="btn btn-bar hide-m" type="button"><svg class="ico"><use href="#i-download"/></svg>Exporter</button>
+              <button class="btn btn-bar btn-icon close" type="button" id="bulkClear" aria-label="Tout désélectionner"><svg class="ico"><use href="#i-x"/></svg></button>
+            </div>
+            <div class="list-foot"><span>8 articles affichés sur 1&#8239;243</span><span>Tri par SKU, croissant</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================== STUDIO -->
+      <section class="screen" id="studio" data-title="Studio" aria-labelledby="t-studio">
+        <div class="screen-inner">
+          <p class="ribbon">Écran <code>/studio/5039-black-pink</code></p>
+          <nav class="crumbs" aria-label="Fil d’Ariane"><a href="#">Studio</a><svg class="ico"><use href="#i-right"/></svg><a href="#">Coloris</a><svg class="ico"><use href="#i-right"/></svg><span class="mono">5039-black-pink</span></nav>
+          <div class="screen-head">
+            <div>
+              <h1 class="h1" id="t-studio">Sac 5039, noir et rose</h1>
+              <div class="meta-line"><span class="tag">Génération V2</span><span class="hint">Sacs cibles</span>
+                <div class="seg" role="group" aria-label="Sac cible"><button type="button" aria-pressed="true"><span class="mono">SDN3</span></button><button type="button" aria-pressed="false"><span class="mono">SDN7</span></button></div>
+              </div>
+            </div>
+            <div class="head-actions">
+              <button class="btn btn-ghost" type="button"><svg class="ico"><use href="#i-history"/></svg>Historique</button>
+              <button class="btn btn-secondary" type="button"><svg class="ico"><use href="#i-sliders"/></svg>Réglages du Studio</button>
+            </div>
+          </div>
+
+          <div class="stack">
+            <article class="panel next" aria-labelledby="na-title">
+              <div>
+                <p class="label">Prochaine action</p>
+                <h2 class="next-title" id="na-title">Juger 3 images générées</h2>
+                <p class="hint">Celles que tu valides partent dans l’annonce de <span class="mono">SDN3</span>.</p>
+              </div>
+              <ol class="steps" aria-label="Avancement du coloris">
+                <li class="done"><span class="n"><i>1</i>Photos</span><span class="v num">15 sur 15</span></li>
+                <li class="done"><span class="n"><i>2</i>Angles</span><span class="v num">15 cases</span></li>
+                <li class="done"><span class="n"><i>3</i>Modèle</span><span class="v">1 choisi</span></li>
+                <li class="done"><span class="n"><i>4</i>Génération</span><span class="v num">15 sur 15</span></li>
+                <li class="now" aria-current="step"><span class="n"><i>5</i>Juger</span><span class="v num" id="leftCount">3 restantes</span></li>
+                <li><span class="n"><i>6</i>Annonce</span><span class="v num" id="validCount">9 sur 15</span></li>
+              </ol>
+            </article>
+
+            <article class="panel" aria-labelledby="j-title">
+              <div class="panel-head">
+                <div><h3 class="h3" id="j-title">À juger <span class="muted num" id="jCounter">image 2 sur 3</span></h3><p class="hint">Prise « Trois quarts arrière », à partir de la photo 7</p></div>
+                <div class="head-actions">
+                  <button class="btn btn-ghost btn-icon btn-sm" type="button" aria-label="Image précédente"><svg class="ico"><use href="#i-left"/></svg></button>
+                  <button class="btn btn-ghost btn-icon btn-sm" type="button" aria-label="Image suivante"><svg class="ico"><use href="#i-right"/></svg></button>
+                </div>
+              </div>
+              <div class="judge-grid">
+                <figure class="shot">
+                  <div class="frame"><svg viewBox="0 0 240 240" role="img" aria-label="Vraie photo : le sac noir et rose vu de dos"><use href="#bag-back"/></svg></div>
+                  <figcaption><b>Vraie photo</b><span>photo 7, dos</span></figcaption>
+                </figure>
+                <figure class="shot">
+                  <div class="frame"><svg viewBox="0 0 240 240" role="img" aria-label="Image générée : le même sac en trois quarts arrière"><use href="#bag-34"/></svg></div>
+                  <figcaption><b>Image générée</b><span>trois quarts arrière</span></figcaption>
+                </figure>
+                <div class="side">
+                  <section class="ai" aria-labelledby="ai-t">
+                    <div class="ai-head"><svg class="ico"><use href="#i-eye"/></svg><span id="ai-t">Avis de l’IA</span><span class="tag tag-warn"><svg class="ico"><use href="#i-alert"/></svg>À vérifier</span></div>
+                    <p>Forme, couleurs et matière conformes. Le liseré rose du soufflet paraît plus épais que sur la vraie photo.</p>
+                    <ul class="checks">
+                      <li class="ok"><svg class="ico"><use href="#i-check"/></svg>Forme et proportions</li>
+                      <li class="ok"><svg class="ico"><use href="#i-check"/></svg>Couleurs</li>
+                      <li class="ok"><svg class="ico"><use href="#i-check"/></svg>Matière et quincaillerie</li>
+                      <li class="ko"><svg class="ico"><use href="#i-alert"/></svg>Liseré du soufflet</li>
+                    </ul>
+                    <small>Une aide, pas une décision : seuls tes choix comptent dans le Bilan.</small>
+                  </section>
+                  <div>
+                    <dl class="facts">
+                      <dt>Modèle</dt><dd>Gemini 2.5 Flash Image</dd>
+                      <dt>Coût réel</dt><dd class="num">0,039&nbsp;$</dd>
+                      <dt>Durée</dt><dd class="num">14,2&nbsp;s</dd>
+                      <dt>Essai</dt><dd>n°&nbsp;2, le n°&nbsp;1 a été rejeté</dd>
+                    </dl>
+                  </div>
+                  <div class="decide">
+                    <button class="btn btn-secondary" type="button" id="btnReject">Rejeter <span class="kbd">R</span></button>
+                    <button class="btn btn-primary" type="button" id="btnValidate">Valider <span class="kbd">V</span></button>
+                  </div>
+                  <button class="btn btn-ghost btn-sm" type="button" style="justify-self:start"><svg class="ico"><use href="#i-edit"/></svg>Corriger un détail</button>
+                  <div class="toast-demo">
+                    <p class="hint" style="margin-bottom:6px">Après une décision, 5 secondes pour revenir dessus :</p>
+                    <div class="toast ok toast-static" role="presentation">
+                      <span class="ti"><svg class="ico"><use href="#i-check"/></svg></span>
+                      <div><p class="tt">Image 1 validée</p><p class="td">Elle part dans l’annonce de SDN3.</p></div>
+                      <button class="tbtn" type="button" tabindex="-1"><svg class="ico ico-sm"><use href="#i-undo"/></svg>Annuler <span class="muted num">4&nbsp;s</span></button>
+                      <span class="timer" style="transform:scaleX(.8)"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="history">
+                <h4 class="label">Historique de la prise</h4>
+                <ol>
+                  <li><span class="th"><svg viewBox="20 64 200 200" aria-hidden="true"><use href="#bag-34"/></svg></span><div><p class="t1">Essai 1, Gemini 2.5 Flash Image</p><p class="t2">Rejeté par toi, IA : anse coupée en haut du cadre</p></div><span class="hint num">0,039&nbsp;$, 12,8&nbsp;s</span></li>
+                  <li class="cur"><span class="th"><svg viewBox="0 0 240 240" aria-hidden="true"><use href="#bag-34"/></svg></span><div><p class="t1">Essai 2, Gemini 2.5 Flash Image</p><p class="t2">En attente de ta décision</p></div><span class="hint num">0,039&nbsp;$, 14,2&nbsp;s</span></li>
+                </ol>
+              </div>
+            </article>
+
+            <article class="panel models" aria-labelledby="m-title">
+              <div class="panel-head">
+                <div><h3 class="h3" id="m-title">Modèle de génération</h3><p class="hint">Coût d’un sac complet de 15 prises, comparé à ton budget</p></div>
+                <button class="btn btn-ghost btn-sm" type="button"><svg class="ico"><use href="#i-refresh"/></svg>Rafraîchir le catalogue</button>
+              </div>
+              <div class="budget">
+                <div class="field"><label for="budget">Budget par sac</label><div class="affix"><input class="input num" id="budget" inputmode="decimal" value="1,00"><span class="unit">€</span></div></div>
+                <p class="hint" style="padding-bottom:9px">soit 1,16&nbsp;$ au taux de 1&nbsp;$&nbsp;=&nbsp;0,86&nbsp;€ <button class="btn btn-ghost btn-sm" type="button">Modifier le taux</button></p>
+              </div>
+              <div class="mfilters">
+                <div class="affix"><svg class="ico lead"><use href="#i-search"/></svg><label class="sr-only" for="mq">Chercher un modèle</label><input class="input has-lead" id="mq" type="search" placeholder="Chercher un modèle"></div>
+                <button class="toggle" type="button" aria-pressed="false">Dans le budget</button>
+                <button class="toggle" type="button" aria-pressed="true"><svg class="ico"><use href="#i-check"/></svg>Déjà testés</button>
+                <button class="toggle" type="button" aria-pressed="false"><svg class="ico"><use href="#i-star"/></svg>Favoris</button>
+                <div class="select" style="width:200px;margin-left:auto"><label class="sr-only" for="msort">Trier</label><select id="msort"><option>Trier par coût par sac</option><option>Trier par réussite</option></select><svg class="ico"><use href="#i-down"/></svg></div>
+              </div>
+              <div class="mhead" aria-hidden="true"><span></span><span>Modèle</span><span>Prix par image</span><span>Coût par sac (15 prises)</span><span>Réussite au 1er coup</span><span>Coût moyen réel</span><span>Lancement</span></div>
+              <div class="mlist" role="list">
+                <div class="mrow picked" role="listitem">
+                  <span class="c-star"><button class="star" type="button" aria-pressed="true" aria-label="Retirer Gemini 2.5 Flash Image des favoris"><svg class="ico"><use href="#i-star"/></svg></button></span>
+                  <span class="mname"><b>Gemini 2.5 Flash Image</b><span>google/gemini-2.5-flash-image</span></span>
+                  <span class="c-price"><span class="mlabel">Prix par image</span><b class="num">0,039&nbsp;$</b></span>
+                  <span class="cost"><span class="mlabel">Coût par sac</span><span class="line1"><b class="num">0,59&nbsp;$</b><span class="hint num">≈ 0,50&nbsp;€</span><span class="tag tag-pos"><svg class="ico"><use href="#i-check"/></svg>Dans le budget</span></span><span class="mv" data-eur="0.50" aria-hidden="true"></span></span>
+                  <span class="rate"><span class="mlabel">Réussite au 1er coup</span><b class="num">72&nbsp;%</b><span>18 essais sur 25</span></span>
+                  <span class="c-avg"><span class="mlabel">Coût moyen réel</span><b class="num">0,041&nbsp;$</b><span class="hint" style="display:block">il y a 2&nbsp;h</span></span>
+                  <span class="c-pick"><label class="check-row"><input class="check" type="checkbox" checked>Choisi</label></span>
+                </div>
+                <div class="mrow" role="listitem">
+                  <span class="c-star"><button class="star" type="button" aria-pressed="false" aria-label="Ajouter Nano Banana Pro aux favoris"><svg class="ico"><use href="#i-star"/></svg></button></span>
+                  <span class="mname"><b>Nano Banana Pro</b><span>google/gemini-3-pro-image-preview</span></span>
+                  <span class="c-price"><span class="mlabel">Prix par image</span><b class="num">0,134&nbsp;$</b></span>
+                  <span class="cost"><span class="mlabel">Coût par sac</span><span class="line1"><b class="num">2,01&nbsp;$</b><span class="hint num">≈ 1,73&nbsp;€</span><span class="tag tag-warn"><svg class="ico"><use href="#i-alert"/></svg>Hors budget</span></span><span class="mv" data-eur="1.73" aria-hidden="true"></span></span>
+                  <span class="rate"><span class="mlabel">Réussite au 1er coup</span><b class="num">89&nbsp;%</b><span>8 essais sur 9</span></span>
+                  <span class="c-avg"><span class="mlabel">Coût moyen réel</span><b class="num">0,138&nbsp;$</b><span class="hint" style="display:block">il y a 6&nbsp;jours</span></span>
+                  <span class="c-pick"><label class="check-row"><input class="check" type="checkbox">Comparer</label></span>
+                </div>
+                <div class="mrow" role="listitem">
+                  <span class="c-star"><button class="star" type="button" aria-pressed="false" aria-label="Ajouter Riverflow 2 aux favoris"><svg class="ico"><use href="#i-star"/></svg></button></span>
+                  <span class="mname"><b>Riverflow 2</b><span>sourceful/riverflow-v2-fast</span></span>
+                  <span class="c-price"><span class="mlabel">Prix par image</span><b>Inconnu</b><span class="hint" style="display:block">facturé au mégapixel</span></span>
+                  <span class="cost"><span class="mlabel">Coût par sac</span><span class="line1"><span class="tag"><svg class="ico"><use href="#i-info"/></svg>Prix inconnu</span></span><span class="hint">Le lancement te demandera de confirmer.</span></span>
+                  <span class="rate"><span class="mlabel">Réussite au 1er coup</span><b>Pas encore testé</b></span>
+                  <span class="c-avg"><span class="mlabel">Coût moyen réel</span><b>Aucun</b></span>
+                  <span class="c-pick"><label class="check-row"><input class="check" type="checkbox">Comparer</label></span>
+                </div>
+              </div>
+              <div class="mfoot">
+                <p class="sum">15 prises × Gemini 2.5 Flash Image = <b class="num">0,59&nbsp;$</b>, soit <b class="num">0,50&nbsp;€</b> sur 1,00&nbsp;€ de budget</p>
+                <button class="btn btn-primary" type="button" data-open="dlgCost">Générer 15 images</button>
+              </div>
+            </article>
+
+            <section class="panel folds" aria-label="Sections du coloris">
+              <details><summary><svg class="ico"><use href="#i-right"/></svg><span>Photos du sac</span><span>15 sur 15, glisser pour réordonner</span></summary><p class="fold-body">La planche se range à la souris, ou au clavier avec Espace puis les flèches. Une photo qui n’a servi à aucune image peut être retirée ou remplacée.</p></details>
+              <details><summary><svg class="ico"><use href="#i-right"/></svg><span>Angles</span><span>15 cases choisies, une par photo</span></summary><p class="fold-body">Le choix automatique prend la première case libre de chaque photo.</p></details>
+              <details><summary><svg class="ico"><use href="#i-right"/></svg><span>Validées</span><span>9 images pour SDN3</span></summary><p class="fold-body">Elles apparaîtront dans la mise en vente de SDN3, dans l’ordre des prises.</p></details>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================== COMPOSANTS -->
+      <section class="screen" id="composants" data-title="Composants" aria-labelledby="t-comp">
+        <div class="screen-inner">
+          <p class="ribbon">Planche <code>composants communs</code></p>
+          <div class="screen-head"><div><h1 class="h1" id="t-comp">Composants</h1><p class="sub">Une seule version de chaque : bouton, champ, modale, tiroir, toast.</p></div></div>
+          <div class="stack">
+            <div class="row-2 even">
+              <article class="panel" aria-labelledby="c-btn">
+                <div class="panel-head"><h3 class="h3" id="c-btn">Boutons</h3></div>
+                <div class="panel-body stack">
+                  <div class="head-actions">
+                    <button class="btn btn-primary" type="button">Enregistrer la vente</button>
+                    <button class="btn btn-secondary" type="button">Nouvelle commande</button>
+                    <button class="btn btn-ghost" type="button">Annuler</button>
+                    <button class="btn btn-danger" type="button">Supprimer la commande</button>
+                  </div>
+                  <div class="head-actions">
+                    <button class="btn btn-primary" type="button" id="busyBtn"><span class="lbl">Enregistrer le prix</span></button>
+                    <button class="btn btn-primary" type="button" aria-busy="true" aria-disabled="true"><span class="spinner" aria-hidden="true"></span>Enregistrement…</button>
+                    <button class="btn btn-secondary" type="button" disabled>Désactivé</button>
+                  </div>
+                  <div class="head-actions" style="align-items:center">
+                    <button class="btn btn-primary btn-sm" type="button">Petit</button>
+                    <button class="btn btn-primary" type="button">Moyen</button>
+                    <button class="btn btn-primary btn-lg" type="button">Grand, tactile</button>
+                    <button class="btn btn-secondary btn-icon" type="button" aria-label="Rechercher"><svg class="ico"><use href="#i-search"/></svg></button>
+                  </div>
+                  <p class="hint">Le bouton « Enregistrer le prix » montre l’état en cours puis le succès quand on clique dessus.</p>
+                </div>
+              </article>
+
+              <article class="panel" aria-labelledby="c-fields">
+                <div class="panel-head"><h3 class="h3" id="c-fields">Champs</h3></div>
+                <div class="panel-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--sp-4)">
+                  <div class="field"><label for="f1">Prix de vente</label><div class="affix"><input class="input num" id="f1" inputmode="decimal" value="38,00"><span class="unit">€</span></div><span class="field-help">Prix affiché sur Vinted</span></div>
+                  <div class="field"><label for="f2">Prix d’achat <span class="muted">(focus)</span></label><div class="affix"><input class="input num is-focus" id="f2" inputmode="decimal" value="9,50"><span class="unit">€</span></div></div>
+                  <div class="field"><label for="f3">Prix de vente</label><div class="affix"><input class="input num" id="f3" inputmode="decimal" value="0" aria-invalid="true" aria-describedby="f3e"><span class="unit">€</span></div><span class="field-error" id="f3e"><svg class="ico"><use href="#i-alert"/></svg>Le prix doit être supérieur à 0&nbsp;€.</span></div>
+                  <div class="field"><label for="f4">SKU</label><input class="input mono" id="f4" value="PRL112" disabled><span class="field-help">Généré à la création, non modifiable</span></div>
+                  <div class="field"><label for="f5">Compte de vente</label><div class="select"><select id="f5"><option>Fripandtrend</option><option>Enorab18</option><option>Vestiaire Collective</option></select><svg class="ico"><use href="#i-down"/></svg></div></div>
+                  <div class="field"><span class="field-label">Options</span>
+                    <label class="check-row"><input class="check" type="checkbox" checked>Vendu aujourd’hui</label>
+                    <label class="check-row"><input class="check" type="checkbox">Prévenir sur Trello</label>
+                    <label class="check-row muted"><input class="check" type="checkbox" disabled>Archiver (désactivé)</label>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <div class="row-2 even">
+              <article class="panel" aria-labelledby="c-modal">
+                <div class="panel-head"><h3 class="h3" id="c-modal">Modale, avec son voile</h3><button class="btn btn-secondary btn-sm" type="button" data-open="dlgCost">Ouvrir pour de vrai</button></div>
+                <div class="panel-body">
+                  <div class="stage" aria-hidden="true">
+                    <div class="fake"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                    <div class="veil"></div>
+                    <div class="dialog">
+                      <div class="dlg-head"><h2 class="h2">Confirmer la dépense</h2></div>
+                      <div class="dlg-body"><p class="prose">Ce lancement dépasse ton budget par sac.</p>
+                        <table class="quote"><tr><td>15 prises × Nano Banana Pro</td><td class="r num">2,01&nbsp;$</td></tr><tr><td>En euros, au taux de 0,86</td><td class="r num">1,73&nbsp;€</td></tr><tr class="over"><td>Au-delà du budget de 1,00&nbsp;€</td><td class="r num">+0,73&nbsp;€</td></tr></table>
+                      </div>
+                      <div class="dlg-foot"><span class="btn btn-ghost">Annuler</span><span class="btn btn-primary">Confirmer 1,73&nbsp;€</span></div>
+                    </div>
+                  </div>
+                </div>
+              </article>
+              <article class="panel" aria-labelledby="c-drawer">
+                <div class="panel-head"><h3 class="h3" id="c-drawer">Tiroir</h3><button class="btn btn-secondary btn-sm" type="button" data-open="drawerArt">Ouvrir pour de vrai</button></div>
+                <div class="panel-body">
+                  <div class="stage" aria-hidden="true">
+                    <div class="fake"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                    <div class="veil"></div>
+                    <div class="drawer">
+                      <div class="dlg-head"><div><p class="sku" style="font-size:var(--t-md)">LAC045</p><p class="hint">Lacoste, polo, L</p></div></div>
+                      <div class="dlg-body">
+                        <span class="pill" data-s="photos"></span>
+                        <dl class="facts"><dt>Achat</dt><dd class="num">11,20&nbsp;€</dd><dt>Vente prévue</dt><dd class="num">34,00&nbsp;€</dd><dt>Coefficient</dt><dd class="num">×3,0</dd><dt>Compte</dt><dd><span class="chan" data-c="e18">Enorab18</span></dd></dl>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <article class="panel" aria-labelledby="c-toast">
+              <div class="panel-head"><h3 class="h3" id="c-toast">Toasts</h3>
+                <div class="head-actions"><button class="btn btn-secondary btn-sm" type="button" id="demoToastOk">Déclencher un succès</button><button class="btn btn-secondary btn-sm" type="button" id="demoToastErr">Déclencher une erreur</button></div>
+              </div>
+              <div class="panel-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:var(--sp-4)">
+                <div class="toast ok toast-static"><span class="ti"><svg class="ico"><use href="#i-check"/></svg></span><div><p class="tt">Vente enregistrée</p><p class="td">PRL112, 38,00&nbsp;€ sur Fripandtrend</p></div><button class="tbtn" type="button" tabindex="-1"><svg class="ico ico-sm"><use href="#i-undo"/></svg>Annuler</button><span class="timer" style="transform:scaleX(.55)"></span></div>
+                <div class="toast bad toast-static"><span class="ti"><svg class="ico"><use href="#i-x"/></svg></span><div><p class="tt">Trello n’a pas répondu</p><p class="td">La vente est enregistrée, l’étiquette sera posée plus tard.</p></div><button class="tbtn" type="button" tabindex="-1">Réessayer</button></div>
+                <div class="toast info toast-static"><span class="ti"><svg class="ico"><use href="#i-info"/></svg></span><div><p class="tt">Catalogue des modèles daté de 14:02</p><p class="td">OpenRouter ne répond pas, dernier catalogue connu.</p></div><button class="tbtn" type="button" tabindex="-1">Rafraîchir</button></div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================== STATUTS ET ÉTATS -->
+      <section class="screen" id="statuts" data-title="Statuts et états" aria-labelledby="t-st">
+        <div class="screen-inner">
+          <p class="ribbon">Planche <code>lib/statutColors.ts</code></p>
+          <div class="screen-head"><div><h1 class="h1" id="t-st">Statuts et états</h1><p class="sub">Chaque statut a un glyphe qui se remplit avec l’avancée vers la vente, une couleur et un libellé.</p></div></div>
+          <div class="stack">
+            <article class="panel cycle" aria-label="Cycle de vie d’un article">
+              <div class="cycle-rule" id="cycleRule" aria-hidden="true"><span class="base"></span></div>
+              <ol class="cycle-stations" id="stations"></ol>
+              <div class="off-track"><span><span class="glyph" data-s="brouillon" data-glyph="brouillon"></span><b>Brouillon</b>, avant l’entrée en stock</span><span><span class="glyph" data-s="perdu" data-glyph="perdu"></span><b>Perdu</b>, hors cycle</span></div>
+            </article>
+
+            <article class="panel" aria-labelledby="st-tab" style="overflow:hidden">
+              <div class="panel-head"><h3 class="h3" id="st-tab">Les 10 statuts, dans les deux thèmes</h3></div>
+              <div class="table-wrap" style="background:none">
+                <table class="st-table" id="stTable">
+                  <thead><tr><th>Statut</th><th>Thème clair</th><th>Thème sombre</th><th class="hide-m">Quand</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="panel" aria-labelledby="ch-t">
+              <div class="panel-head"><div><h3 class="h3" id="ch-t">Comptes de vente</h3><p class="hint">Une pastille carrée et le nom : jamais la couleur seule</p></div></div>
+              <div class="chan-grid">
+                <div class="chan-card"><span class="chan" data-c="ft">Fripandtrend</span><span class="hint">Vinted, compte pro, compte par défaut</span></div>
+                <div class="chan-card"><span class="chan" data-c="e18">Enorab18</span><span class="hint">Vinted, second compte</span></div>
+                <div class="chan-card"><span class="chan" data-c="vc">Vestiaire Collective</span><span class="hint">Pièces hautes, sacs</span></div>
+              </div>
+            </article>
+
+            <div class="states">
+              <article class="panel state" aria-labelledby="s-empty">
+                <span class="sic"><svg class="ico"><use href="#i-inbox"/></svg></span>
+                <h3 class="h3" id="s-empty">Aucun article ne correspond</h3>
+                <p>Les filtres « Lacoste » et « En lavage » ne donnent rien. Retire un filtre ou cherche un autre SKU.</p>
+                <button class="btn btn-secondary btn-sm" type="button">Réinitialiser les filtres</button>
+              </article>
+              <article class="panel state err" aria-labelledby="s-err">
+                <span class="sic"><svg class="ico"><use href="#i-wifi-off"/></svg></span>
+                <h3 class="h3" id="s-err">Le tableau de bord n’a pas pu se charger</h3>
+                <p>Le serveur a répondu en erreur. Tes données ne sont pas perdues.</p>
+                <code>GET /api/dashboard, erreur 500</code>
+                <button class="btn btn-primary btn-sm" type="button"><svg class="ico"><use href="#i-refresh"/></svg>Réessayer</button>
+              </article>
+              <article class="panel state" aria-labelledby="s-load" aria-busy="true">
+                <h3 class="sr-only" id="s-load">Chargement du stock</h3>
+                <div class="sk-rows" aria-hidden="true">
+                  <div class="sk-row"><span class="sk" style="height:16px"></span><span class="sk" style="height:12px"></span><span class="sk" style="height:12px"></span><span class="sk" style="height:12px"></span><span class="sk" style="height:20px"></span></div>
+                  <div class="sk-row"><span class="sk" style="height:16px"></span><span class="sk" style="height:12px"></span><span class="sk" style="height:12px;width:80%"></span><span class="sk" style="height:12px"></span><span class="sk" style="height:20px"></span></div>
+                  <div class="sk-row"><span class="sk" style="height:16px"></span><span class="sk" style="height:12px"></span><span class="sk" style="height:12px;width:60%"></span><span class="sk" style="height:12px"></span><span class="sk" style="height:20px"></span></div>
+                  <div class="sk-row"><span class="sk" style="height:16px"></span><span class="sk" style="height:12px"></span><span class="sk" style="height:12px;width:90%"></span><span class="sk" style="height:12px"></span><span class="sk" style="height:20px"></span></div>
+                  <div class="sk-row"><span class="sk" style="height:16px"></span><span class="sk" style="height:12px"></span><span class="sk" style="height:12px;width:70%"></span><span class="sk" style="height:12px"></span><span class="sk" style="height:20px"></span></div>
+                </div>
+                <p class="hint" style="margin-top:var(--sp-3)">Squelette du tableau : mêmes hauteurs de ligne que le vrai, pour qu’il ne saute pas à l’arrivée des données.</p>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================== MOUVEMENT -->
+      <section class="screen" id="mouvement" data-title="Mouvement" aria-labelledby="t-mo">
+        <div class="screen-inner">
+          <p class="ribbon">Planche <code>120 à 240 ms</code></p>
+          <div class="screen-head"><div><h1 class="h1" id="t-mo">Mouvement</h1><p class="sub">Trois gestes seulement, chacun répond à une action et peut être interrompu.</p></div></div>
+          <p class="rm-note" id="rmNote"></p>
+          <div class="motion-grid">
+            <article class="panel mo" aria-labelledby="mo1">
+              <div class="panel-head"><h3 class="h3" id="mo1">Apparition</h3><button class="btn btn-secondary btn-sm" type="button" id="moAppear"><svg class="ico"><use href="#i-refresh"/></svg>Rejouer</button></div>
+              <div class="panel-body"><div class="appear" id="appearEl" data-state="open"><div class="toast ok toast-static" style="max-width:none"><span class="ti"><svg class="ico"><use href="#i-check"/></svg></span><div><p class="tt">Commande créée</p><p class="td">12 articles, de LAC046 à LAC057</p></div><span></span></div></div></div>
+              <p class="mo-foot"><span>Opacité et 8&nbsp;px de glissé</span><code>180 ms, ease-out</code></p>
+            </article>
+            <article class="panel mo" aria-labelledby="mo2">
+              <div class="panel-head"><h3 class="h3" id="mo2">Déplacement</h3><button class="btn btn-secondary btn-sm" type="button" id="moMove">Passer LAC045 en vente</button></div>
+              <div class="panel-body"><ol class="flip-list" id="flipList">
+                <li data-id="PRL112"><span class="sku">PRL112</span><span class="pill" data-s="vente"></span></li>
+                <li data-id="TOM057"><span class="sku">TOM057</span><span class="pill" data-s="vente"></span></li>
+                <li data-id="LAC045"><span class="sku">LAC045</span><span class="pill" data-s="photos"></span></li>
+              </ol></div>
+              <p class="mo-foot"><span>La ligne glisse vers sa nouvelle place</span><code>240 ms, ease-in-out</code></p>
+            </article>
+            <article class="panel mo" aria-labelledby="mo3">
+              <div class="panel-head"><h3 class="h3" id="mo3">Succès</h3><button class="btn btn-secondary btn-sm" type="button" id="moReset"><svg class="ico"><use href="#i-refresh"/></svg>Rejouer</button></div>
+              <div class="panel-body"><div class="succ">
+                <button class="btn btn-primary succ-btn" type="button" id="succBtn"><span class="lbl">Valider l’image</span></button>
+                <span class="pill" data-s="photos" id="succPill"></span>
+              </div></div>
+              <p class="mo-foot"><span>Le trait de la coche se dessine</span><code>180 ms, ease-out</code></p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================== LANDING -->
+      <section class="screen" id="landing" data-title="Page publique" aria-labelledby="t-land">
+        <div class="screen-inner">
+          <p class="ribbon">Écran <code>/</code> sans le cadre de l’application</p>
+          <div class="screen-head"><div><h1 class="h1" id="t-land">Page publique</h1><p class="sub">Le haut de la landing : ce que MyFlip fait, en dix secondes.</p></div></div>
+          <div class="browser">
+            <div class="browser-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span><span class="url">myflip-app.vercel.app</span></div>
+            <div class="lnav">
+              <span class="brand" style="margin:0;height:auto;padding:0"><svg class="brand-mark" viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" rx="5"/><path d="M5.5 15.5v-8M8.5 15.5v-4M11 15.5V5.5M13.5 15.5v-4M16.5 15.5v-6" stroke-width="1.7" stroke-linecap="round" fill="none"/></svg><span class="brand-name">MyFlip</span></span>
+              <span class="links"><a href="#">Fonctionnalités</a><a href="#">Méthode</a><a href="#">Tarifs</a><a href="#">Questions</a></span>
+              <span class="cta"><a class="btn btn-ghost" href="#">Se connecter</a><a class="btn btn-primary" href="#">Demander une invitation</a></span>
+            </div>
+            <div class="hero">
+              <div>
+                <h2>Chaque pièce suivie, du lot à la vente.</h2>
+                <p class="lead prose">MyFlip tient le stock d’un revendeur Vinted : les achats en lots, la mise en vente, les ventes à comptabiliser et la marge du mois. Tu sais ce que vaut chaque article et où en est ton mois.</p>
+                <div class="ctas"><a class="btn btn-primary btn-lg" href="#">Demander une invitation</a><a class="btn btn-secondary btn-lg" href="#">Voir un exemple de stock</a></div>
+                <p class="fine">Sur invitation pendant la bêta. Tes données restent à toi.</p>
+              </div>
+              <div class="panel life" aria-label="Exemple : la vie de l’article PRL112">
+                <div class="life-head"><div><span class="sku">PRL112</span> <span class="hint">Polo Ralph Lauren, M</span></div><span class="pill" data-s="vendu"></span></div>
+                <div class="life-rule" id="lifeRule"></div>
+                <div class="life-sum">
+                  <div><b class="num">9,50&nbsp;€</b><span>acheté le 2 octobre</span></div>
+                  <div><b class="num">38,00&nbsp;€</b><span>vendu le 19 octobre</span></div>
+                  <div><b class="num">×4,0</b><span>en 11 jours de vente</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================== SYSTÈME -->
+      <section class="screen" id="systeme" data-title="Système" aria-labelledby="t-sys">
+        <div class="screen-inner">
+          <p class="ribbon">Planche <code>tokens</code></p>
+          <div class="screen-head"><div><h1 class="h1" id="t-sys">Système</h1><p class="sub">Les ratios ci-dessous sont calculés dans la page, à partir des variables CSS des deux thèmes.</p></div></div>
+          <div class="stack">
+            <article class="panel" aria-labelledby="sys-tok" style="overflow:hidden">
+              <div class="panel-head"><div><h3 class="h3" id="sys-tok">Tokens de couleur</h3><p class="hint">Canaux R G B, lus dans la feuille de style des deux thèmes</p></div></div>
+              <div class="table-wrap" style="background:none">
+                <table class="tok" id="tokList"><thead><tr><th>Token</th><th>Clair</th><th>Sombre</th><th class="hide-m">Rôle</th></tr></thead><tbody></tbody></table>
+              </div>
+            </article>
+            <article class="panel" aria-labelledby="sys-pal" style="overflow:hidden">
+              <div class="panel-head"><div><h3 class="h3" id="sys-pal">Palette et contrastes</h3><p class="hint" id="contrastSummary">Calcul en cours…</p></div></div>
+              <div class="table-wrap scroll-y" style="background:none">
+                <table class="tok" id="tokTable"><thead><tr><th>Paire</th><th>Clair</th><th>Ratio clair</th><th>Sombre</th><th>Ratio sombre</th><th class="hide-m">Seuil</th></tr></thead><tbody></tbody></table>
+              </div>
+            </article>
+
+            <div class="sys-grid">
+              <article class="panel" aria-labelledby="sys-type">
+                <div class="panel-head"><div><h3 class="h3" id="sys-type">Échelle typographique</h3><p class="hint">8 tailles en rem, Archivo et Fragment Mono</p></div></div>
+                <div id="typeScale"></div>
+              </article>
+              <article class="panel" aria-labelledby="sys-glyph">
+                <div class="panel-head"><div><h3 class="h3" id="sys-glyph">Polices et glyphes</h3><p class="hint">Licence SIL OFL 1.1, chargées par next/font</p></div></div>
+                <div class="panel-body stack">
+                  <p class="glyphs" aria-label="Spécimen Archivo">Àa Éé Œœ Çç «&nbsp;»&nbsp;’ € × 0123456789</p>
+                  <p class="glyphs"><span class="m">PRL112 LAC045 SDN3 0O Il1</span></p>
+                  <p class="note"><b>Vérifié dans Chromium</b> (police réellement utilisée, par glyphe) : les accents français, «&nbsp;», €, × et les flèches ↑ ↓ sont dans Archivo. <b>✕ n’existe ni dans Archivo ni dans Fragment Mono</b> : la croix de fermeture est l’icône X (Lucide), et × (U+00D7) sert au coefficient. <b>→</b> est dans le fichier source d’Archivo mais pas dans les sous-ensembles « latin » que sert Google : en Next, charger Archivo par <code class="mono">next/font/local</code> (fichier OFL complet) ou dessiner la flèche en icône.</p>
+                  <p class="note">Le zéro barré de Fragment Mono sépare 0 et O dans les SKU, là où une confusion coûte une recherche ratée.</p>
+                </div>
+              </article>
+              <article class="panel" aria-labelledby="sys-space">
+                <div class="panel-head"><h3 class="h3" id="sys-space">Espacements et rayons</h3></div>
+                <div class="panel-body stack">
+                  <ul class="scale-list" id="spaceScale"></ul>
+                  <div class="radii">
+                    <div><i style="border-radius:var(--r-xs)"></i><span>r-xs 3&nbsp;px</span></div>
+                    <div><i style="border-radius:var(--r-sm)"></i><span>r-sm 5&nbsp;px</span></div>
+                    <div><i style="border-radius:var(--r-md)"></i><span>r-md 8&nbsp;px</span></div>
+                    <div><i style="border-radius:var(--r-lg)"></i><span>r-lg 12&nbsp;px</span></div>
+                    <div><i style="border-radius:var(--r-full);width:40px"></i><span>r-full</span></div>
+                  </div>
+                  <p class="note">Contrôles 5&nbsp;px, panneaux 8&nbsp;px, superpositions 12&nbsp;px. Les statuts restent à 3&nbsp;px : ce sont des étiquettes, pas des boutons.</p>
+                </div>
+              </article>
+              <article class="panel" aria-labelledby="sys-z">
+                <div class="panel-head"><h3 class="h3" id="sys-z">Profondeur, z-index et durées</h3></div>
+                <div class="panel-body stack">
+                  <div class="shadows">
+                    <div style="box-shadow:none">Aplat, filet 1&nbsp;px</div>
+                    <div style="box-shadow:0 1px 2px rgb(var(--shadow) / calc(.08 * var(--sh-k))), 0 6px 16px -4px rgb(var(--shadow) / calc(.14 * var(--sh-k)))">Menu, popover</div>
+                    <div style="box-shadow:0 2px 6px rgb(var(--shadow) / calc(.08 * var(--sh-k))), 0 28px 64px -16px rgb(var(--shadow) / calc(.36 * var(--sh-k)))">Modale, tiroir</div>
+                  </div>
+                  <ul class="zl" id="zList"></ul>
+                  <ul class="zl">
+                    <li><b>120</b><code>--d-fast</code><span>Survol, appui, couleur</span></li>
+                    <li><b>180</b><code>--d-base</code><span>Toast, barre groupée, coche</span></li>
+                    <li><b>240</b><code>--d-slow</code><span>Modale, tiroir, déplacement de ligne</span></li>
+                  </ul>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- ===================== Dock mobile ===================== -->
+<nav class="dock" aria-label="Navigation mobile">
+  <a href="#tableau" data-nav="tableau" aria-current="page"><svg class="ico"><use href="#i-gauge"/></svg>Tableau</a>
+  <a href="#stock" data-nav="stock"><svg class="ico"><use href="#i-stock"/></svg>Stock</a>
+  <a href="#" data-inert><svg class="ico"><use href="#i-tag"/></svg>Vendre</a>
+  <a href="#" data-inert><svg class="ico"><use href="#i-receipt"/></svg>À compta<span class="dbadge" aria-label="4 à comptabiliser">4</span></a>
+  <button type="button" data-open="sheetMore" aria-haspopup="dialog"><svg class="ico"><use href="#i-more"/></svg>Plus</button>
+</nav>
+
+<!-- ===================== Superpositions réelles ===================== -->
+<div class="veil" id="veil" hidden></div>
+
+<div class="dialog" id="dlgCost" role="dialog" aria-modal="true" aria-labelledby="dlgCostT" hidden>
+  <div class="dlg-head"><h2 class="h2" id="dlgCostT">Confirmer la dépense</h2><button class="btn btn-ghost btn-icon btn-sm" type="button" data-close aria-label="Fermer"><svg class="ico"><use href="#i-x"/></svg></button></div>
+  <div class="dlg-body"><p class="prose">Ce lancement dépasse ton budget par sac. Rien n’est dépensé tant que tu ne confirmes pas.</p>
+    <table class="quote"><tr><td>15 prises × Nano Banana Pro</td><td class="r num">2,01&nbsp;$</td></tr><tr><td>En euros, au taux de 0,86</td><td class="r num">1,73&nbsp;€</td></tr><tr class="over"><td>Au-delà du budget de 1,00&nbsp;€</td><td class="r num">+0,73&nbsp;€</td></tr></table>
+  </div>
+  <div class="dlg-foot"><button class="btn btn-ghost" type="button" data-close data-autofocus>Annuler</button><button class="btn btn-primary" type="button" data-close data-confirm>Confirmer 1,73&nbsp;€</button></div>
+</div>
+
+<div class="drawer" id="drawerArt" role="dialog" aria-modal="true" aria-labelledby="drawerT" hidden>
+  <div class="dlg-head"><div><p class="sku" id="drawerT" style="font-size:var(--t-lg)">LAC045</p><p class="hint">Lacoste, polo, L, lot « Lacoste été »</p></div><button class="btn btn-ghost btn-icon btn-sm" type="button" data-close aria-label="Fermer"><svg class="ico"><use href="#i-x"/></svg></button></div>
+  <div class="dlg-body">
+    <div class="field"><label for="dPrix">Prix de vente</label><div class="affix"><input class="input num" id="dPrix" value="34,00" inputmode="decimal" data-autofocus><span class="unit">€</span></div></div>
+    <div class="field"><label for="dCompte">Compte de vente</label><div class="select"><select id="dCompte"><option>Fripandtrend</option><option selected>Enorab18</option><option>Vestiaire Collective</option></select><svg class="ico"><use href="#i-down"/></svg></div></div>
+    <div class="field"><span class="field-label">Statut</span><span class="pill" data-s="photos" style="justify-self:start"></span></div>
+    <dl class="facts"><dt>Achat</dt><dd class="num">11,20&nbsp;€</dd><dt>Coefficient</dt><dd class="num">×3,0</dd><dt>Entré en stock</dt><dd>2 octobre</dd></dl>
+  </div>
+  <div class="dlg-foot" style="margin-top:auto"><button class="btn btn-ghost" type="button" data-close>Fermer</button><button class="btn btn-primary" type="button" data-close>Enregistrer</button></div>
+</div>
+
+<div class="sheet" id="sheetMore" role="dialog" aria-modal="true" aria-labelledby="sheetT" hidden>
+  <div class="grab" aria-hidden="true"></div>
+  <div class="sheet-head"><h2 class="h3" id="sheetT">Plus de pages</h2><button class="btn btn-ghost btn-icon" type="button" data-close aria-label="Fermer"><svg class="ico"><use href="#i-x"/></svg></button></div>
+  <nav class="sheet-list" aria-label="Autres pages">
+    <a href="#" data-inert><svg class="ico"><use href="#i-box"/></svg>Commandes</a>
+    <a href="#studio" data-close><svg class="ico"><use href="#i-camera"/></svg>Studio<small>conçu pour l’ordinateur</small></a>
+    <a href="#" data-inert><svg class="ico"><use href="#i-cal"/></svg>Calendrier</a>
+    <a href="#" data-inert><svg class="ico"><use href="#i-chart"/></svg>Statistiques</a>
+    <a href="#" data-inert><svg class="ico"><use href="#i-sliders"/></svg>Réglages</a>
+    <a href="#" data-inert><svg class="ico"><use href="#i-user"/></svg>Mon compte</a>
+  </nav>
+  <p class="sheet-label">Planche de la direction</p>
+  <nav class="sheet-list" aria-label="Planche">
+    <a href="#composants" data-close><svg class="ico"><use href="#i-columns"/></svg>Composants</a>
+    <a href="#statuts" data-close><svg class="ico"><use href="#i-tag"/></svg>Statuts et états</a>
+    <a href="#mouvement" data-close><svg class="ico"><use href="#i-play"/></svg>Mouvement</a>
+    <a href="#landing" data-close><svg class="ico"><use href="#i-auto"/></svg>Page publique</a>
+    <a href="#systeme" data-close><svg class="ico"><use href="#i-sliders"/></svg>Système</a>
+  </nav>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite" aria-relevant="additions"></div>
+<div class="tooltip" id="tip" role="tooltip"></div>
+
+<!-- Sondes de thème pour le calcul des contrastes -->
+<div data-theme="light" id="probeL" hidden></div>
+<div data-theme="dark" id="probeD" hidden></div>
+
+<script>
+(function(){
+  'use strict';
+  var $ = function(s, r){ return (r || document).querySelector(s); };
+  var $$ = function(s, r){ return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  /* ---------- Statuts ---------- */
+  var ST = [
+    { k:'brouillon', l:'Brouillon', step:0, q:'Fiche commencée, pas encore en stock' },
+    { k:'stock', l:'En stock', step:1, q:'Reçu, compté, rangé' },
+    { k:'lavage', l:'En lavage', step:2, q:'Au lavage avant photo' },
+    { k:'repasse', l:'Repassé', step:3, q:'Remis en état, prêt à photographier' },
+    { k:'photos', l:'Photos prêtes', step:4, q:'Photos faites, annonce à rédiger' },
+    { k:'vente', l:'En vente', step:5, q:'Annonce publiée' },
+    { k:'livraison', l:'En livraison', step:6, q:'Vendu, colis en route' },
+    { k:'compta', l:'À comptabiliser', step:7, q:'Livré, vente à enregistrer' },
+    { k:'vendu', l:'Vendu', step:8, q:'Vente comptabilisée' },
+    { k:'perdu', l:'Perdu', step:-1, q:'Égaré ou abîmé, hors cycle' }
+  ];
+  var byK = {}; ST.forEach(function(s){ byK[s.k] = s; });
+
+  function glyphSVG(k){
+    var s = byK[k]; var ring = '<circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.5"' + (k==='brouillon' ? ' stroke-dasharray="2.2 1.9"' : '') + '/>';
+    var inner = '';
+    if (k === 'perdu') inner = '<path d="M3.8 12.2 12.2 3.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>';
+    else if (s.step >= 8) inner = '<circle cx="8" cy="8" r="4" fill="currentColor"/>';
+    else if (s.step > 0) {
+      var a = s.step / 8 * Math.PI * 2, r = 4, x = 8 + r * Math.sin(a), y = 8 - r * Math.cos(a);
+      inner = '<path d="M8 8 L8 4 A4 4 0 ' + (a > Math.PI ? 1 : 0) + ' 1 ' + x.toFixed(2) + ' ' + y.toFixed(2) + ' Z" fill="currentColor"/>';
+    }
+    return '<svg viewBox="0 0 16 16" aria-hidden="true">' + ring + inner + '</svg>';
+  }
+  function paintGlyphs(root){
+    $$('[data-glyph]', root).forEach(function(el){ el.innerHTML = glyphSVG(el.getAttribute('data-glyph')); });
+    $$('.pill[data-s]', root).forEach(function(el){
+      var k = el.getAttribute('data-s');
+      el.innerHTML = '<span class="glyph">' + glyphSVG(k) + '</span>' + byK[k].l;
+    });
+  }
+
+  /* ---------- Données Stock ---------- */
+  var ROWS = [
+    { sku:'ADI036', b:'Adidas', a:'Short, M', lot:'Short Adidas', pa:4.10, pv:16.00, s:'compta', c:'ft', d:'2 oct.' },
+    { sku:'COO003', b:'COOGI', a:'Pull, XXL', lot:'Vintage hiver', pa:31.00, pv:120.00, s:'vendu', c:'vc', d:'27 sept.' },
+    { sku:'DIC019', b:'Dickies', a:'Chemise, L', lot:'Workwear', pa:6.00, pv:22.00, s:'lavage', c:null, d:'' , sel:true },
+    { sku:'HLY007', b:'Helly Hansen', a:'Polaire, M', lot:'Crazy Polaires', pa:12.80, pv:45.00, s:'repasse', c:null, d:'' },
+    { sku:'LAC045', b:'Lacoste', a:'Polo, L', lot:'Lacoste été', pa:11.20, pv:34.00, s:'photos', c:'e18', d:'', sel:true },
+    { sku:'PRL112', b:'Ralph Lauren', a:'Polo, M', lot:'Polo Ralph Lauren', pa:9.50, pv:38.00, s:'vente', c:'ft', d:'12 oct.' },
+    { sku:'SDN3', b:'Sac 5039', a:'Noir et rose', lot:'Hipobuy, 3 oct.', pa:14.60, pv:59.00, s:'livraison', c:'e18', d:'9 oct.' },
+    { sku:'TOM057', b:'Tommy Hilfiger', a:'Pull, XL', lot:'Tommy mix', pa:8.40, pv:29.00, s:'stock', c:null, d:'', sel:true }
+  ];
+  var CH = { ft:'Fripandtrend', e18:'Enorab18', vc:'Vestiaire Collective' };
+  var eur = function(n){ return n.toLocaleString('fr-FR', { minimumFractionDigits:2, maximumFractionDigits:2 }) + ' €'; };
+  var coefOf = function(r){ return r.pv / r.pa; };
+  var coefTxt = function(c){ return '×' + c.toLocaleString('fr-FR', { minimumFractionDigits:1, maximumFractionDigits:1 }); };
+  function microVernier(c){
+    var h = '', i; for (i = 1; i <= 5; i++) h += '<i style="left:' + ((i - 1) / 4 * 100) + '%"></i>';
+    var p = Math.max(0, Math.min(1, (c - 1) / 4)) * 100;
+    return '<span class="micro" aria-hidden="true">' + h + '<b style="left:' + p.toFixed(1) + '%"></b></span>';
+  }
+  function statusOptions(sel){
+    return ST.map(function(s){ return '<option value="' + s.k + '"' + (s.k === sel ? ' selected' : '') + '>' + s.l + '</option>'; }).join('');
+  }
+  var tb = $('#stockBody'), cards = $('#stockCards');
+  ROWS.forEach(function(r){
+    var c = coefOf(r);
+    var tr = document.createElement('tr'); if (r.sel) tr.className = 'sel';
+    tr.innerHTML =
+      '<td class="c-check"><input class="check row-check" type="checkbox" aria-label="Sélectionner ' + r.sku + '"' + (r.sel ? ' checked' : '') + '></td>' +
+      '<td><span class="sku">' + r.sku + '</span></td>' +
+      '<td class="art"><b>' + r.b + '</b><span>' + r.a + '</span></td>' +
+      '<td class="ink2">' + r.lot + '</td>' +
+      '<td class="r num ink2">' + eur(r.pa) + '</td>' +
+      '<td class="r num strong">' + eur(r.pv) + '</td>' +
+      '<td class="r"><span class="coef">' + microVernier(c) + '<span class="num">' + coefTxt(c) + '</span></span></td>' +
+      '<td><label class="st-select" data-s="' + r.s + '"><span class="glyph"></span><span class="sr-only">Statut de ' + r.sku + '</span><select>' + statusOptions(r.s) + '</select><svg class="ico chev"><use href="#i-down"/></svg></label></td>' +
+      '<td>' + (r.c ? '<span class="chan" data-c="' + r.c + '">' + CH[r.c] + '</span>' : '<span class="muted">Aucun</span>') + '</td>' +
+      '<td class="r num ' + (r.d ? 'ink2' : 'muted') + '">' + (r.d || '—') + '</td>';
+    tb.appendChild(tr);
+    var card = document.createElement('div'); card.className = 'card' + (r.sel ? ' sel' : '');
+    card.innerHTML =
+      '<input class="check row-check" type="checkbox" aria-label="Sélectionner ' + r.sku + '"' + (r.sel ? ' checked' : '') + '>' +
+      '<span class="sku">' + r.sku + '</span><span class="pill" data-s="' + r.s + '"></span>' +
+      '<span class="l2">' + r.b + ', ' + r.a.charAt(0).toLowerCase() + r.a.slice(1) + '</span>' +
+      '<span class="l3"><span>Achat <b class="num">' + eur(r.pa) + '</b></span><span>Vente <b class="num">' + eur(r.pv) + '</b></span><span><b class="num">' + coefTxt(c) + '</b></span>' + (r.c ? '<span class="chan" data-c="' + r.c + '">' + CH[r.c] + '</span>' : '') + '</span>';
+    cards.appendChild(card);
+  });
+  function syncSelect(el){
+    var lab = el.closest('.st-select'); var k = el.value;
+    lab.setAttribute('data-s', k); lab.querySelector('.glyph').innerHTML = glyphSVG(k);
+  }
+  $$('.st-select select').forEach(function(s){ syncSelect(s); s.addEventListener('change', function(){ syncSelect(s); toast({ tone:'ok', title: 'Statut changé', desc: s.closest('tr').querySelector('.sku').textContent + ' est maintenant « ' + byK[s.value].l + ' »', action:'Annuler' }); }); });
+
+  /* Chips de statut + filtre mobile */
+  var COUNTS = { stock:214, lavage:38, repasse:22, photos:57, vente:412, livraison:19, compta:4, vendu:461, brouillon:9, perdu:7 };
+  var chips = $('#chips'), fs = $('#fs');
+  var mk = function(k, l, n, on){ return '<button type="button" class="chip" aria-pressed="' + on + '"' + (k ? ' data-s="' + k + '"' : '') + '>' + (k ? '<span class="glyph" data-glyph="' + k + '"></span>' : '') + l + ' <b class="num">' + n.toLocaleString('fr-FR') + '</b></button>'; };
+  chips.innerHTML = mk(null, 'Tous', 1243, true) + ['stock','lavage','repasse','photos','vente','livraison','compta','vendu','brouillon','perdu'].map(function(k){ return mk(k, byK[k].l, COUNTS[k], false); }).join('');
+  fs.innerHTML = '<option>Tous les statuts (1 243)</option>' + ST.map(function(s){ return '<option>' + s.l + ' (' + COUNTS[s.k] + ')</option>'; }).join('');
+  chips.addEventListener('click', function(e){ var b = e.target.closest('.chip'); if (!b) return; $$('.chip', chips).forEach(function(x){ x.setAttribute('aria-pressed', x === b); }); });
+  $('#bulkSt').innerHTML = '<option>Changer le statut</option>' + ST.map(function(s){ return '<option>' + s.l + '</option>'; }).join('');
+
+  /* Sélection groupée */
+  var bulk = $('#bulk'), all = $('#allRows');
+  function refreshSel(){
+    var rows = $$('#stockBody tr'), n = 0;
+    rows.forEach(function(tr, i){ var on = tr.querySelector('.row-check').checked; tr.classList.toggle('sel', on); cards.children[i].classList.toggle('sel', on); cards.children[i].querySelector('.row-check').checked = on; if (on) n++; });
+    all.checked = n === rows.length; all.indeterminate = n > 0 && n < rows.length;
+    $('#bulkCount').textContent = n + (n > 1 ? ' articles sélectionnés' : ' article sélectionné');
+    bulk.setAttribute('data-state', n ? 'open' : 'closed');
+    bulk.toggleAttribute('inert', !n);
+  }
+  tb.addEventListener('change', function(e){ if (e.target.classList.contains('row-check')) refreshSel(); });
+  cards.addEventListener('change', function(e){ if (e.target.classList.contains('row-check')) { var i = Array.prototype.indexOf.call(cards.children, e.target.parentNode); tb.children[i].querySelector('.row-check').checked = e.target.checked; refreshSel(); } });
+  all.addEventListener('change', function(){ $$('#stockBody .row-check').forEach(function(c){ c.checked = all.checked; }); refreshSel(); });
+  $('#bulkClear').addEventListener('click', function(){ $$('#stockBody .row-check').forEach(function(c){ c.checked = false; }); refreshSel(); });
+  refreshSel();
+
+  /* ---------- Réglettes (vernier) ---------- */
+  function buildVernier(el){
+    var max = +el.dataset.max, val = +el.dataset.value, maj = +el.dataset.major, min = +el.dataset.minor, pace = +el.dataset.pace;
+    var h = '<span class="v-track"></span><span class="v-fill" style="width:' + (val / max * 100) + '%"></span>';
+    for (var t = 0; t <= max; t += min) h += '<span class="v-tick' + (t % maj === 0 ? ' major' : '') + '" style="left:' + (t / max * 100) + '%"></span>';
+    for (var m = 0, i = 0; m <= max; m += maj, i++) {
+      var cls = 'v-lab' + (m === 0 ? ' first' : '') + (m === max ? ' last' : '') + (i % 2 ? ' odd' : '');
+      h += '<span class="' + cls + '" style="left:' + (m / max * 100) + '%">' + (m === max ? 'Objectif ' : '') + m.toLocaleString('fr-FR') + ' €</span>';
+    }
+    if (pace) h += '<span class="v-pace" style="left:' + (pace / max * 100) + '%"></span><span class="v-pace-lab" style="left:' + (pace / max * 100) + '%">Rythme au 20/10 <b>' + pace.toLocaleString('fr-FR') + ' €</b></span>';
+    h += '<span class="v-needle" style="left:' + (val / max * 100) + '%"></span><span class="v-needle-lab" style="left:' + (val / max * 100) + '%">' + Math.floor(val).toLocaleString('fr-FR') + ' €</span>';
+    el.innerHTML = h;
+  }
+  buildVernier($('#vMonth'));
+  $$('.mv').forEach(function(el){
+    var max = 2.4, v = +el.dataset.eur, bud = 1, h = '<span class="t"></span>';
+    h += '<span class="over" style="left:' + (bud / max * 100) + '%;right:0"></span>';
+    for (var t = 0; t <= max + 1e-9; t += 0.2) h += '<i class="' + (Math.abs(t - Math.round(t)) < 1e-6 ? 'maj' : '') + '" style="left:' + (t / max * 100) + '%"></i>';
+    h += '<span class="bud" style="left:' + (bud / max * 100) + '%"></span>';
+    h += '<b class="' + (v > bud ? 'over-b' : '') + '" style="left:' + (Math.min(v, max) / max * 100) + '%"></b>';
+    el.innerHTML = h;
+  });
+
+  /* ---------- Graphique hebdomadaire ---------- */
+  var WEEKS = [ ['1 sept.',980], ['8 sept.',1105], ['15 sept.',1260], ['22 sept.',1190], ['29 sept.',1842], ['6 oct.',1498.5], ['13 oct.',1356], ['20 oct.',312] ];
+  var YMAX = 2000, PACE = 1355;
+  (function(){
+    var c = $('#weekChart'), y = $('.y-axis', c), p = $('.plot', c), x = $('.x-axis', c), t = $('#weekTable tbody');
+    [0,500,1000,1500,2000].forEach(function(v){
+      y.insertAdjacentHTML('beforeend', '<span style="bottom:' + (v / YMAX * 100) + '%">' + (v ? v.toLocaleString('fr-FR') + ' €' : '0') + '</span>');
+      if (v) p.insertAdjacentHTML('beforeend', '<span class="grid-line" style="bottom:' + (v / YMAX * 100) + '%"></span>');
+    });
+    p.insertAdjacentHTML('beforeend', '<span class="pace-line" style="bottom:' + (PACE / YMAX * 100) + '%"><span>Rythme visé 1 355 €</span></span>');
+    var cols = document.createElement('div'); cols.className = 'cols'; p.appendChild(cols);
+    WEEKS.forEach(function(w, i){
+      var last = i === WEEKS.length - 1, lab = i === 4 || last;
+      var col = document.createElement('div');
+      col.className = 'col' + (last ? ' partial' : '') + (lab ? ' lab' : '');
+      col.tabIndex = 0;
+      col.setAttribute('aria-label', 'Semaine du ' + w[0] + ' : ' + eur(w[1]) + (last ? ', en cours' : ''));
+      col.dataset.tip = '<b>' + eur(w[1]) + '</b> semaine du ' + w[0] + (last ? ' (en cours)' : '');
+      col.innerHTML = (lab ? '<span class="val">' + eur(w[1]).replace(',00', '') + '</span>' : '<span class="val" style="visibility:hidden">.</span>') + '<span class="bar" style="height:' + (w[1] / YMAX * 100) + '%"></span>';
+      cols.appendChild(col);
+      x.insertAdjacentHTML('beforeend', '<span>' + w[0] + '</span>');
+      t.insertAdjacentHTML('beforeend', '<tr><td>' + w[0] + (last ? ' (en cours)' : '') + '</td><td class="r num">' + eur(w[1]) + '</td></tr>');
+    });
+    var tip = $('#tip');
+    function show(e){ var col = e.target.closest('.col'); if (!col) return; tip.innerHTML = col.dataset.tip; var r = col.querySelector('.bar').getBoundingClientRect(); tip.style.left = Math.min(window.innerWidth - tip.offsetWidth - 8, Math.max(8, r.left + r.width / 2 - tip.offsetWidth / 2)) + 'px'; tip.style.top = (r.top - tip.offsetHeight - 8) + 'px'; tip.classList.add('on'); }
+    function hide(){ tip.classList.remove('on'); }
+    cols.addEventListener('mouseover', show); cols.addEventListener('focusin', show);
+    cols.addEventListener('mouseleave', hide); cols.addEventListener('focusout', hide);
+    window.addEventListener('scroll', hide, { passive:true });
+  })();
+
+  /* ---------- Cycle de vie (statuts) ---------- */
+  (function(){
+    var rule = $('#cycleRule'), st = $('#stations');
+    for (var i = 0; i <= 28; i++) rule.insertAdjacentHTML('beforeend', '<i class="' + (i % 4 === 0 ? 'major' : '') + '" style="left:' + (i / 28 * 100) + '%"></i>');
+    ST.filter(function(s){ return s.step > 0; }).forEach(function(s){
+      st.insertAdjacentHTML('beforeend', '<li class="station" data-s="' + s.k + '"><span class="glyph" data-glyph="' + s.k + '"></span>' + s.l + '<small>étape ' + s.step + ' sur 8</small></li>');
+    });
+    var tbody = $('#stTable tbody');
+    ST.forEach(function(s){
+      tbody.insertAdjacentHTML('beforeend', '<tr><td><b style="font-weight:600">' + s.l + '</b></td>' +
+        '<td><div data-theme="light" style="display:inline-block;background:rgb(var(--surface));padding:6px 10px;border-radius:4px;box-shadow:0 0 0 1px rgb(var(--line))"><span class="pill" data-s="' + s.k + '"></span></div></td>' +
+        '<td><div data-theme="dark" style="display:inline-block;background:rgb(var(--surface));padding:6px 10px;border-radius:4px;color:rgb(var(--ink));box-shadow:0 0 0 1px rgb(var(--line))"><span class="pill" data-s="' + s.k + '"></span></div></td>' +
+        '<td class="hide-m ink2">' + s.q + '</td></tr>');
+    });
+  })();
+
+  /* ---------- Landing : réglette de vie de PRL112 ---------- */
+  (function(){
+    var el = $('#lifeRule');
+    var EV = [ [2,'stock','2 oct.'], [4,'lavage','4 oct.'], [5,'repasse','5 oct.'], [7,'photos','7 oct.'], [8,'vente','8 oct.'], [16,'livraison','16 oct.'], [18,'compta','18 oct.'], [19,'vendu','19 oct.'] ];
+    var D0 = 1, D1 = 20, pos = function(d){ return ((d - D0) / (D1 - D0) * 92 + 4); };
+    var h = '<span class="lr-axis"></span><span class="lr-span" style="left:' + pos(8) + '%;width:' + (pos(19) - pos(8)) + '%"></span>';
+    for (var d = D0; d <= D1; d++) h += '<span class="lr-day' + ((d - 1) % 7 === 0 ? ' wk' : '') + '" style="left:' + pos(d) + '%"></span>';
+    [1,8,15].forEach(function(d){ h += '<span class="lr-dlab" style="left:' + pos(d) + '%">' + d + ' oct.</span>'; });
+    EV.forEach(function(e){ h += '<span class="lr-mark" data-s="' + e[1] + '" style="left:' + pos(e[0]) + '%"><span class="glyph" data-glyph="' + e[1] + '"></span></span>'; });
+    [[2,'Acheté','2 oct.','first'],[8,'En vente','8 oct.',''],[19,'Vendu','19 oct.','last']].forEach(function(k){ h += '<span class="lr-key ' + k[3] + '" style="left:' + pos(k[0]) + '%">' + k[1] + '<em>' + k[2] + '</em></span>'; });
+    el.innerHTML = h;
+    el.setAttribute('role', 'img');
+    el.setAttribute('aria-label', 'Réglette du 1er au 20 octobre : acheté le 2, en vente le 8, vendu le 19.');
+    var lg = document.createElement('ol'); lg.className = 'lr-legend';
+    lg.innerHTML = EV.map(function(e){ return '<li data-s="' + e[1] + '"><span class="glyph" data-glyph="' + e[1] + '"></span>' + byK[e[1]].l + '<em>' + e[2].replace(' oct.', '/10') + '</em></li>'; }).join('');
+    el.parentNode.insertBefore(lg, el.nextSibling);
+  })();
+
+  /* ---------- Système : échelles ---------- */
+  (function(){
+    var TS = [ ['--t-display','40 à 56','4 862,50 €','Chiffre du mois, titre de la landing',650],
+               ['--t-xl','28','Octobre 2026','Titre de page',620],
+               ['--t-lg','20','Juger 3 images générées','Titre de section, prochaine action',600],
+               ['--t-md','16','Prix de vente, champ sur mobile','Corps, champs mobiles (pas de zoom iOS)',400],
+               ['--t-base','14','Changer le statut de 3 articles','Interface par défaut',400],
+               ['--t-sm','13','PRL112, Ralph Lauren, polo, M','Cellules de tableau, aides',400],
+               ['--t-xs','12','En vente depuis le 12 oct.','Méta, en-têtes de colonnes, pastilles',500],
+               ['--t-micro','11','0 · 1 000 € · 2 000 €','Graduations, raccourcis clavier',500] ];
+    $('#typeScale').innerHTML = TS.map(function(t){
+      var rem = getComputedStyle(document.documentElement).getPropertyValue(t[0]).trim();
+      var remTxt = t[0] === '--t-display' ? '2,5 à 3,5\u00a0rem' : rem.replace('.', ',').replace('rem', '\u00a0rem');
+      return '<div class="type-row"><code>' + t[0] + '</code><span class="px">' + remTxt + ', ' + t[1] + '\u00a0px</span><span class="smp" style="font-size:var(' + t[0] + ');font-weight:' + t[4] + ';' + (t[0] === '--t-xl' ? 'font-stretch:var(--wide);' : '') + 'line-height:1.15" title="' + t[3] + ' (' + rem + ')">' + t[2] + '</span></div>';
+    }).join('');
+    var SP = [['--sp-1',4],['--sp-2',8],['--sp-3',12],['--sp-4',16],['--sp-6',24],['--sp-8',32],['--sp-12',48],['--sp-16',64]];
+    $('#spaceScale').innerHTML = SP.map(function(s){ return '<li><code>' + s[0] + '</code><span>' + s[1] + ' px</span><span class="barv" style="width:' + s[1] * 2 + 'px"></span></li>'; }).join('');
+    var Z = [['--z-tooltip',80,'Info-bulle'],['--z-toast',70,'Toasts, au-dessus de tout le reste'],['--z-popover',60,'Menus, y compris dans une modale'],['--z-modal',50,'Modale, tiroir, menu Plus'],['--z-overlay',40,'Voile'],['--z-dock',30,'Dock mobile, barre groupée mobile'],['--z-sticky',20,'Barre du haut, menu latéral'],['--z-raised',10,'En-tête de tableau collant']];
+    $('#zList').innerHTML = Z.map(function(z){ return '<li><b>' + z[1] + '</b><code>' + z[0] + '</code><span class="ink2">' + z[2] + '</span></li>'; }).join('');
+  })();
+
+  /* ---------- Contrastes calculés ---------- */
+  function chan(el, name){ var v = getComputedStyle(el).getPropertyValue(name).trim().split(/\s+/).map(Number); return v.length === 3 ? v : null; }
+  function lum(c){ var a = c.map(function(v){ v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2]; }
+  function ratio(a, b){ var x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+  function buildContrast(){
+    var L = $('#probeL'), D = $('#probeD');
+    L.hidden = false; D.hidden = false;
+    var P = [
+      ['--ink','--bg','Texte principal sur le fond',4.5],['--ink','--surface','Texte principal sur panneau',4.5],
+      ['--ink-2','--surface','Texte secondaire',4.5],['--ink-2','--surface-2','Texte secondaire sur fond creux',4.5],
+      ['--ink-3','--bg','Texte discret sur le fond',4.5],['--ink-3','--surface','Texte discret sur panneau',4.5],
+      ['--ink-3','--surface-2','Texte discret sur en-tête',4.5],['--ink-3','--surface-3','Texte discret désactivé',4.5],
+      ['--accent-text','--surface','Lien, élément actif',4.5],['--accent-text','--accent-soft','Entrée active du menu',4.5],
+      ['--accent-ink','--accent','Texte du bouton principal',4.5],['--accent-ink','--accent-hover','Bouton principal survolé',4.5],
+      ['--danger-ink','--danger','Texte du bouton danger',4.5],['--bar-ink','--bar','Barre d’actions groupées',4.5],
+      ['--pos','--surface','Hausse, succès',4.5],['--pos','--pos-soft','Étiquette « Dans le budget »',4.5],
+      ['--neg','--surface','Erreur',4.5],['--neg','--neg-soft','Étiquette d’erreur',4.5],
+      ['--warn','--surface','Avertissement',4.5],['--warn','--warn-soft','Étiquette « Hors budget »',4.5],
+      ['--line-strong','--surface','Bord de champ, case à cocher',3],['--line-strong','--bg','Bord de champ sur le fond',3],
+      ['--line-strong','--surface-2','Bord de champ sur fond creux',3],
+      ['--focus','--bg','Anneau de focus sur le fond',3],['--focus','--surface','Anneau de focus sur panneau',3],
+      ['--accent','--surface','Case cochée, aiguille',3]
+    ];
+    ST.forEach(function(s){ P.push(['--st-' + s.k + '-ink','--st-' + s.k + '-soft','Pastille ' + s.l,4.5]); P.push(['--st-' + s.k,'--surface','Glyphe ' + s.l,3]); });
+    [['ft','Fripandtrend'],['e18','Enorab18'],['vc','Vestiaire Collective']].forEach(function(c){ P.push(['--ch-' + c[0],'--surface','Pastille ' + c[1],3]); });
+    var ok = 0, tot = 0, worst = 99, rows = '';
+    P.forEach(function(p){
+      var cells = [L, D].map(function(el){
+        var fg = chan(el, p[0]), bg = chan(el, p[1]); var r = ratio(fg, bg); tot++; if (r >= p[3]) ok++; worst = Math.min(worst, r / p[3]);
+        var pass = r >= p[3];
+        return '<td><span class="sw" style="--sv:' + fg.join(' ') + '"></span> <span class="sw" style="--sv:' + bg.join(' ') + '"></span></td>' +
+               '<td><span class="ratio num">' + r.toFixed(2).replace('.', ',') + '<span class="tag ' + (pass ? 'tag-pos' : 'tag-neg') + '">' + (pass ? 'AA' : 'Échec') + '</span></span></td>';
+      }).join('');
+      rows += '<tr><td><span style="display:block;font-weight:550">' + p[2] + '</span><code>' + p[0] + ' / ' + p[1] + '</code></td>' + cells + '<td class="hide-m num">' + (p[3] === 3 ? '3:1, interface' : '4,5:1, texte') + '</td></tr>';
+    });
+    $('#tokTable tbody').innerHTML = rows;
+    var TK = [['--bg','Fond de l’application'],['--surface','Panneaux, tableaux, modales'],['--surface-2','En-têtes de tableau, zones creuses'],['--surface-3','Survol, squelettes, désactivé'],
+      ['--line','Filets de séparation'],['--line-strong','Bords de champs, cases, graduations'],['--ink','Texte principal'],['--ink-2','Texte secondaire'],['--ink-3','Libellés, texte discret'],
+      ['--accent','Action principale, sélection, aiguille'],['--accent-hover','Action principale survolée'],['--accent-text','Liens, entrée active du menu'],['--accent-soft','Fond de sélection'],['--focus','Anneau de focus'],
+      ['--pos','Hausse, succès'],['--neg','Baisse, erreur'],['--warn','Avertissement, hors budget'],['--danger','Bouton destructif'],['--veil','Voile des modales, à 50 %'],['--bar','Barre d’actions groupées, info-bulle']];
+    $('#tokList tbody').innerHTML = TK.map(function(t){
+      var cell = function(el){ var v = chan(el, t[0]); return '<td><span class="sw" style="--sv:' + v.join(' ') + '"></span> <code>' + v.join(' ') + '</code></td>'; };
+      return '<tr><td><code>' + t[0] + '</code></td>' + cell(L) + cell(D) + '<td class="hide-m ink2">' + t[1] + '</td></tr>';
+    }).join('');
+    $('#contrastSummary').textContent = ok + ' paires sur ' + tot + ' atteignent WCAG AA (' + P.length + ' paires × 2 thèmes).';
+    L.hidden = true; D.hidden = true;
+    document.documentElement.setAttribute('data-contrast', ok + '/' + tot);
+  }
+
+  /* ---------- Thème ---------- */
+  var root = document.documentElement;
+  function currentTheme(){ return root.getAttribute('data-theme') || 'auto'; }
+  function effective(){ var t = currentTheme(); return t === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t; }
+  function applyTheme(t){
+    if (t === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', t);
+    try { if (t === 'auto') localStorage.removeItem('vernier-theme'); else localStorage.setItem('vernier-theme', t); } catch(e){}
+    syncThemeUI();
+  }
+  var LBL = { auto:'automatique', light:'clair', dark:'sombre' }, ICO = { auto:'#i-auto', light:'#i-sun', dark:'#i-moon' };
+  function syncThemeUI(){
+    var t = currentTheme();
+    $$('[data-theme-set]').forEach(function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-theme-set') === t); });
+    var cyc = $('#themeCycle'); cyc.setAttribute('aria-label', 'Thème : ' + LBL[t] + '. Changer'); cyc.querySelector('use').setAttribute('href', ICO[t]);
+    var bg = getComputedStyle(root).getPropertyValue('--bg').trim().split(/\s+/);
+    $('meta[name="theme-color"]').setAttribute('content', 'rgb(' + bg.join(',') + ')');
+  }
+  $$('[data-theme-set]').forEach(function(b){ b.addEventListener('click', function(){ applyTheme(b.getAttribute('data-theme-set')); }); });
+  $('#themeCycle').addEventListener('click', function(){ var order = ['auto','light','dark']; applyTheme(order[(order.indexOf(currentTheme()) + 1) % 3]); });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncThemeUI);
+
+  /* ---------- Navigation : entrée active ---------- */
+  var navLinks = $$('[data-nav]');
+  function setActive(id){
+    navLinks.forEach(function(a){ if (a.getAttribute('data-nav') === id) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+    var sec = document.getElementById(id); if (sec) $('#topTitle').textContent = sec.getAttribute('data-title');
+  }
+  var io = new IntersectionObserver(function(entries){ entries.forEach(function(e){ if (e.isIntersecting) setActive(e.target.id); }); }, { rootMargin: '-35% 0px -60% 0px' });
+  $$('.screen').forEach(function(s){ io.observe(s); });
+  $$('[data-inert]').forEach(function(a){ a.addEventListener('click', function(e){ e.preventDefault(); toast({ tone:'info', title:'Écran non maquetté', desc:'Cette planche montre le tableau de bord, le stock et le Studio.' }); }); });
+
+  /* ---------- Toasts ---------- */
+  function toast(o){
+    var el = document.createElement('div'); el.className = 'toast ' + (o.tone || 'ok'); el.setAttribute('data-state', 'closed'); el.setAttribute('role', o.tone === 'bad' ? 'alert' : 'status');
+    var ic = o.tone === 'bad' ? '#i-x' : o.tone === 'info' ? '#i-info' : '#i-check';
+    var dur = o.duration || 5000, secs = Math.round(dur / 1000);
+    el.innerHTML = '<span class="ti"><svg class="ico"><use href="' + ic + '"/></svg></span><div><p class="tt"></p><p class="td"></p></div>' +
+      (o.action ? '<button class="tbtn" type="button"><svg class="ico ico-sm"><use href="#i-undo"/></svg>' + o.action + ' <span class="muted num">' + secs + ' s</span></button>' : '<span></span>') +
+      '<span class="timer"></span>';
+    el.querySelector('.tt').textContent = o.title; el.querySelector('.td').textContent = o.desc || '';
+    var box = $('#toasts'); box.appendChild(el);
+    while (box.children.length > 3) box.removeChild(box.firstChild);
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ el.setAttribute('data-state', 'open'); }); });
+    var timer = el.querySelector('.timer'); timer.style.transition = reduce.matches ? 'none' : 'transform ' + dur + 'ms linear';
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ timer.style.transform = 'scaleX(0)'; }); });
+    var left = secs, iv = setInterval(function(){ left--; var s = el.querySelector('.tbtn .muted'); if (s) s.textContent = Math.max(0, left) + ' s'; }, 1000);
+    var close = function(){ clearInterval(iv); el.setAttribute('data-state', 'closed'); setTimeout(function(){ el.remove(); }, 240); };
+    var t = setTimeout(close, dur);
+    var btn = el.querySelector('.tbtn'); if (btn) btn.addEventListener('click', function(){ clearTimeout(t); close(); if (o.onUndo) o.onUndo(); toast({ tone:'info', title:'Décision annulée', desc:'Rien n’a été enregistré.', duration:2500 }); });
+    return el;
+  }
+  $('#demoToastOk').addEventListener('click', function(){ toast({ tone:'ok', title:'Vente enregistrée', desc:'PRL112, 38,00 € sur Fripandtrend', action:'Annuler' }); });
+  $('#demoToastErr').addEventListener('click', function(){ toast({ tone:'bad', title:'Trello n’a pas répondu', desc:'La vente est enregistrée, l’étiquette sera posée plus tard.' }); });
+
+  /* ---------- Studio : juger au clavier, avec annulation ---------- */
+  var judged = 1, total = 3, valid = 9;
+  function renderJudge(){ $('#jCounter').textContent = 'image ' + Math.min(judged + 1, total) + ' sur ' + total; $('#leftCount').textContent = (total - judged) + (total - judged > 1 ? ' restantes' : ' restante'); $('#validCount').textContent = valid + ' sur 15'; }
+  function decide(ok){
+    if (judged >= total) { toast({ tone:'info', title:'Plus rien à juger', desc:'Les 3 images ont reçu une décision.' }); return; }
+    judged++; if (ok) valid++; renderJudge();
+    toast({ tone: ok ? 'ok' : 'info', title: ok ? 'Image validée' : 'Image rejetée', desc: ok ? 'Elle part dans l’annonce de SDN3.' : 'Elle reste dans l’historique de la prise.', action:'Annuler', onUndo: function(){ judged--; if (ok) valid--; renderJudge(); } });
+  }
+  $('#btnValidate').addEventListener('click', function(){ decide(true); });
+  $('#btnReject').addEventListener('click', function(){ decide(false); });
+  document.addEventListener('keydown', function(e){
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var t = e.target; if (t.closest && t.closest('input, select, textarea, [contenteditable], .dialog, .drawer, .sheet')) return;
+    if (!$('#studio').contains(document.activeElement) && $('#topTitle').textContent !== 'Studio') return;
+    if (e.key === 'v' || e.key === 'V') { e.preventDefault(); decide(true); }
+    if (e.key === 'r' || e.key === 'R') { e.preventDefault(); decide(false); }
+  });
+  $$('.star').forEach(function(s){ s.addEventListener('click', function(){ var on = s.getAttribute('aria-pressed') !== 'true'; s.setAttribute('aria-pressed', on); var n = s.closest('.mrow').querySelector('.mname b').textContent; s.setAttribute('aria-label', (on ? 'Retirer ' : 'Ajouter ') + n + (on ? ' des favoris' : ' aux favoris')); toast({ tone:'ok', title: on ? n + ' en favori' : n + ' retiré des favoris', duration:2500 }); }); });
+  $$('.toggle').forEach(function(b){ b.addEventListener('click', function(){ b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true'); }); });
+  $$('.seg').forEach(function(g){ if (g.classList.contains('theme-seg')) return; g.addEventListener('click', function(e){ var b = e.target.closest('button'); if (!b) return; $$('button', g).forEach(function(x){ x.setAttribute('aria-pressed', x === b); }); }); });
+
+  /* ---------- Bouton « en cours » ---------- */
+  $('#busyBtn').addEventListener('click', function(){
+    var b = this; if (b.getAttribute('aria-busy') === 'true') return;
+    b.setAttribute('aria-busy', 'true'); b.innerHTML = '<span class="spinner" aria-hidden="true"></span>Enregistrement…';
+    setTimeout(function(){ b.removeAttribute('aria-busy'); b.innerHTML = '<svg class="ico"><use href="#i-check"/></svg>Prix enregistré'; setTimeout(function(){ b.innerHTML = '<span class="lbl">Enregistrer le prix</span>'; }, 1600); }, 1100);
+  });
+
+  /* ---------- Modale, tiroir, menu Plus : voile, piège de focus, Échap, retour du focus ---------- */
+  var veil = $('#veil'), openEl = null, lastFocus = null;
+  var FOC = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea, [tabindex]:not([tabindex="-1"])';
+  function openLayer(id, trigger){
+    var el = document.getElementById(id); if (!el || openEl) return;
+    lastFocus = trigger || document.activeElement; openEl = el;
+    veil.hidden = false; el.hidden = false;
+    document.documentElement.style.overflow = 'hidden';
+    $$('.app, .dock').forEach(function(x){ x.setAttribute('inert', ''); });
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ veil.setAttribute('data-state', 'open'); el.setAttribute('data-state', 'open'); }); });
+    var f = $$(FOC, el); (el.querySelector('[data-autofocus]') || f.find(function(x){ return !x.hasAttribute('data-close'); }) || f[0] || el).focus();
+  }
+  function closeLayer(){
+    if (!openEl) return; var el = openEl; openEl = null;
+    veil.removeAttribute('data-state'); el.removeAttribute('data-state');
+    $$('.app, .dock').forEach(function(x){ x.removeAttribute('inert'); });
+    document.documentElement.style.overflow = '';
+    setTimeout(function(){ el.hidden = true; veil.hidden = true; }, reduce.matches ? 0 : 240);
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  document.addEventListener('click', function(e){
+    var o = e.target.closest('[data-open]'); if (o) { e.preventDefault(); openLayer(o.getAttribute('data-open'), o); return; }
+    var c = e.target.closest('[data-close]'); if (c && openEl && openEl.contains(c)) { var go = c.getAttribute('href'); closeLayer(); if (c.hasAttribute('data-confirm')) toast({ tone:'ok', title:'Génération lancée', desc:'15 images, 1,73 € confirmés' }); if (go && go.charAt(0) === '#' && go.length > 1) { e.preventDefault(); document.querySelector(go).scrollIntoView(); } }
+  });
+  veil.addEventListener('click', closeLayer);
+  document.addEventListener('keydown', function(e){
+    if (!openEl) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeLayer(); return; }
+    if (e.key === 'Tab') { var f = $$(FOC, openEl).filter(function(x){ return x.offsetParent !== null; }); if (!f.length) return; var a = f[0], z = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus(); } else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); } }
+  });
+
+  /* ---------- Mouvement ---------- */
+  function rmNote(){ $('#rmNote').innerHTML = reduce.matches
+    ? '<span class="tag tag-warn"><svg class="ico"><use href="#i-info"/></svg>Mouvement réduit actif</span><span>Ton système demande moins d’animations : les durées tombent à 0 et les états changent d’un coup.</span>'
+    : '<span class="tag"><svg class="ico"><use href="#i-info"/></svg>Mouvement normal</span><span>Active « Réduire les animations » dans ton système pour couper ces transitions.</span>'; }
+  rmNote(); reduce.addEventListener('change', rmNote);
+  $('#moAppear').addEventListener('click', function(){ var el = $('#appearEl'); el.style.transition = 'none'; el.setAttribute('data-state', 'closed'); void el.offsetWidth; el.style.transition = ''; el.setAttribute('data-state', 'open'); });
+  $('#moMove').addEventListener('click', function(){
+    var list = $('#flipList'), items = $$('li', list), first = new Map();
+    items.forEach(function(li){ first.set(li, li.getBoundingClientRect().top); });
+    var lac = list.querySelector('[data-id="LAC045"]'), pill = lac.querySelector('.pill');
+    var toVente = pill.getAttribute('data-s') === 'photos';
+    pill.setAttribute('data-s', toVente ? 'vente' : 'photos'); paintGlyphs(lac);
+    if (toVente) list.insertBefore(lac, list.firstChild); else list.appendChild(lac);
+    this.textContent = toVente ? 'Remettre LAC045 en photos prêtes' : 'Passer LAC045 en vente';
+    if (reduce.matches) return;
+    items.forEach(function(li){
+      var dy = first.get(li) - li.getBoundingClientRect().top; if (!dy) return;
+      li.style.transition = 'none'; li.style.transform = 'translateY(' + dy + 'px)';
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ li.style.transition = 'transform var(--d-slow) var(--ease-in-out)'; li.style.transform = ''; }); });
+    });
+  });
+  function resetSucc(){ var b = $('#succBtn'); b.classList.remove('done'); b.innerHTML = '<span class="lbl">Valider l’image</span>'; var p = $('#succPill'); p.setAttribute('data-s', 'photos'); paintGlyphs(p.parentNode); }
+  $('#succBtn').addEventListener('click', function(){
+    var b = this; if (b.classList.contains('done')) return;
+    b.innerHTML = '<svg class="ico draw" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Image validée';
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ b.classList.add('done'); }); });
+    var p = $('#succPill'); p.setAttribute('data-s', 'vendu'); p.innerHTML = '<span class="glyph">' + glyphSVG('vendu') + '</span>Validée pour SDN3';
+  });
+  $('#moReset').addEventListener('click', resetSucc);
+
+  /* ---------- Démarrage ---------- */
+  paintGlyphs(document);
+  syncThemeUI();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(buildContrast); else buildContrast();
+  if (!document.fonts) buildContrast();
+  window.__vernier = { openLayer: openLayer, closeLayer: closeLayer, applyTheme: applyTheme };
+})();
+</script>
+</body>
+</html>
