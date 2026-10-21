@@ -15,8 +15,9 @@
 // coûte que la fiche 3.
 
 import { AlertTriangle, Check, Loader2, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { progression, type ArticleEnCours } from "../_reducer";
-import { btnGhost, cardCls } from "../_ui";
+import { cardCls } from "../_ui";
 
 type Props = {
   fiches: ArticleEnCours[];
@@ -104,13 +105,15 @@ export default function FileGeneration({
                 </span>
 
                 {g.phase === "erreur" && !enCours && (
-                  <button
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => onRelancer(f.id)}
-                    className="inline-flex min-h-[34px] flex-none items-center gap-1.5 rounded-full border border-line bg-surface px-3 text-xs font-semibold text-ink-2 transition-colors hover:border-accent hover:text-accent-text"
+                    className="flex-none"
                   >
-                    <RefreshCw className="h-3.5 w-3.5" strokeWidth={2.2} />
+                    <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} />
                     Relancer
-                  </button>
+                  </Button>
                 )}
               </li>
             );
@@ -119,16 +122,13 @@ export default function FileGeneration({
 
         {termine && (
           <div className="mt-7 flex flex-wrap justify-center gap-2.5">
-            <button onClick={onRetour} className={btnGhost}>
+            <Button variant="secondary" size="lg" onClick={onRetour}>
               Revenir aux fiches
-            </button>
+            </Button>
             {faites > 0 && (
-              <button
-                onClick={onVoirResultats}
-                className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-accent px-5 text-base font-bold text-accent-ink transition-colors hover:bg-accent-hover"
-              >
+              <Button size="lg" onClick={onVoirResultats}>
                 Voir les annonces
-              </button>
+              </Button>
             )}
           </div>
         )}

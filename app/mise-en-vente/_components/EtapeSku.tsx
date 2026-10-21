@@ -1,5 +1,4 @@
 "use client";
-// design-tokens-dette: R13 → M3
 
 // Étape 1 : les SKU de la session, saisis d'un bloc.
 //
@@ -7,8 +6,11 @@
 // introuvable se découvre donc AVANT d'avoir photographié quoi que ce soit —
 // c'est tout l'intérêt de saisir en premier plutôt qu'au fil de l'eau.
 
+import { useId } from "react";
 import { AlertTriangle, Check, Loader2, Plus, X } from "lucide-react";
 import StatutBadge from "@/components/StatutBadge";
+import { IconButton } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { MAX_FICHES, skuEnDoublon, type ArticleEnCours } from "../_reducer";
 import { cardCls, labelCls } from "../_ui";
 
@@ -28,16 +30,19 @@ export default function EtapeSku({
   onRetrait,
 }: Props) {
   const doublons = skuEnDoublon(fiches);
+  const idLibelle = useId();
 
   return (
     <div className="flex flex-col gap-[18px] motion-safe:animate-entree">
       <div className={`${cardCls} p-5 md:p-6`}>
-        <label className={labelCls}>SKU des articles de la session</label>
+        <span id={idLibelle} className={labelCls}>
+          SKU des articles de la session
+        </span>
         <p className="mt-1.5 text-sm font-medium text-ink-3">
           Jusqu&apos;à {MAX_FICHES} articles. Entrée valide et passe au suivant.
         </p>
 
-        <div className="mt-4 flex flex-col gap-2.5">
+        <div role="group" aria-labelledby={idLibelle} className="mt-4 flex flex-col gap-2.5">
           {fiches.map((f, i) => {
             const doublon = doublons.has(f.sku.trim().toUpperCase());
             return (
@@ -46,7 +51,7 @@ export default function EtapeSku({
                   <span className="w-5 flex-none font-mono text-xs text-ink-3">
                     {i + 1}
                   </span>
-                  <input
+                  <Input
                     value={f.sku}
                     onChange={(e) => onSaisie(f.id, e.target.value)}
                     onBlur={() => f.sku.trim() && onChercher(f.id)}
@@ -65,14 +70,19 @@ export default function EtapeSku({
                     }}
                     id={`sku-${f.id}`}
                     placeholder={i === 0 ? "Ex : PRL1" : "SKU suivant…"}
+                    aria-label={`SKU de l'article ${i + 1}`}
+                    aria-invalid={f.lookup.phase === "erreur" || undefined}
                     autoCapitalize="characters"
                     autoFocus={i === 0}
-                    className={`min-w-0 flex-1 rounded-md border-2 px-4 py-3 font-sans text-md font-bold uppercase text-ink outline-none transition-colors ${
+                    // Neutre au repos, accent au focus (anneau de l'Input) ;
+                    // vert ou rouge seulement une fois la recherche faite,
+                    // et l'icône à droite le redit sans la couleur.
+                    className={`min-w-0 flex-1 border-2 px-4 font-sans font-bold uppercase md:h-11 md:text-md ${
                       f.lookup.phase === "erreur"
                         ? "border-neg"
                         : f.lookup.phase === "ok"
                           ? "border-pos"
-                          : "border-accent"
+                          : ""
                     }`}
                   />
                   <span className="flex w-6 flex-none justify-center">
@@ -87,14 +97,12 @@ export default function EtapeSku({
                     )}
                   </span>
                   {fiches.length > 1 && (
-                    <button
-                      type="button"
+                    <IconButton
+                      label={`Retirer la ligne ${i + 1}`}
                       onClick={() => onRetrait(f.id)}
-                      aria-label={`Retirer la ligne ${i + 1}`}
-                      className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-surface-2 hover:text-neg"
                     >
                       <X className="h-4 w-4" strokeWidth={2.2} />
-                    </button>
+                    </IconButton>
                   )}
                 </div>
 
@@ -140,7 +148,7 @@ export default function EtapeSku({
           <button
             type="button"
             onClick={onAjout}
-            className="mt-3.5 inline-flex min-h-11 items-center gap-2 rounded-lg border-2 border-dashed border-line-strong px-4 text-base font-semibold text-accent-text transition-colors hover:border-accent"
+            className="mt-3.5 inline-flex min-h-11 items-center gap-2 rounded-lg border-2 border-dashed border-line-strong px-4 text-base font-semibold text-accent-text transition-colors duration-fast hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
           >
             <Plus className="h-4 w-4" strokeWidth={2.3} />
             Ajouter un article
