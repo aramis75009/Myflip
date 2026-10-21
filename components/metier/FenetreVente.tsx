@@ -75,7 +75,8 @@ function ContenuVente({
   onClose,
   onVendu,
 }: Omit<Props, "article"> & { article: ArticleVendable; ouverte: boolean }) {
-  const vente = useUpdateArticle();
+  // The window shows the server error itself (<p role="alert">): no global toast.
+  const vente = useUpdateArticle({ erreurLocale: true });
   const compta = useComptabiliser();
   const mutation = contexte === "stock" ? vente : compta;
   const pending = mutation.isPending;

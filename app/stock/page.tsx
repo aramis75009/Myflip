@@ -1,5 +1,4 @@
 "use client";
-// design-tokens-dette: R4 R10 R13 R14 R15 → M1
 
 import {
   forwardRef,
@@ -27,7 +26,7 @@ import {
 import { coef, euros, naturalSort, STATUT_VENDU, STATUTS } from "@/lib/calc";
 import StatutPill from "@/components/StatutPill";
 import { CANAUX } from "@/lib/canalColors";
-import { statutMarker } from "@/lib/statutColors";
+import { styleStatut } from "@/lib/statutColors";
 import type { ArticleDTO } from "@/lib/types";
 import EditableCell from "@/components/EditableCell";
 import { COMPTES_VENTE, isCompteVente, labelCompteVente } from "@/lib/comptesVente";
@@ -36,7 +35,6 @@ import { FenetreVente } from "@/components/metier/FenetreVente";
 import NewCommandeModal from "@/components/NewCommandeModal";
 import CanalBadge from "@/components/CanalBadge";
 import StatutBadge from "@/components/StatutBadge";
-import Modal from "@/components/Modal";
 import Loader from "@/components/Loader";
 import { toast } from "sonner";
 import {
@@ -47,6 +45,22 @@ import {
   FileText,
   X,
 } from "lucide-react";
+import { Frame } from "@/components/console";
+import { AlertDialog } from "@/components/ui/alert-dialog";
+import { BarreActions } from "@/components/ui/barre-actions";
+import { Button, IconButton } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog } from "@/components/ui/dialog";
+import { Select } from "@/components/ui/select";
+import { ColonneActions, Table, TBody, TH, THead } from "@/components/ui/table";
+import { cn } from "@/lib/cn";
+import { cibleSelection, libelleSelection } from "./_selection";
+import {
+  messageChangementGroupe,
+  messageQuitterVendu,
+  messageSuppression,
+  type Confirmation,
+} from "./_confirmations";
 
 type SortKey =
   | "sku"
@@ -147,6 +161,27 @@ function virtualWindow(v: Virtualizer<Window, Element>) {
   };
 }
 
+/**
+ * Height of a desktop table row, in px (PRD § 10). Written on every <tr> AND
+ * given to the row virtualiser as its size, so the virtual height always
+ * equals the rendered one: rows are not measured, they cannot drift.
+ *
+ * It must stay ≥ the tallest cell, all single-line (rows are
+ * `whitespace-nowrap`): an EditableCell in 13 px text (line 1.45 → 18.85)
+ * + its 2 × 4 px + the cell's 2 × 9 px + the 1 px rule ≈ 45.85; the status
+ * pill 32 + 2 × 6 + 1 = 45; the action buttons 32 + 2 × 6 + 1 = 45. Change
+ * a cell padding, a control height or a text size → recompute.
+ */
+const HAUTEUR_LIGNE_PX = 46;
+
+/**
+ * Height of a mobile card, in px: the estimate of the card virtualiser
+ * (cards are measured, their price line may wrap). Single-line card: 12 gap
+ * + 2 border + 32 padding + 3 lines × 18.85 + 6 + 8 + actions (12 + 1 + 12
+ * + 44) ≈ 185.55.
+ */
+const HAUTEUR_CARTE_PX = 186;
+
 // « Jours en vente » n'est pas un champ de l'article : il se calcule.
 const sortValue = (a: ArticleDTO, key: SortKey) =>
   key === "joursEnVente" ? (joursEnVente(a)?.jours ?? null) : a[key];
@@ -169,7 +204,7 @@ function compare(a: ArticleDTO, b: ArticleDTO, key: SortKey): number {
 // vérité de cette hauteur — les modifier déplace toute la barre d'un coup.
 // 44px en mobile (cible tactile Apple HIG), 40px en desktop (maquette C).
 const CTRL =
-  "h-11 md:h-10 rounded-full border border-line bg-surface-2 text-sm text-ink-2 outline-none transition-colors hover:border-line-strong focus:border-line-strong";
+  "h-11 md:h-10 rounded-full border border-line bg-surface-2 text-sm text-ink-2 transition-colors duration-fast hover:border-line-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus";
 const CTRL_SELECT = `${CTRL} max-w-[220px] cursor-pointer truncate px-3.5 font-semibold`;
 const CTRL_BTN = `${CTRL} inline-flex items-center gap-2 px-4 font-semibold`;
 
@@ -412,14 +447,15 @@ const ArticleRow = memo(
           <span className="flex items-center">
             <span
               aria-hidden="true"
-              className="mr-px h-[19px] w-[3px] flex-none rounded-full"
-              style={{ backgroundColor: statutMarker(a.statut) }}
+              className={cn("mr-px h-[19px] w-[3px] flex-none rounded-full", styleStatut(a.statut).repere)}
             />
             {/* min-w-0 : sans lui l'input d'édition (w-full) déborderait de la
                 largeur du filet, et la troncature du libellé ne prendrait pas. */}
             <span className="min-w-0 flex-1">
               <EditableCell
                 value={a.sku}
+                champ="SKU"
+                sku={a.sku}
                 onSave={(v) => onPatch(a.id, { sku: v })}
               />
             </span>
@@ -430,6 +466,8 @@ const ArticleRow = memo(
         <td key="marque" className="px-2 py-[9px] text-sm font-semibold text-ink">
           <EditableCell
             value={a.marque}
+            champ="marque"
+            sku={a.sku}
             onSave={(v) => onPatch(a.id, { marque: v })}
           />
         </td>
@@ -438,6 +476,8 @@ const ArticleRow = memo(
         <td key="categorie" className="px-2 py-[9px] text-sm text-ink-2">
           <EditableCell
             value={a.categorie}
+            champ="catégorie"
+            sku={a.sku}
             onSave={(v) => onPatch(a.id, { categorie: v })}
           />
         </td>
@@ -446,6 +486,8 @@ const ArticleRow = memo(
         <td key="grade" className="px-2 py-[9px] text-sm text-ink-2">
           <EditableCell
             value={a.grade}
+            champ="grade"
+            sku={a.sku}
             onSave={(v) => onPatch(a.id, { grade: v || null })}
           />
         </td>
@@ -471,6 +513,8 @@ const ArticleRow = memo(
             display={euros(a.prixAchat)}
             type="number"
             align="right"
+            champ="prix achat"
+            sku={a.sku}
             onSave={(v) => onPatch(a.id, { prixAchat: Number(v) })}
           />
         </td>
@@ -486,6 +530,8 @@ const ArticleRow = memo(
             type="number"
             align="right"
             editable={vendu}
+            champ="prix vente"
+            sku={a.sku}
             onSave={(v) => onPatch(a.id, { prixVente: Number(v) })}
           />
         </td>
@@ -515,8 +561,7 @@ const ArticleRow = memo(
         >
           {sousObjectif ? (
             <span
-              className="inline-flex items-center gap-1"
-              style={{ color: "rgb(var(--warn))" }}
+              className="inline-flex items-center gap-1 text-warn"
               title={`Objectif : x${a.coefObjectif}`}
             >
               ⚠️ {coef(coefEffectif)}
@@ -539,6 +584,8 @@ const ArticleRow = memo(
                 : "—"
             }
             type="date"
+            champ="date de mise en vente"
+            sku={a.sku}
             onSave={(v) => onPatch(a.id, { dateMiseEnVente: v || null })}
           />
         </td>
@@ -557,6 +604,8 @@ const ArticleRow = memo(
             }
             type="date"
             editable={vendu}
+            champ="date de vente"
+            sku={a.sku}
             onSave={(v) =>
               onPatch(a.id, {
                 dateVente: v ? new Date(v).toISOString() : null,
@@ -598,6 +647,8 @@ const ArticleRow = memo(
             value={a.compteVente}
             display={a.compteVente ? labelCompteVente(a.compteVente) : undefined}
             options={COMPTES_OPTIONS}
+            champ="compte"
+            sku={a.sku}
             onSave={(v) => onPatch(a.id, { compteVente: isCompteVente(v) ? v : null })}
           />
         </td>
@@ -612,46 +663,51 @@ const ArticleRow = memo(
       <tr
         ref={ref}
         {...rest}
+        // Fixed height, the virtualiser's row size (HAUTEUR_LIGNE_PX).
+        style={{ height: HAUTEUR_LIGNE_PX }}
         // Le survol ne pose plus de filet à gauche : le filet de statut porté
         // par la colonne SKU occupe déjà ce registre, et deux filets à 40px
         // d'écart brouillaient la lecture. Un simple fond suffit.
-        className={`border-b border-line align-middle transition-colors duration-fast hover:bg-surface-2 ${
-          isSelected ? "bg-accent-soft" : ""
-        }`}
+        className={cn(
+          "group whitespace-nowrap border-b border-line align-middle transition-colors duration-fast hover:bg-surface-2",
+          isSelected && "bg-accent-soft",
+        )}
       >
         {/* data-select-cell : point d'ancrage du glissement (cf. useDragSelect).
             La case est pointer-events-none → la délégation gère clic ET glissement,
             sans double-toggle ; onChange reste pour l'accessibilité clavier. */}
         <td data-select-cell className="cursor-pointer select-none px-3 py-[9px]">
-          <input
-            type="checkbox"
+          <Checkbox
             aria-label={`Sélectionner ${a.sku}`}
-            className="pointer-events-none h-4 w-4 accent-accent"
+            className="pointer-events-none"
             checked={isSelected}
             onChange={() => onToggleSelect(a.id)}
           />
         </td>
         {shownColumns.map((c) => cells[c.key])}
-        <td className="px-3 py-[9px]">
-          <div className="flex items-center justify-end gap-2.5 text-ink-3">
-            <button
+        {/* Stays in view while the table scrolls sideways (ST-14); its
+            background follows the row's (hover, selection). 32 px buttons in
+            6 px padding: within HAUTEUR_LIGNE_PX. */}
+        <ColonneActions
+          className={cn("py-1.5 group-hover:bg-surface-2", isSelected && "bg-accent-soft")}
+        >
+          <div className="flex items-center justify-end gap-1 text-ink-3">
+            <IconButton
+              label={a.titreAnnonce ? "Voir le détail (annonce générée)" : "Voir le détail"}
               onClick={() => onShowDetail(a)}
-              className={`transition-colors hover:text-accent-text ${
-                a.titreAnnonce ? "text-accent-text" : ""
-              }`}
-              title={a.titreAnnonce ? "Voir le détail (annonce générée)" : "Voir le détail"}
+              className={cn("md:h-8 md:w-8 hover:text-accent-text", a.titreAnnonce && "text-accent-text")}
             >
-              <FileText className="h-[17px] w-[17px]" strokeWidth={2} />
-            </button>
-            <button
+              <FileText aria-hidden className="h-4 w-4" strokeWidth={2} />
+            </IconButton>
+            <IconButton
+              label="Supprimer"
               onClick={() => onDelete(a)}
-              className="transition-colors hover:text-neg"
-              title="Supprimer"
+              className="md:h-8 md:w-8 hover:text-neg"
             >
-              <X className="h-[17px] w-[17px]" strokeWidth={2} />
-            </button>
+              <X aria-hidden className="h-4 w-4" strokeWidth={2} />
+            </IconButton>
           </div>
-        </td>
+        </ColonneActions>
       </tr>
     );
   }),
@@ -683,10 +739,9 @@ const ArticleCard = memo(
           }`}
         >
           <div className="flex gap-3">
-            <input
-              type="checkbox"
+            <Checkbox
               aria-label={`Sélectionner ${a.sku}`}
-              className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-accent"
+              className="mt-1"
               checked={isSelected}
               onChange={() => onToggleSelect(a.id)}
             />
@@ -699,14 +754,13 @@ const ArticleCard = memo(
               <div className="flex min-w-0 items-center gap-1.5">
                 <span
                   aria-hidden="true"
-                  className="h-[17px] w-[3px] flex-none rounded-full"
-                  style={{ backgroundColor: statutMarker(a.statut) }}
+                  className={cn("h-[17px] w-[3px] flex-none rounded-full", styleStatut(a.statut).repere)}
                 />
                 <span className="truncate font-mono text-sm font-bold text-ink">
                   {a.sku}
                 </span>
                 {a.titreAnnonce && (
-                  <FileText className="h-4 w-4 text-accent-text" strokeWidth={2} />
+                  <FileText aria-hidden className="h-4 w-4 text-accent-text" strokeWidth={2} />
                 )}
               </div>
               <div className="mt-1.5 flex items-center justify-between gap-2">
@@ -752,22 +806,23 @@ const ArticleCard = memo(
               ariaLabel={`Statut de ${a.sku}`}
               className="min-w-0 flex-1"
             />
-            <button
+            <IconButton
+              label="Voir le détail"
               onClick={() => onShowDetail(a)}
-              aria-label="Voir le détail"
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-line transition-colors active:bg-surface-2 ${
-                a.titreAnnonce ? "text-accent-text" : "text-ink-3"
-              }`}
+              className={cn(
+                "rounded-md border border-line active:bg-surface-2",
+                a.titreAnnonce ? "text-accent-text" : "text-ink-3",
+              )}
             >
-              <FileText className="h-[18px] w-[18px]" strokeWidth={2} />
-            </button>
-            <button
+              <FileText aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
+            </IconButton>
+            <IconButton
+              label={`Supprimer ${a.sku}`}
               onClick={() => onDelete(a)}
-              aria-label={`Supprimer ${a.sku}`}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-line text-ink-3 transition-colors active:text-neg"
+              className="rounded-md border border-line text-ink-3 active:text-neg"
             >
-              <X className="h-[18px] w-[18px]" strokeWidth={2} />
-            </button>
+              <X aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
+            </IconButton>
           </div>
         </div>
       </div>
@@ -802,9 +857,10 @@ function KpiCard({
       {dark && (
         <svg
           width="120" height="120" viewBox="0 0 96 96" fill="none"
+          aria-hidden
           className="pointer-events-none absolute -bottom-8 -right-6 opacity-[.08]"
         >
-          <path d="M27 69 V31 L48 54 L69 31 V69" fill="none" stroke="#fff" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M27 69 V31 L48 54 L69 31 V69" fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
       <div
@@ -842,9 +898,8 @@ function ColumnChip({
           : "cursor-pointer text-ink-2"
       }`}
     >
-      <input
-        type="checkbox"
-        className="h-3.5 w-3.5 accent-accent disabled:cursor-default"
+      <Checkbox
+        className="md:h-3.5 md:w-3.5 disabled:cursor-default"
         checked={locked ? true : checked}
         disabled={locked}
         readOnly={locked}
@@ -935,6 +990,15 @@ function StockInner() {
   const [newCommande, setNewCommande] = useState(false);
   const [sellTarget, setSellTarget] = useState<ArticleDTO | null>(null);
   const [detailTarget, setDetailTarget] = useState<ArticleDTO | null>(null);
+  // Confirmations (AlertDialog): leaving « Vendu » (ST-1), deleting (ST-23),
+  // a bulk change that hits sold articles (ST-2).
+  const [quitterVendu, setQuitterVendu] = useState<
+    { article: ArticleDTO; statut: string; message: Confirmation } | null
+  >(null);
+  const [aSupprimer, setASupprimer] = useState<ArticleDTO | null>(null);
+  const [confirmationGroupe, setConfirmationGroupe] = useState<
+    { ids: string[]; message: Confirmation } | null
+  >(null);
 
   // --- Colonnes masquables (préférences persistées dans localStorage) ---
   const [visibleCols, setVisibleCols] = useState<Record<string, boolean>>(
@@ -1000,12 +1064,21 @@ function StockInner() {
 
   const clearSelection = () => setSelected(new Set());
 
-  const applyBulk = () => {
-    const ids = Array.from(selected);
-    if (ids.length === 0) return;
+  // Sends the bulk change for `ids` only (same body as before: { ids, statut }).
+  // The rows written leave the selection; the ones hidden by the filters stay
+  // selected, still counted in the bar.
+  const envoyerGroupe = (ids: string[]) => {
     bulk.mutate(
       { ids, statut: bulkStatut },
-      { onSuccess: clearSelection },
+      {
+        onSuccess: () =>
+          setSelected((prev) => {
+            const next = new Set(prev);
+            for (const id of ids) next.delete(id);
+            return next;
+          }),
+        onSettled: () => setConfirmationGroupe(null),
+      },
     );
   };
 
@@ -1042,6 +1115,16 @@ function StockInner() {
   selectedRef.current = selected;
   const onSelectPointerDown = useDragSelect(sortedRef, selectedRef, setSelected);
 
+  // ST-2: « Appliquer » only writes the selected rows the filters show.
+  const cible = useMemo(() => cibleSelection(selected, sorted), [selected, sorted]);
+
+  const applyBulk = () => {
+    if (cible.ids.length === 0 || bulk.isPending) return;
+    const message = messageChangementGroupe(cible.ids.length, cible.vendus);
+    if (message) setConfirmationGroupe({ ids: cible.ids, message });
+    else envoyerGroupe(cible.ids);
+  };
+
   // --- Virtualisation : ne monte que les lignes/cartes visibles (+ overscan).
   // Une seule liste rendue à la fois selon le breakpoint (cf. useIsDesktop).
   const isDesktop = useIsDesktop();
@@ -1052,14 +1135,10 @@ function StockInner() {
   const desktopWrapRef = useRef<HTMLDivElement>(null);
   const rowVirtualizer = useWindowVirtualizer({
     count: sorted.length,
-    // 45px : la pastille de statut (32px) + 12px de `py-1.5` sur son <td>
-    // + 1px de bordure. C'est elle le contenu le plus haut de la ligne depuis
-    // le passage à la densité de la maquette (9px de padding ailleurs).
-    // Une estimation fausse dérive sur toute la hauteur du stock — elle était
-    // à 54 quand la ligne en faisait 45, soit ~11 000px d'écart sur 1 200
-    // articles. `measureElement` corrige au fil du défilement, mais seulement
-    // pour les lignes déjà montées.
-    estimateSize: () => 45,
+    // Every row is exactly HAUTEUR_LIGNE_PX high (set on its <tr>), so rows
+    // are not measured: a wrong size would drift over the whole stock (it
+    // was 54 for 45 px rows once, ~11 000 px off on 1 200 articles).
+    estimateSize: () => HAUTEUR_LIGNE_PX,
     overscan: 8,
     scrollMargin: desktopWrapRef.current?.offsetTop ?? 0,
   });
@@ -1067,7 +1146,7 @@ function StockInner() {
   const mobileWrapRef = useRef<HTMLDivElement>(null);
   const cardVirtualizer = useWindowVirtualizer({
     count: sorted.length,
-    estimateSize: () => 116,
+    estimateSize: () => HAUTEUR_CARTE_PX,
     overscan: 6,
     scrollMargin: mobileWrapRef.current?.offsetTop ?? 0,
   });
@@ -1153,27 +1232,33 @@ function StockInner() {
 
   const handleStatutChange = useCallback(
     (a: ArticleDTO, value: string) => {
-      if (value === STATUT_VENDU) setSellTarget(a);
+      if (value === STATUT_VENDU) {
+        setSellTarget(a);
+        return;
+      }
+      // ST-1: leaving « Vendu » erases the sale: ask first, write only on
+      // confirmation. The native select stays controlled by the article, so
+      // it keeps showing « Vendu » until then.
+      const message = messageQuitterVendu(a, value);
+      if (message) setQuitterVendu({ article: a, statut: value, message });
       else handlePatch(a.id, { statut: value });
     },
     [handlePatch],
   );
 
-  const handleDelete = useCallback(
-    (a: ArticleDTO) => {
-      if (confirm(`Supprimer ${a.sku} ?`))
-        del.mutate(a.id, {
-          onSuccess: () => toast.success(`${a.sku} supprimé.`),
-          onError: (e) => toast.error((e as Error).message),
-        });
-    },
-    [del],
-  );
+  const handleDelete = useCallback((a: ArticleDTO) => setASupprimer(a), []);
+
+  const confirmerSuppression = () => {
+    const a = aSupprimer;
+    if (!a || del.isPending) return;
+    del.mutate(a.id, {
+      onSuccess: () => toast.success(`${a.sku} supprimé.`),
+      onError: (e) => toast.error((e as Error).message),
+      onSettled: () => setASupprimer(null),
+    });
+  };
 
   const handleShowDetail = useCallback((a: ArticleDTO) => setDetailTarget(a), []);
-
-  const sortIndicator = (key: SortKey) =>
-    key === sortKey ? (sortDir === "asc" ? " ↑" : " ↓") : "";
 
   const hasFilters = !!(marque || lot || statut || qInput || commande);
 
@@ -1222,9 +1307,9 @@ function StockInner() {
     : null;
 
   return (
-    <main className="min-h-screen bg-bg px-4 py-5 text-ink md:px-[38px] md:py-[30px] md:pb-[46px]">
+    <Frame>
       {/* Bandeau de KPI — quatre chiffres, aucun ornement. */}
-      <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
           value={totals.total.toLocaleString("fr-FR")}
           label="Articles au total"
@@ -1248,9 +1333,10 @@ function StockInner() {
       <section className="overflow-hidden rounded-lg border border-line bg-surface">
         <div className="flex flex-col gap-2 p-3.5 md:flex-row md:flex-wrap md:items-center">
           <label
-            className={`${CTRL} flex w-full items-center gap-2.5 px-4 md:min-w-[200px] md:flex-1`}
+            className={`${CTRL} flex w-full items-center gap-2.5 px-4 focus-within:ring-2 focus-within:ring-focus md:min-w-[200px] md:flex-1`}
           >
             <Search
+              aria-hidden
               className="h-4 w-4 flex-none text-ink-3"
               strokeWidth={2}
             />
@@ -1259,7 +1345,7 @@ function StockInner() {
               onChange={(e) => setQInput(e.target.value)}
               placeholder="Rechercher un SKU…"
               aria-label="Rechercher un SKU"
-              className="w-full bg-transparent font-mono text-sm text-ink outline-none placeholder:text-ink-3"
+              className="w-full bg-transparent font-mono text-sm text-ink placeholder:text-ink-3 focus-visible:outline-none"
             />
           </label>
           <select
@@ -1304,37 +1390,38 @@ function StockInner() {
             ))}
           </select>
           {/* Colonnes et export : sans objet sur la vue cartes. */}
-          <button
+          <Button
+            variant="secondary"
             onClick={() => setColsOpen((o) => !o)}
             aria-expanded={colsOpen}
-            className={`${CTRL_BTN} hidden md:inline-flex ${
-              colsOpen ? "border-line-strong bg-surface-2" : ""
-            }`}
+            className={cn(CTRL_BTN, "hidden md:inline-flex", colsOpen && "border-line-strong")}
           >
-            <SlidersHorizontal className="h-4 w-4" strokeWidth={2} />
+            <SlidersHorizontal aria-hidden className="h-4 w-4" strokeWidth={2} />
             Colonnes
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
             onClick={exportCSV}
-            className={`${CTRL_BTN} hidden md:inline-flex`}
+            className={cn(CTRL_BTN, "hidden md:inline-flex")}
           >
-            <Download className="h-4 w-4" strokeWidth={2} />
+            <Download aria-hidden className="h-4 w-4" strokeWidth={2} />
             Export CSV
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => setNewCommande(true)}
-            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-accent px-4 text-sm font-bold text-accent-ink shadow-pop transition-colors hover:bg-accent-hover md:h-10 md:w-auto"
+            className="h-11 w-full rounded-full px-4 text-sm font-bold shadow-pop md:h-10 md:w-auto"
           >
-            <Plus className="h-4 w-4" strokeWidth={2.3} />
+            <Plus aria-hidden className="h-4 w-4" strokeWidth={2.3} />
             Nouvelle commande
-          </button>
+          </Button>
           {hasFilters && (
-            <button
+            <Button
+              variant="secondary"
               onClick={resetFilters}
-              className={`${CTRL_BTN} w-full justify-center md:w-auto`}
+              className={cn(CTRL_BTN, "w-full justify-center md:w-auto")}
             >
               Réinitialiser
-            </button>
+            </Button>
           )}
         </div>
 
@@ -1368,10 +1455,11 @@ function StockInner() {
                 : (statutCounts.get(chip.value) ?? 0);
             return (
               <button
+                type="button"
                 key={chip.value}
                 onClick={() => setStatut(chip.value)}
                 aria-pressed={active}
-                className={`inline-flex min-h-11 flex-none items-center gap-2 whitespace-nowrap rounded-full border px-3.5 text-sm transition-colors duration-base md:min-h-9 ${
+                className={`inline-flex min-h-11 flex-none items-center gap-2 whitespace-nowrap rounded-full border px-3.5 text-sm transition-colors duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus md:min-h-9 ${
                   active
                     ? "border-accent bg-accent font-bold text-accent-ink"
                     : "border-line bg-surface-2 font-medium text-ink-2 hover:border-line-strong"
@@ -1379,13 +1467,10 @@ function StockInner() {
               >
                 <span
                   aria-hidden="true"
-                  className="h-[7px] w-[7px] flex-none rounded-full"
-                  style={{
-                    backgroundColor:
-                      chip.value === ""
-                        ? "rgb(var(--ink-3))"
-                        : statutMarker(chip.value),
-                  }}
+                  className={cn(
+                    "h-[7px] w-[7px] flex-none rounded-full",
+                    chip.value === "" ? "bg-ink-3" : styleStatut(chip.value).repere,
+                  )}
                 />
                 {chip.label}
                 <span className="font-mono text-xs tabular-nums opacity-70">
@@ -1404,20 +1489,20 @@ function StockInner() {
           onPointerDown={onSelectPointerDown}
           className="hidden overflow-x-auto border-t border-line md:block"
         >
-          <table
+          {/* text-base: the body size the rows were sized with (HAUTEUR_LIGNE_PX). */}
+          <Table
             style={{ minWidth: Math.max(640, colCount * 96) }}
-            className="w-full border-collapse"
+            className="text-base"
           >
-            <thead>
-              <tr className={`${MICRO} border-b border-line bg-surface-2 text-left`}>
+            <THead>
+              <tr className={`${MICRO} border-b border-line text-left`}>
                 <th
+                  scope="col"
                   className="w-10 px-[18px] py-2.5"
                   title="Astuce : glisse le long de cette colonne pour sélectionner plusieurs lignes"
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     aria-label="Tout sélectionner"
-                    className="h-4 w-4 cursor-pointer accent-accent"
                     checked={
                       sorted.length > 0 && sorted.every((a) => selected.has(a.id))
                     }
@@ -1430,22 +1515,27 @@ function StockInner() {
                     }}
                   />
                 </th>
+                {/* Sortable headers (ST-7): a real button, the sort state in
+                    aria-sort. */}
                 {shownColumns.map((c) => (
-                  <th
+                  <TH
                     key={c.key}
-                    onClick={() => toggleSort(c.key)}
-                    className={`cursor-pointer select-none whitespace-nowrap px-2.5 py-2.5 transition-colors hover:text-ink ${
-                      c.align === "right" ? "text-right" : ""
-                    }`}
+                    tri={c.key === sortKey ? sortDir : "none"}
+                    onTri={() => toggleSort(c.key)}
+                    className={cn(
+                      "h-auto select-none whitespace-nowrap border-b-0 px-2.5 py-2.5 font-mono font-medium tracking-[0.14em] text-ink-3",
+                      c.align === "right" && "text-right",
+                    )}
                   >
                     {c.label}
-                    {sortIndicator(c.key)}
-                  </th>
+                  </TH>
                 ))}
-                <th className="px-[18px] py-2.5 text-right">Actions</th>
+                <ColonneActions as="th" className="bg-surface-2 px-[18px] py-2.5">
+                  Actions
+                </ColonneActions>
               </tr>
-            </thead>
-            <tbody>
+            </THead>
+            <TBody>
               {isLoading && (
                 <tr>
                   <td colSpan={colCount + 1} className="py-12">
@@ -1483,7 +1573,6 @@ function StockInner() {
                       <ArticleRow
                         key={a.id}
                         data-index={vr.index}
-                        ref={rowVirtualizer.measureElement}
                         a={a}
                         shownColumns={shownColumns}
                         isSelected={selected.has(a.id)}
@@ -1505,8 +1594,8 @@ function StockInner() {
                   )}
                 </>
               )}
-            </tbody>
-          </table>
+            </TBody>
+          </Table>
         </div>
         )}
 
@@ -1521,7 +1610,7 @@ function StockInner() {
           cartes dans une carte donnerait deux niveaux de bordure à 390px. */}
       {!isDesktop && (
         <div className="md:hidden">
-          <div ref={mobileWrapRef} className="mt-3">
+          <div ref={mobileWrapRef}>
             {isLoading && <Loader label="Chargement du stock" />}
             {isError && (
               <p className="rounded-lg border border-line bg-surface px-4 py-6 text-center text-neg">
@@ -1568,48 +1657,58 @@ function StockInner() {
         </div>
       )}
 
-      {/* Barre d'action flottante (sélection en masse) — suit le repli de la
-          sidebar via --sidebar-w.
+      {/* Barre d'action flottante (sélection en masse), au-dessus du dock en
+          mobile et à droite du menu en ordinateur (BarreActions, ST-3).
           Elle reste flottante et n'a pas rejoint le module comme dans la
           maquette : la liste étant virtualisée sur plus de mille lignes, une
           barre ancrée en haut du module serait hors écran au moment précis où
           l'on vient de sélectionner à la souris tout en bas. */}
-      {selected.size > 0 && (
-        <div className="fixed inset-x-0 bottom-16 z-dock flex justify-center px-4 md:bottom-6 md:left-[var(--sidebar-w)]">
-          <div className="flex flex-wrap items-center gap-2.5 rounded-lg bg-accent py-2 pl-5 pr-2 text-accent-ink shadow-over motion-safe:animate-entree">
-            <span className="font-mono text-sm font-bold tabular-nums">
-              {selected.size} sélectionné{selected.size > 1 ? "s" : ""}
-            </span>
-            <span className="h-4 w-px bg-white/20" />
-            <span className="text-xs font-medium text-accent-ink">Statut</span>
-            <select
-              value={bulkStatut}
-              onChange={(e) => setBulkStatut(e.target.value)}
-              className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-sm font-semibold text-white outline-none [color-scheme:dark] focus:border-white/30"
-            >
-              {STATUTS.filter((s) => s !== STATUT_VENDU).map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={applyBulk}
-              disabled={bulk.isPending}
-              className="rounded-full bg-white px-4 py-1.5 text-sm font-bold text-accent-text transition-colors hover:bg-accent-soft disabled:opacity-60"
-            >
-              {bulk.isPending ? "…" : "Appliquer"}
-            </button>
-            <button
-              onClick={clearSelection}
-              aria-label="Annuler la sélection"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-accent-ink transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <X className="h-[17px] w-[17px]" strokeWidth={2.2} />
-            </button>
-          </div>
-        </div>
-      )}
+      <BarreActions
+        ouverte={selected.size > 0}
+        ton="bar"
+        aria-label="Actions sur la sélection"
+        className="flex-wrap"
+      >
+        {/* ST-2: the count says how many selected rows the filters hide; they
+            are not written. */}
+        <span role="status" className="pl-2 font-mono text-sm font-bold tabular-nums text-bar-ink">
+          {libelleSelection(selected.size, cible.masques)}
+        </span>
+        <span aria-hidden className="h-4 w-px bg-bar-ink/30" />
+        <label htmlFor="statut-groupe" className="text-xs font-medium text-bar-ink">
+          Statut
+        </label>
+        <Select
+          id="statut-groupe"
+          value={bulkStatut}
+          onChange={(e) => setBulkStatut(e.target.value)}
+          className="w-auto"
+          selectClassName="border-line-strong bg-surface text-ink md:h-8 md:text-sm"
+        >
+          {STATUTS.filter((s) => s !== STATUT_VENDU).map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </Select>
+        <Button
+          variant="bar"
+          size="sm"
+          pending={bulk.isPending}
+          pendingLabel="…"
+          disabled={cible.ids.length === 0}
+          onClick={applyBulk}
+        >
+          Appliquer
+        </Button>
+        <IconButton
+          label="Annuler la sélection"
+          onClick={clearSelection}
+          className="text-bar-ink hover:bg-transparent hover:text-bar-ink md:h-8 md:w-8"
+        >
+          <X aria-hidden className="h-4 w-4" strokeWidth={2.2} />
+        </IconButton>
+      </BarreActions>
 
       <NewCommandeModal
         open={newCommande}
@@ -1617,9 +1716,11 @@ function StockInner() {
       />
       <FenetreVente article={sellTarget} contexte="stock" onClose={() => setSellTarget(null)} />
 
-      <Modal
+      <Dialog
         open={!!detailTarget}
-        onClose={() => setDetailTarget(null)}
+        onOpenChange={(ouvert) => {
+          if (!ouvert) setDetailTarget(null);
+        }}
         title={detailTarget ? detailTarget.sku : ""}
       >
         {detail && (
@@ -1659,6 +1760,8 @@ function StockInner() {
                         detail.prixVente != null ? euros(detail.prixVente) : "—"
                       }
                       type="number"
+                      champ="prix de vente"
+                      sku={detail.sku}
                       onSave={(v) =>
                         handlePatch(detail.id, { prixVente: Number(v) })
                       }
@@ -1676,6 +1779,8 @@ function StockInner() {
                           : "—"
                       }
                       type="text"
+                      champ="date de vente"
+                      sku={detail.sku}
                       onSave={(v) =>
                         handlePatch(detail.id, {
                           dateVente: v ? new Date(v).toISOString() : null,
@@ -1687,12 +1792,13 @@ function StockInner() {
                     <span className="mb-0.5 block text-xs font-medium text-ink-3">
                       Canal
                     </span>
-                    <select
+                    <Select
+                      aria-label="Canal"
                       value={detail.canal ?? ""}
                       onChange={(e) =>
                         handlePatch(detail.id, { canal: e.target.value })
                       }
-                      className="mt-0.5 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-base text-ink outline-none focus:border-accent focus:ring-2 focus:ring-focus"
+                      className="mt-0.5"
                     >
                       {detail.canal == null && <option value="">—</option>}
                       {CANAUX.map((c) => (
@@ -1700,7 +1806,7 @@ function StockInner() {
                           {c}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
                   <div>
                     <span className="mb-0.5 block text-xs font-medium text-ink-3">
@@ -1746,8 +1852,54 @@ function StockInner() {
             )}
           </div>
         )}
-      </Modal>
-    </main>
+      </Dialog>
+
+      {/* ST-1: leaving « Vendu ». */}
+      <AlertDialog
+        open={!!quitterVendu}
+        onOpenChange={(ouvert) => {
+          if (!ouvert) setQuitterVendu(null);
+        }}
+        title={quitterVendu?.message.titre ?? ""}
+        description={quitterVendu?.message.corps ?? ""}
+        confirmLabel="Annuler la vente"
+        cancelLabel="Garder vendu"
+        onConfirm={() => {
+          if (!quitterVendu) return;
+          handlePatch(quitterVendu.article.id, { statut: quitterVendu.statut });
+          setQuitterVendu(null);
+        }}
+      />
+
+      {/* ST-23: deleting an article. */}
+      <AlertDialog
+        open={!!aSupprimer}
+        onOpenChange={(ouvert) => {
+          if (!ouvert) setASupprimer(null);
+        }}
+        title={aSupprimer ? messageSuppression(aSupprimer).titre : ""}
+        description={aSupprimer ? messageSuppression(aSupprimer).corps : ""}
+        confirmLabel="Supprimer l’article"
+        pending={del.isPending}
+        pendingLabel="Suppression…"
+        onConfirm={confirmerSuppression}
+      />
+
+      {/* ST-2: a bulk change that hits sold articles. */}
+      <AlertDialog
+        open={!!confirmationGroupe}
+        onOpenChange={(ouvert) => {
+          if (!ouvert) setConfirmationGroupe(null);
+        }}
+        title={confirmationGroupe?.message.titre ?? ""}
+        description={confirmationGroupe?.message.corps ?? ""}
+        confirmLabel="Changer le statut"
+        pending={bulk.isPending}
+        onConfirm={() => {
+          if (confirmationGroupe) envoyerGroupe(confirmationGroupe.ids);
+        }}
+      />
+    </Frame>
   );
 }
 
@@ -1767,16 +1919,18 @@ function DetailCopyField({
         <span className="text-xs font-medium uppercase tracking-wide text-ink-3">
           {label}
         </span>
-        <button
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={async () => {
             await navigator.clipboard.writeText(value);
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
           }}
-          className="rounded-full border border-line bg-surface px-3 py-0.5 text-xs font-medium text-ink transition-colors hover:bg-surface-2"
+          className="h-auto rounded-full border-line px-3 py-0.5 text-xs font-medium"
         >
           {copied ? "Copié ✓" : "Copier"}
-        </button>
+        </Button>
       </div>
       <p className={`text-base text-ink ${multiline ? "whitespace-pre-wrap" : ""}`}>
         {value || "—"}
