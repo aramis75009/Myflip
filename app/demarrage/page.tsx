@@ -36,9 +36,9 @@ const ETAPES = [
 ];
 
 const boutonCls =
-  "inline-flex min-h-[46px] items-center justify-center gap-2 rounded-[16px] bg-[var(--acc)] px-5 text-[13.5px] font-semibold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)] disabled:opacity-60";
+  "inline-flex min-h-[46px] items-center justify-center gap-2 rounded-md bg-accent px-5 text-base font-semibold text-accent-ink transition-colors hover:bg-accent-hover disabled:opacity-60";
 const boutonSecondaireCls =
-  "inline-flex min-h-[46px] items-center justify-center gap-2 rounded-[16px] border border-[var(--border)] bg-[var(--surface-2)] px-5 text-[13.5px] text-[var(--ink2)] transition-colors hover:border-[var(--border-strong)] disabled:opacity-60";
+  "inline-flex min-h-[46px] items-center justify-center gap-2 rounded-md border border-line bg-surface-2 px-5 text-base text-ink-2 transition-colors hover:border-line-strong disabled:opacity-60";
 
 export default function DemarragePage() {
   const router = useRouter();
@@ -115,7 +115,7 @@ export default function DemarragePage() {
 
   return (
     <Frame>
-      <section className="flex flex-col gap-[14px]">
+      <section className="flex flex-col gap-3.5">
         {/* Fil des étapes. Cliquable : on revient sur une étape terminée pour
             vérifier, sans repasser par tout le parcours. */}
         <Module className="p-[18px]">
@@ -128,36 +128,36 @@ export default function DemarragePage() {
                   <button
                     type="button"
                     onClick={() => setEtape(e.n)}
-                    className={`flex min-h-[44px] flex-1 items-center gap-2.5 rounded-[14px] px-3 text-left transition-colors ${
+                    className={`flex min-h-11 flex-1 items-center gap-2.5 rounded-md px-3 text-left transition-colors ${
                       active
-                        ? "bg-[var(--acc)] text-[var(--acc-ink)]"
-                        : "hover:bg-[var(--surface-2)]"
+                        ? "bg-accent text-accent-ink"
+                        : "hover:bg-surface-2"
                     }`}
                   >
                     <span
-                      className={`flex h-6 w-6 flex-none items-center justify-center rounded-full font-mono text-[11px] ${
+                      className={`flex h-6 w-6 flex-none items-center justify-center rounded-full font-mono text-xs ${
                         active
-                          ? "bg-[var(--acc-ink)]/15"
+                          ? "bg-accent-ink/15"
                           : faite
-                            ? "bg-[var(--pos-soft)] text-[var(--pos)]"
-                            : "bg-[var(--surface-2)] text-[var(--faint)]"
+                            ? "bg-pos-soft text-pos"
+                            : "bg-surface-2 text-ink-3"
                       }`}
                     >
                       {faite ? <Check className="h-3.5 w-3.5" /> : e.n}
                     </span>
                     <span className="min-w-0">
-                      <span className="block truncate text-[13px] font-semibold">
+                      <span className="block truncate text-sm font-semibold">
                         {e.titre}
                       </span>
                       <span
-                        className={`block truncate text-[11px] ${active ? "opacity-70" : "text-[var(--faint)]"}`}
+                        className={`block truncate text-xs ${active ? "opacity-70" : "text-ink-3"}`}
                       >
                         {e.resume}
                       </span>
                     </span>
                   </button>
                   {i < ETAPES.length - 1 && (
-                    <ArrowRight className="hidden h-3.5 w-3.5 flex-none text-[var(--faint-2)] sm:block" />
+                    <ArrowRight className="hidden h-3.5 w-3.5 flex-none text-ink-3 sm:block" />
                   )}
                 </li>
               );
@@ -167,9 +167,9 @@ export default function DemarragePage() {
 
         {etape === 1 && (
           <>
-            <Module className="p-[24px]">
+            <Module className="p-6">
               <CardTitle className="mb-2">Connecter ton Trello</CardTitle>
-              <p className="text-[13.5px] leading-relaxed text-[var(--muted)]">
+              <p className="text-base leading-relaxed text-ink-3">
                 MyFlip lit ton tableau Trello pour savoir quand un article part
                 en comptabilité. Un clic, tu autorises MyFlip chez Trello, et tu
                 choisis ton tableau. Rien à recopier.
@@ -197,9 +197,9 @@ export default function DemarragePage() {
         )}
 
         {etape === 2 && (
-          <Module className="p-[24px]">
+          <Module className="p-6">
             <CardTitle className="mb-2">Préparer le board</CardTitle>
-            <p className="mb-4 text-[13.5px] leading-relaxed text-[var(--muted)]">
+            <p className="mb-4 text-base leading-relaxed text-ink-3">
               MyFlip attend trois colonnes et deux étiquettes précises. Plutôt
               que de te faire les créer à la main, il peut les poser lui-même
               sur ton tableau. Rien n&apos;est écrasé : ce qui porte déjà le bon
@@ -207,27 +207,27 @@ export default function DemarragePage() {
             </p>
 
             <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="rounded-[16px] bg-[var(--surface-2)] p-3.5">
-                <div className="mb-2 font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--faint)]">
+              <div className="rounded-md bg-surface-2 p-3.5">
+                <div className="mb-2 font-mono text-xs uppercase tracking-[0.14em] text-ink-3">
                   Colonnes
                 </div>
-                <ul className="flex flex-col gap-1 text-[13px] text-[var(--ink2)]">
+                <ul className="flex flex-col gap-1 text-sm text-ink-2">
                   {COLONNES.map((c) => (
                     <li key={c}>{c}</li>
                   ))}
                 </ul>
               </div>
-              <div className="rounded-[16px] bg-[var(--surface-2)] p-3.5">
-                <div className="mb-2 font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--faint)]">
+              <div className="rounded-md bg-surface-2 p-3.5">
+                <div className="mb-2 font-mono text-xs uppercase tracking-[0.14em] text-ink-3">
                   Étiquettes
                 </div>
-                <ul className="flex flex-col gap-1 text-[13px] text-[var(--ink2)]">
+                <ul className="flex flex-col gap-1 text-sm text-ink-2">
                   {ETIQUETTES_COMPTA.map((e) => (
                     <li key={e.name}>
                       <b>{e.name}</b>
                     </li>
                   ))}
-                  <li className="text-[var(--faint)]">
+                  <li className="text-ink-3">
                     + transporteurs :{" "}
                     {TRANSPORTEURS.map((t) => t.name).join(", ")}
                   </li>
@@ -235,7 +235,7 @@ export default function DemarragePage() {
               </div>
             </div>
 
-            <p className="mb-4 text-[12.5px] leading-relaxed text-[var(--faint)]">
+            <p className="mb-4 text-sm leading-relaxed text-ink-3">
               Les deux étiquettes en gras commandent la comptabilité : « À
               comptabiliser » posée sur une carte fait basculer les articles
               dont le SKU est dans son titre ; « Comptabilisé » est reposée par
@@ -250,7 +250,7 @@ export default function DemarragePage() {
                 onClick={() => preparerBoard(true)}
                 className={boutonCls}
               >
-                {enCours && <Loader2 className="h-4 w-4 animate-spin" />}
+                {enCours && <Loader2 className="h-4 w-4 motion-safe:animate-spin" />}
                 Créer tout sur mon board
               </button>
               <button
@@ -264,7 +264,7 @@ export default function DemarragePage() {
             </div>
 
             {rapport && (
-              <ul className="mt-4 flex flex-col gap-1 rounded-[16px] bg-[var(--surface-2)] p-3.5 text-[12.5px] text-[var(--ink2)]">
+              <ul className="mt-4 flex flex-col gap-1 rounded-md bg-surface-2 p-3.5 text-sm text-ink-2">
                 {rapport.map((l) => (
                   <li key={l}>{l}</li>
                 ))}
@@ -291,9 +291,9 @@ export default function DemarragePage() {
         )}
 
         {etape === 3 && (
-          <Module className="p-[24px]">
+          <Module className="p-6">
             <CardTitle className="mb-2">Ta première commande</CardTitle>
-            <p className="mb-4 text-[13.5px] leading-relaxed text-[var(--muted)]">
+            <p className="mb-4 text-base leading-relaxed text-ink-3">
               Tout est branché. Une commande contient un ou plusieurs lots : un
               lot de polos et un lot de t-shirts n&apos;ont ni le même prix
               d&apos;achat, ni la même série de SKU. Les frais de port se

@@ -13,7 +13,7 @@
 
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Sparkles, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useGenerateListing, usePrompts, useUpdateArticle } from "@/lib/hooks";
 import { pickPrompt } from "@/lib/promptSelect";
@@ -26,14 +26,18 @@ import {
   triggerDownload,
 } from "@/lib/imageProcessing";
 import type { ArticleDTO } from "@/lib/types";
-import { Eyebrow } from "@/components/console";
+import { Eyebrow, Frame } from "@/components/console";
+import { AlertDialog } from "@/components/ui/alert-dialog";
+import { BarreActions } from "@/components/ui/barre-actions";
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import DialogueDelaiVinted from "./_components/DialogueDelaiVinted";
 import EtapeSku from "./_components/EtapeSku";
 import ExportAnnonces from "./_components/ExportAnnonces";
 import FicheArticle from "./_components/FicheArticle";
 import FileGeneration from "./_components/FileGeneration";
 import RailArticles from "./_components/RailArticles";
-import { descripteurBarre } from "./_barreAction";
+import { descripteurBarre, type DescripteurBarre } from "./_barreAction";
 import {
   DELAI_PAR_DEFAUT,
   ecrireDelai,
@@ -55,7 +59,7 @@ import {
   type ArticleEnCours,
   type Photo,
 } from "./_reducer";
-import { btnGhost, cardCls } from "./_ui";
+import { cardCls } from "./_ui";
 
 /** Longueur de titre visée par les prompts (« saturer 100 sans dépasser »). */
 const TITRE_MAX = 100;
@@ -93,6 +97,11 @@ export default function MiseEnVentePage() {
   const [saveEnCours, setSaveEnCours] = useState(false);
   const [zoom, setZoom] = useState<{ ficheId: string; photoId: string } | null>(null);
   const [choixPrompt, setChoixPrompt] = useState(false);
+  // Confirmation demandée avant « Nouvelle session » (QU-61), ou null. On garde
+  // l'objet reçu du descripteur plutôt qu'un booléen : une fois la session
+  // effacée, le descripteur change, et le titre de la boîte ne doit pas bouger.
+  const [confirmationSession, setConfirmationSession] =
+    useState<DescripteurBarre["confirmation"]>(null);
   // Ce que le pop-up de délai est en train de demander, ou null s'il est fermé.
   const [demandeDelai, setDemandeDelai] = useState<
     { cible: "tout" } | { cible: "fiche"; id: string } | null
@@ -101,7 +110,8 @@ export default function MiseEnVentePage() {
 
   const { data: prompts = [] } = usePrompts();
   const generate = useGenerateListing();
-  const updateArticle = useUpdateArticle();
+  // Les erreurs sont montrées ici (message de fiche, toast) : pas de toast global en double.
+  const updateArticle = useUpdateArticle({ erreurLocale: true });
   const queryClient = useQueryClient();
 
   const fiche = etat.fiches.find((f) => f.id === etat.active) ?? etat.fiches[0];
@@ -530,6 +540,11 @@ export default function MiseEnVentePage() {
   // qu'à traduire l'intention en effet de bord.
   const barre = descripteurBarre(etat);
 
+  function recommencer() {
+    effacer();
+    dispatch({ type: "reset", id: PREMIERE_FICHE });
+  }
+
   function agir() {
     switch (barre.intention) {
       case "continuer":
@@ -537,8 +552,10 @@ export default function MiseEnVentePage() {
       case "generer":
         return void genererFiches(etat.fiches.filter(fichePrete).map((f) => f.id));
       case "nouvelle-session":
-        effacer();
-        return dispatch({ type: "reset", id: PREMIERE_FICHE });
+        // Des annonces générées (donc payées) et pas enregistrées partiraient
+        // avec la session : on demande d'abord (QU-61).
+        if (barre.confirmation) return setConfirmationSession(barre.confirmation);
+        return recommencer();
       case "attendre":
         return;
     }
@@ -548,12 +565,14 @@ export default function MiseEnVentePage() {
     ? etat.fiches.find((f) => f.id === zoom.ficheId)?.photos.find((p) => p.id === zoom.photoId)
     : null;
 
-  useEffect(() => {
-    if (!photoZoomee) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setZoom(null);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [photoZoomee]);
+  // Nom de la photo agrandie : titre (masqué) de la visionneuse et texte
+  // alternatif de l'image.
+  const libellePhotoZoomee = (() => {
+    if (!zoom || !photoZoomee) return "";
+    const f = etat.fiches.find((x) => x.id === zoom.ficheId);
+    const n = (f?.photos.findIndex((p) => p.id === zoom.photoId) ?? 0) + 1;
+    return `Photo ${n} de ${f?.article?.sku || f?.sku.trim() || "l'article"}`;
+  })();
 
   const nomPromptDetecte = fiche.promptId
     ? (prompts.find((p) => p.id === fiche.promptId)?.nom ?? "inconnu")
@@ -561,187 +580,190 @@ export default function MiseEnVentePage() {
       "aucun");
 
   return (
-    <main className="min-h-screen bg-[var(--bg)] p-[14px] pb-40 text-[var(--ink)] min-[900px]:p-[18px] min-[900px]:pb-32">
-      <header className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <Eyebrow>SKU → FICHES → GÉNÉRATION → ANNONCES</Eyebrow>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {ETAPES.map((label, i) => {
-            const n = (i + 1) as 1 | 2 | 3 | 4;
-            // L'étape Annonces reste atteignable tant qu'une annonce existe :
-            // sinon, revenir corriger une fiche condamnait à tout regénérer
-            // pour relire un texte déjà écrit.
-            const fait =
-              n < etat.etape ||
-              (n === 4 && etat.fiches.some((f) => f.generation.phase === "ok"));
-            const courant = n === etat.etape;
-            return (
-              <button
-                key={label}
-                type="button"
-                disabled={!fait}
-                onClick={() => fait && dispatch({ type: "etape", etape: n })}
-                className={`inline-flex min-h-[32px] items-center gap-1.5 rounded-full px-3 font-mono text-[10.5px] uppercase tracking-[0.08em] transition-colors disabled:cursor-default ${
-                  courant
-                    ? "bg-[var(--acc)] font-bold text-[var(--acc-ink)]"
-                    : fait
-                      ? "bg-[var(--surface-2)] text-[var(--ink2)] hover:text-[var(--acc)]"
-                      : "text-[var(--faint-2)]"
-                }`}
-              >
-                {n}. {label}
-              </button>
-            );
-          })}
-        </div>
-      </header>
+    <>
+      <Frame>
+        <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <Eyebrow>SKU → FICHES → GÉNÉRATION → ANNONCES</Eyebrow>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {ETAPES.map((label, i) => {
+              const n = (i + 1) as 1 | 2 | 3 | 4;
+              // L'étape Annonces reste atteignable tant qu'une annonce existe :
+              // sinon, revenir corriger une fiche condamnait à tout regénérer
+              // pour relire un texte déjà écrit.
+              const fait =
+                n < etat.etape ||
+                (n === 4 && etat.fiches.some((f) => f.generation.phase === "ok"));
+              const courant = n === etat.etape;
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  disabled={!fait}
+                  onClick={() => fait && dispatch({ type: "etape", etape: n })}
+                  className={`inline-flex min-h-8 items-center gap-1.5 rounded-full px-3 font-mono text-xs uppercase tracking-[0.08em] transition-colors disabled:cursor-default ${
+                    courant
+                      ? "bg-accent font-bold text-accent-ink"
+                      : fait
+                        ? "bg-surface-2 text-ink-2 hover:text-accent-text"
+                        : "text-ink-3"
+                  }`}
+                >
+                  {n}. {label}
+                </button>
+              );
+            })}
+          </div>
+        </header>
 
-      <div className="mx-auto max-w-[1100px]">
-        {etat.etape === 1 && (
-          <EtapeSku
-            fiches={etat.fiches}
-            onSaisie={(id, sku) => dispatch({ type: "sku/saisie", id, sku })}
-            onChercher={(id) => void chercherSku(id)}
-            onAjout={() => dispatch({ type: "fiche/ajout", id: nouvelId() })}
-            onRetrait={(id) => dispatch({ type: "fiche/retrait", id })}
-          />
-        )}
-
-        {etat.etape === 2 && (
-          <div className="flex gap-[18px]">
-            <RailArticles
+        <div className="mx-auto w-full max-w-[1100px]">
+          {etat.etape === 1 && (
+            <EtapeSku
               fiches={etat.fiches}
-              active={etat.active}
-              onActive={(id) => dispatch({ type: "fiche/active", id })}
+              onSaisie={(id, sku) => dispatch({ type: "sku/saisie", id, sku })}
+              onChercher={(id) => void chercherSku(id)}
               onAjout={() => dispatch({ type: "fiche/ajout", id: nouvelId() })}
               onRetrait={(id) => dispatch({ type: "fiche/retrait", id })}
             />
-            <div className="min-w-0 flex-1">
-              {/* Sous 768 px le rail est masqué : on affiche au moins de quel
-                  article il s'agit, sinon l'écran ne dit plus rien. */}
-              <div className="mb-3 flex items-center gap-2.5 md:hidden">
-                <span className="font-mono text-[12.5px] font-bold">
-                  {fiche.sku.trim() || "—"}
-                </span>
-                <span className="text-[12px] text-[var(--faint-2)]">
-                  fiche {etat.fiches.findIndex((f) => f.id === fiche.id) + 1} sur{" "}
-                  {etat.fiches.length}
-                </span>
-              </div>
-              {fiche.article ? (
-                <FicheArticle
-                  fiche={fiche}
-                  active
-                  prompts={prompts}
-                  nomPromptDetecte={nomPromptDetecte}
-                  onPhotos={(files) => void ajouterPhotos(fiche.id, files)}
-                  onRetraitPhoto={(photoId) =>
-                    dispatch({ type: "photo/retrait", id: fiche.id, photoId })
-                  }
-                  onRotation={(photoId, delta) => void tourner(fiche.id, photoId, delta)}
-                  onSelection={(photoId) =>
-                    dispatch({ type: "photo/selection", id: fiche.id, photoId })
-                  }
-                  onZoom={(photoId) => setZoom({ ficheId: fiche.id, photoId })}
-                  onQcm={(champ, valeur) =>
-                    dispatch({ type: "qcm", id: fiche.id, champ, valeur })
-                  }
-                  onPrompt={(promptId) =>
-                    dispatch({ type: "prompt", id: fiche.id, promptId })
-                  }
-                  montrerChoixPrompt={choixPrompt}
-                  onBasculerChoixPrompt={() => setChoixPrompt((v) => !v)}
-                  onPatchArticle={(patch) => {
-                    const id = fiche.article?.id;
-                    if (!id) return;
-                    updateArticle.mutate(
-                      { id, patch },
-                      {
-                        onSuccess: (a) => dispatch({ type: "article/maj", article: a }),
-                        onError: () => toast.error("Modification non enregistrée."),
-                      },
-                    );
-                  }}
-                />
-              ) : (
-                <div className={`${cardCls} px-6 py-12 text-center`}>
-                  <p className="text-[14px] font-medium text-[var(--muted)]">
-                    Cette fiche n&apos;a pas encore d&apos;article valide.
-                  </p>
-                  <button
-                    onClick={() => dispatch({ type: "etape", etape: 1 })}
-                    className={`${btnGhost} mx-auto mt-4`}
-                  >
-                    <ArrowLeft className="h-[17px] w-[17px]" strokeWidth={2.3} />
-                    Revenir aux SKU
-                  </button>
+          )}
+
+          {etat.etape === 2 && (
+            <div className="flex gap-[18px]">
+              <RailArticles
+                fiches={etat.fiches}
+                active={etat.active}
+                onActive={(id) => dispatch({ type: "fiche/active", id })}
+                onAjout={() => dispatch({ type: "fiche/ajout", id: nouvelId() })}
+                onRetrait={(id) => dispatch({ type: "fiche/retrait", id })}
+              />
+              <div className="min-w-0 flex-1">
+                {/* Sous 768 px le rail est masqué : on affiche au moins de quel
+                    article il s'agit, sinon l'écran ne dit plus rien. */}
+                <div className="mb-3 flex items-center gap-2.5 md:hidden">
+                  <span className="font-mono text-sm font-bold">
+                    {fiche.sku.trim() || "—"}
+                  </span>
+                  <span className="text-xs text-ink-3">
+                    fiche {etat.fiches.findIndex((f) => f.id === fiche.id) + 1} sur{" "}
+                    {etat.fiches.length}
+                  </span>
                 </div>
-              )}
+                {fiche.article ? (
+                  <FicheArticle
+                    fiche={fiche}
+                    active
+                    prompts={prompts}
+                    nomPromptDetecte={nomPromptDetecte}
+                    onPhotos={(files) => void ajouterPhotos(fiche.id, files)}
+                    onRetraitPhoto={(photoId) =>
+                      dispatch({ type: "photo/retrait", id: fiche.id, photoId })
+                    }
+                    onRotation={(photoId, delta) => void tourner(fiche.id, photoId, delta)}
+                    onSelection={(photoId) =>
+                      dispatch({ type: "photo/selection", id: fiche.id, photoId })
+                    }
+                    onZoom={(photoId) => setZoom({ ficheId: fiche.id, photoId })}
+                    onQcm={(champ, valeur) =>
+                      dispatch({ type: "qcm", id: fiche.id, champ, valeur })
+                    }
+                    onPrompt={(promptId) =>
+                      dispatch({ type: "prompt", id: fiche.id, promptId })
+                    }
+                    montrerChoixPrompt={choixPrompt}
+                    onBasculerChoixPrompt={() => setChoixPrompt((v) => !v)}
+                    onPatchArticle={(patch) => {
+                      const id = fiche.article?.id;
+                      if (!id) return;
+                      updateArticle.mutate(
+                        { id, patch },
+                        {
+                          onSuccess: (a) => dispatch({ type: "article/maj", article: a }),
+                          onError: () => toast.error("Modification non enregistrée."),
+                        },
+                      );
+                    }}
+                  />
+                ) : (
+                  <div className={`${cardCls} px-6 py-12 text-center`}>
+                    <p className="text-base font-medium text-ink-3">
+                      Cette fiche n&apos;a pas encore d&apos;article valide.
+                    </p>
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      onClick={() => dispatch({ type: "etape", etape: 1 })}
+                      className="mx-auto mt-4"
+                    >
+                      <ArrowLeft aria-hidden className="h-[17px] w-[17px]" strokeWidth={2.3} />
+                      Revenir aux SKU
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {etat.etape === 3 && (
-          <FileGeneration
-            fiches={etat.fiches.filter((f) => lotGeneration.includes(f.id))}
-            enCours={genEnCours}
-            onRelancer={(id) => void genererFiches([id])}
-            onRetour={() => dispatch({ type: "etape", etape: 2 })}
-            onVoirResultats={() => dispatch({ type: "etape", etape: 4 })}
-          />
-        )}
+          {etat.etape === 3 && (
+            <FileGeneration
+              fiches={etat.fiches.filter((f) => lotGeneration.includes(f.id))}
+              enCours={genEnCours}
+              onRelancer={(id) => void genererFiches([id])}
+              onRetour={() => dispatch({ type: "etape", etape: 2 })}
+              onVoirResultats={() => dispatch({ type: "etape", etape: 4 })}
+            />
+          )}
 
-        {etat.etape === 4 && (
-          <ExportAnnonces
-            fiches={etat.fiches}
-            doublons={doublons}
-            enregistrementEnCours={saveEnCours}
-            onEnregistrer={(id, statut) => void enregistrer([id], statut)}
-            onEnregistrerTout={(statut) =>
-              void enregistrer(
-                etat.fiches.filter((f) => f.generation.phase === "ok").map((f) => f.id),
-                statut,
-              )
-            }
-            onPublierVinted={(id) => ouvrirDialogueDelai({ cible: "fiche", id })}
-            onPublierVintedTout={() => ouvrirDialogueDelai({ cible: "tout" })}
-            onEditerAnnonce={(id, champ, valeur) =>
-              dispatch({ type: "annonce", id, champ, valeur })
-            }
-            onTelecharger={(ficheId, photoId) => {
-              const f = etat.fiches.find((x) => x.id === ficheId);
-              const p = f?.photos.find((x) => x.id === photoId);
-              const i = f?.photos.findIndex((x) => x.id === photoId) ?? 0;
-              if (!f || !p) return;
-              triggerDownload(
-                p.blob,
-                `${f.article?.sku ?? "PHOTO"}_${String(i + 1).padStart(2, "0")}.jpg`,
-              );
-            }}
-          />
-        )}
-      </div>
+          {etat.etape === 4 && (
+            <ExportAnnonces
+              fiches={etat.fiches}
+              doublons={doublons}
+              enregistrementEnCours={saveEnCours}
+              onEnregistrer={(id, statut) => void enregistrer([id], statut)}
+              onEnregistrerTout={(statut) =>
+                void enregistrer(
+                  etat.fiches.filter((f) => f.generation.phase === "ok").map((f) => f.id),
+                  statut,
+                )
+              }
+              onPublierVinted={(id) => ouvrirDialogueDelai({ cible: "fiche", id })}
+              onPublierVintedTout={() => ouvrirDialogueDelai({ cible: "tout" })}
+              onEditerAnnonce={(id, champ, valeur) =>
+                dispatch({ type: "annonce", id, champ, valeur })
+              }
+              onTelecharger={(ficheId, photoId) => {
+                const f = etat.fiches.find((x) => x.id === ficheId);
+                const p = f?.photos.find((x) => x.id === photoId);
+                const i = f?.photos.findIndex((x) => x.id === photoId) ?? 0;
+                if (!f || !p) return;
+                triggerDownload(
+                  p.blob,
+                  `${f.article?.sku ?? "PHOTO"}_${String(i + 1).padStart(2, "0")}.jpg`,
+                );
+              }}
+            />
+          )}
+        </div>
+      </Frame>
 
-      {/* Zoom photo */}
-      {photoZoomee && (
-        <div
-          onClick={() => setZoom(null)}
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--ink)]/80 p-6"
-        >
-          <button
-            onClick={() => setZoom(null)}
-            aria-label="Fermer"
-            className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[var(--ink)]"
-          >
-            <X className="h-5 w-5" strokeWidth={2.4} />
-          </button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+      {/* Zoom photo : voile fort (O3), « Fermer » et Échap par le Dialog. Le
+          titre est masqué : il nomme la fenêtre pour les lecteurs d'écran. */}
+      <Dialog
+        open={Boolean(photoZoomee)}
+        onOpenChange={(ouvert) => {
+          if (!ouvert) setZoom(null);
+        }}
+        title={<span className="sr-only">{libellePhotoZoomee}</span>}
+        size="lg"
+        veil="fort"
+      >
+        {photoZoomee && (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={photoZoomee.url}
-            alt=""
-            className="max-h-full max-w-full rounded-[16px] object-contain"
+            alt={libellePhotoZoomee}
+            className="mx-auto max-h-[calc(100dvh-9rem)] w-auto max-w-full rounded-md object-contain"
           />
-        </div>
-      )}
+        )}
+      </Dialog>
 
       {/* Délai anti-ban — demandé avant que le moindre article ne parte. */}
       <DialogueDelaiVinted
@@ -752,48 +774,70 @@ export default function MiseEnVentePage() {
         onConfirmer={confirmerDelai}
       />
 
-      {/* Barre d'action collante */}
-      {/* `bottom-[68px]` sous 768 px : le dock mobile occupe déjà le bas de
-          l'écran, et deux barres en `bottom-0` se recouvrent. */}
-      <div className="fixed bottom-[68px] left-0 z-40 w-full border-t border-[var(--border)] bg-surface/95 px-4 py-3 backdrop-blur-md md:bottom-0 md:pl-[calc(var(--sidebar-w)+18px)] md:pr-[18px]">
-        <div className="mx-auto flex max-w-[1100px] items-center justify-between gap-4">
+      {/* « Nouvelle session » avec des annonces non enregistrées (QU-61). */}
+      <AlertDialog
+        open={confirmationSession !== null}
+        onOpenChange={(ouvert) => {
+          if (!ouvert) setConfirmationSession(null);
+        }}
+        title={confirmationSession?.titre ?? ""}
+        description="Les annonces générées et les photos de cette session seront perdues. Cette action est définitive."
+        confirmLabel={confirmationSession?.confirmer ?? ""}
+        onConfirm={() => {
+          setConfirmationSession(null);
+          recommencer();
+        }}
+      />
+
+      {/* Barre d'actions de l'étape : opaque, au-dessus du dock (mobile) et à
+          droite du menu (ordinateur). Elle remonte la bulle de l'assistant
+          par `--fab-offset`. */}
+      <BarreActions
+        ouverte
+        ton="surface"
+        aria-label="Actions de l'étape"
+        className="md:mx-auto md:max-w-[1100px]"
+      >
+        <div className="flex w-full items-center justify-between gap-4">
           <span
-            className={`min-w-0 truncate text-[12.5px] font-medium ${
-              barre.ok ? "text-[var(--pos)]" : "text-[var(--faint-2)]"
+            className={`min-w-0 truncate text-sm font-medium ${
+              barre.ok ? "text-pos" : "text-ink-3"
             }`}
           >
             {barre.indice}
           </span>
           <div className="flex flex-none items-center gap-2.5">
             {barre.retourPossible && (
-              <button
+              <Button
+                variant="secondary"
+                size="lg"
                 onClick={() =>
                   dispatch({
                     type: "etape",
                     etape: Math.max(1, etat.etape - 1) as 1 | 2 | 3,
                   })
                 }
-                className={btnGhost}
               >
-                <ArrowLeft className="h-[17px] w-[17px]" strokeWidth={2.3} />
+                <ArrowLeft aria-hidden className="h-[17px] w-[17px]" strokeWidth={2.3} />
                 Retour
-              </button>
+              </Button>
             )}
-            <button
+            <Button
+              variant={barre.variante}
+              size="lg"
               onClick={agir}
               disabled={!barre.actif}
-              className="inline-flex min-h-[46px] items-center gap-2 rounded-xl bg-[var(--acc)] px-5 text-[14px] font-bold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)] disabled:opacity-50"
             >
               {barre.label}
               {barre.icone === "etincelles" ? (
-                <Sparkles className="h-[17px] w-[17px]" strokeWidth={2.2} />
+                <Sparkles aria-hidden className="h-[17px] w-[17px]" strokeWidth={2.2} />
               ) : (
-                <ArrowRight className="h-[17px] w-[17px]" strokeWidth={2.3} />
+                <ArrowRight aria-hidden className="h-[17px] w-[17px]" strokeWidth={2.3} />
               )}
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
-    </main>
+      </BarreActions>
+    </>
   );
 }

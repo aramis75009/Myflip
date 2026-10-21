@@ -439,9 +439,14 @@ describe("genererImage", () => {
   // Le module journalise ses échecs : on les capte, pour une sortie propre et pour les inspecter.
   let journal: ReturnType<typeof vi.spyOn>;
   beforeEach(() => {
+    // Les URL attendues sont celles de l'API publique, quel que soit le shell.
+    vi.stubEnv("OPENROUTER_BASE_URL", "");
     journal = vi.spyOn(console, "error").mockImplementation(() => {});
   });
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
 
   it("posts to /images with the key, the attribution headers and the built body", async () => {
     const f = fauxFetch([OK_IMAGES]);

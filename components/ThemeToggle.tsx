@@ -1,43 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 
-// Bascule clair / sombre. Le thème est appliqué avant le premier paint par le
-// script inline de layout.tsx (même clé localStorage) ; ce composant ne fait
-// que le lire au montage puis le piloter au clic.
+import { appliquerTheme } from "@/lib/themeMeta";
+
+// Light / dark switch. The theme is set before the first paint by the inline
+// script (lib/themeMeta.ts). This button holds NO React state: what it shows
+// and its accessible name come from CSS (.theme-seul-clair / .theme-seul-sombre
+// in globals.css), so the server HTML is already right in both themes.
 export default function ThemeToggle() {
-  const [dark, setDark] = useState(false);
-
-  useEffect(() => {
-    setDark(document.documentElement.dataset.theme === "dark");
-  }, []);
-
-  function toggle() {
-    const next = !dark;
-    setDark(next);
-    const root = document.documentElement;
-    if (next) root.dataset.theme = "dark";
-    else delete root.dataset.theme;
-    try {
-      localStorage.setItem("myflip-theme", next ? "dark" : "light");
-    } catch {
-      /* stockage indisponible : on ignore */
-    }
+  function basculer() {
+    const actuel = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+    appliquerTheme(actuel === "dark" ? "light" : "dark");
   }
 
   return (
     <button
-      onClick={toggle}
-      aria-label={dark ? "Passer en thème clair" : "Passer en thème sombre"}
-      title={dark ? "Thème clair" : "Thème sombre"}
-      className="flex h-10 w-10 items-center justify-center rounded-[11px] text-nav transition-colors hover:bg-tint hover:text-[var(--acc)]"
+      type="button"
+      data-theme-toggle
+      onClick={basculer}
+      className="flex h-11 w-11 items-center justify-center rounded text-ink-2 transition-colors hover:bg-surface-2 hover:text-accent-text md:h-10 md:w-10"
     >
-      {dark ? (
-        <Sun className="h-[17px] w-[17px]" strokeWidth={2} />
-      ) : (
-        <Moon className="h-[17px] w-[17px]" strokeWidth={2} />
-      )}
+      <Sun className="theme-seul-sombre h-[17px] w-[17px]" strokeWidth={2} aria-hidden />
+      <Moon className="theme-seul-clair h-[17px] w-[17px]" strokeWidth={2} aria-hidden />
+      <span className="theme-seul-sombre sr-only">Passer en thème clair</span>
+      <span className="theme-seul-clair sr-only">Passer en thème sombre</span>
     </button>
   );
 }

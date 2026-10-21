@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R13 R15 → M9
 
 import { useEffect, useState } from "react";
 import { Plus, Check, SquarePen, Trash2, Target } from "lucide-react";
@@ -25,10 +26,10 @@ import Loader from "@/components/Loader";
 import { CardTitle, Frame, Module } from "@/components/console";
 
 const inputCls =
-  "min-h-[44px] w-full rounded-[16px] border border-[var(--border)] bg-[var(--surface-2)] px-3.5 text-[14px] text-[var(--ink)] outline-none transition-colors focus:border-[var(--acc)]";
+  "min-h-11 w-full rounded-md border border-line bg-surface-2 px-3.5 text-base text-ink outline-none transition-colors focus:border-accent";
 
 const labelCls =
-  "mb-1.5 block font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--faint)]";
+  "mb-1.5 block font-mono text-xs uppercase tracking-[0.14em] text-ink-3";
 
 const TOUTES = "Toutes";
 
@@ -67,7 +68,7 @@ const CATEGORIES_LIST = [
 // neutre de la maquette — le nom porte déjà l'information, la teinte ne
 // faisait que la répéter en trois palettes codées en dur.
 const chipCls =
-  "rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1 font-mono text-[10.5px] text-[var(--ink2)]";
+  "rounded-full border border-line bg-surface-2 px-2.5 py-1 font-mono text-xs text-ink-2";
 
 type FormState = {
   nom: string;
@@ -118,14 +119,14 @@ function ObjectifMensuelCard() {
   return (
     <Module className="p-[22px]">
       <div className="flex items-center gap-2.5">
-        <span className="flex h-9 w-9 flex-none items-center justify-center rounded-[12px] bg-[var(--surface-2)] text-[var(--acc)]">
+        <span className="flex h-9 w-9 flex-none items-center justify-center rounded-md bg-surface-2 text-accent-text">
           <Target className="h-[19px] w-[19px]" strokeWidth={2} />
         </span>
         <div className="min-w-0">
-          <div className="text-[15px] font-semibold tracking-[-0.01em] text-[var(--ink)]">
+          <div className="text-md font-semibold tracking-[-0.01em] text-ink">
             Objectif de CA mensuel
           </div>
-          <div className="mt-[3px] font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--faint)]">
+          <div className="mt-[3px] font-mono text-xs uppercase tracking-[0.14em] text-ink-3">
             Anneau de progression du Dashboard · mois en cours
           </div>
         </div>
@@ -143,21 +144,21 @@ function ObjectifMensuelCard() {
             }}
             onKeyDown={(e) => e.key === "Enter" && save()}
             placeholder="0"
-            className="min-h-[44px] w-44 rounded-[16px] border border-[var(--border)] bg-[var(--surface-2)] px-4 pr-9 text-[15px] font-semibold text-[var(--ink)] outline-none transition-colors focus:border-[var(--acc)]"
+            className="min-h-11 w-44 rounded-md border border-line bg-surface-2 px-4 pr-9 text-md font-semibold text-ink outline-none transition-colors focus:border-accent"
           />
-          <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 font-mono text-[13px] text-[var(--faint)]">
+          <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 font-mono text-sm text-ink-3">
             €
           </span>
         </div>
         <button
           onClick={save}
-          className="min-h-[44px] rounded-full bg-[var(--acc)] px-5 text-[12.5px] font-semibold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)]"
+          className="min-h-11 rounded-full bg-accent px-5 text-sm font-semibold text-accent-ink transition-colors hover:bg-accent-hover"
         >
           Enregistrer
         </button>
         {saved != null && (
-          <span className="font-mono text-[12px] text-[var(--ink2)]">
-            Actuel · <b className="text-[var(--ink)]">{euros(saved)}</b>
+          <span className="font-mono text-xs text-ink-2">
+            Actuel · <b className="text-ink">{euros(saved)}</b>
           </span>
         )}
       </div>
@@ -247,7 +248,7 @@ export default function PromptsPage() {
   const pending = create.isPending || update.isPending;
 
   const onglets = (
-    <div className="inline-flex gap-0.5 rounded-[16px] border border-[var(--border)] bg-surface p-1" role="tablist" aria-label="Prompts">
+    <div className="inline-flex gap-0.5 rounded-md border border-line bg-surface p-1" role="tablist" aria-label="Prompts">
       {(
         [
           ["annonces", "Annonces", String(prompts.length)],
@@ -260,12 +261,12 @@ export default function PromptsPage() {
           role="tab"
           aria-selected={onglet === o}
           onClick={() => changerOnglet(o)}
-          className={`inline-flex min-h-[40px] items-center gap-2 rounded-[12px] px-4 text-[14.5px] font-semibold transition-colors ${
-            onglet === o ? "bg-[var(--ink)] text-[var(--bg)]" : "text-[var(--ink)] hover:bg-[var(--surface-2)]"
+          className={`inline-flex min-h-10 items-center gap-2 rounded-md px-4 text-base font-semibold transition-colors ${
+            onglet === o ? "bg-ink text-bg" : "text-ink hover:bg-surface-2"
           }`}
         >
           {nom}
-          {n && <span className={`font-mono text-[11.5px] font-medium ${onglet === o ? "opacity-75" : "text-[var(--ink2)]"}`}>{n}</span>}
+          {n && <span className={`font-mono text-xs font-medium ${onglet === o ? "opacity-75" : "text-ink-2"}`}>{n}</span>}
         </button>
       ))}
     </div>
@@ -286,42 +287,42 @@ export default function PromptsPage() {
         {onglets}
         <button
           onClick={openNew}
-          className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[var(--acc)] px-5 text-[12.5px] font-semibold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)]"
+          className="inline-flex min-h-11 items-center gap-2 rounded-full bg-accent px-5 text-sm font-semibold text-accent-ink transition-colors hover:bg-accent-hover"
         >
           <Plus className="h-4 w-4" strokeWidth={2.3} />
           Nouveau prompt
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-[14px] min-[900px]:grid-cols-[1.4fr_1fr_1fr]">
+      <div className="grid grid-cols-1 gap-3.5 min-[900px]:grid-cols-[1.4fr_1fr_1fr]">
         {/* Carte compte. Prénom, initiale et e-mail viennent tous de la session
             via useIdentite, comme dans le Dashboard et AccountMenu. */}
-        <Module className="flex items-center gap-3.5 p-[20px]">
-          <span className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-[var(--acc)] text-[18px] font-bold text-[var(--acc-ink)]">
+        <Module className="flex items-center gap-3.5 p-5">
+          <span className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-accent text-lg font-bold text-accent-ink">
             {initiale}
           </span>
           <span className="min-w-0">
-            <span className="block truncate text-[15.5px] font-bold text-[var(--ink)]">
+            <span className="block truncate text-md font-bold text-ink">
               {NOM || "—"}
             </span>
-            <span className="mt-0.5 block truncate font-mono text-[11px] text-[var(--faint)]">
+            <span className="mt-0.5 block truncate font-mono text-xs text-ink-3">
               {email || "—"}
             </span>
           </span>
         </Module>
-        <Module className="p-[20px]">
-          <div className="font-mono text-[9.5px] uppercase tracking-[0.16em] text-[var(--faint)]">
+        <Module className="p-5">
+          <div className="font-mono text-xs uppercase tracking-[0.16em] text-ink-3">
             MODÈLE IA
           </div>
-          <div className="mt-2 truncate text-[30px] font-bold tracking-[-0.02em]">
+          <div className="mt-2 truncate text-xl font-bold tracking-[-0.02em]">
             {libelleModele(reglages?.modeleIA ?? null)}
           </div>
         </Module>
-        <Module className="p-[20px]">
-          <div className="font-mono text-[9.5px] uppercase tracking-[0.16em] text-[var(--faint)]">
+        <Module className="p-5">
+          <div className="font-mono text-xs uppercase tracking-[0.16em] text-ink-3">
             MODÈLES ENREGISTRÉS
           </div>
-          <div className="mt-2 text-[30px] font-bold tracking-[-0.02em]">
+          <div className="mt-2 text-xl font-bold tracking-[-0.02em]">
             {prompts.length}
           </div>
         </Module>
@@ -340,16 +341,16 @@ export default function PromptsPage() {
           de cartes : à 15 modèles la grille obligeait à balayer la page pour
           comparer deux libellés. L'édition reste dans la modale — le panneau
           est en lecture, comme la maquette qui n'y pose aucun champ. */}
-      <section className="grid grid-cols-1 gap-[14px] min-[900px]:grid-cols-[300px_1fr]">
+      <section className="grid grid-cols-1 gap-3.5 min-[900px]:grid-cols-[300px_1fr]">
 
         {/* Colonne de sélection */}
-        <Module className="p-[16px]">
+        <Module className="p-4">
           <div className="mb-3 flex items-center justify-between">
             <CardTitle className="">Prompts</CardTitle>
             <button
               onClick={openNew}
               aria-label="Nouveau prompt"
-              className="flex h-11 w-11 flex-none items-center justify-center rounded-[14px] bg-[var(--acc)] text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)]"
+              className="flex h-11 w-11 flex-none items-center justify-center rounded-md bg-accent text-accent-ink transition-colors hover:bg-accent-hover"
             >
               <Plus className="h-4 w-4" strokeWidth={2.4} />
             </button>
@@ -358,7 +359,7 @@ export default function PromptsPage() {
           {isLoading && <Loader size="sm" />}
 
           {!isLoading && prompts.length === 0 && (
-            <p className="py-6 text-center font-mono text-[11px] text-[var(--faint)]">
+            <p className="py-6 text-center font-mono text-xs text-ink-3">
               Aucun prompt.
             </p>
           )}
@@ -369,18 +370,18 @@ export default function PromptsPage() {
               <button
                 key={p.id}
                 onClick={() => setSelectedId(p.id)}
-                className={`mb-2 block min-h-[56px] w-full rounded-[16px] border px-3.5 py-3 text-left transition-colors ${
+                className={`mb-2 block min-h-14 w-full rounded-md border px-3.5 py-3 text-left transition-colors ${
                   actif
-                    ? "border-[var(--acc)] bg-[var(--acc)] text-[var(--acc-ink)]"
-                    : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--ink)] hover:border-[var(--border-strong)]"
+                    ? "border-accent bg-accent text-accent-ink"
+                    : "border-line bg-surface-2 text-ink hover:border-line-strong"
                 }`}
               >
-                <span className="block truncate text-[13.5px] font-semibold">
+                <span className="block truncate text-base font-semibold">
                   {p.nom}
                 </span>
                 <span
-                  className={`mt-[3px] block truncate font-mono text-[9.5px] uppercase tracking-[0.1em] ${
-                    actif ? "opacity-70" : "text-[var(--faint)]"
+                  className={`mt-[3px] block truncate font-mono text-xs uppercase tracking-[0.1em] ${
+                    actif ? "opacity-70" : "text-ink-3"
                   }`}
                 >
                   {p.marque ?? "TOUTES MARQUES"} · {p.categorie ?? "TOUTES CATÉGORIES"}
@@ -392,17 +393,17 @@ export default function PromptsPage() {
         </Module>
 
         {/* Panneau de détail */}
-        <Module className="flex flex-col gap-[14px] p-[22px]">
+        <Module className="flex flex-col gap-3.5 p-[22px]">
           {selected ? (
             <>
               <div className="flex flex-wrap items-center justify-between gap-2.5">
-                <span className="text-[17px] font-bold tracking-[-0.02em]">
+                <span className="text-md font-bold tracking-[-0.02em]">
                   {selected.nom}
                 </span>
                 <div className="flex gap-2">
                   <button
                     onClick={() => openEdit(selected)}
-                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-4 text-[12.5px] text-[var(--ink2)] transition-colors hover:border-[var(--border-strong)]"
+                    className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-line bg-surface-2 px-4 text-sm text-ink-2 transition-colors hover:border-line-strong"
                   >
                     <SquarePen className="h-3.5 w-3.5" strokeWidth={2} />
                     Modifier
@@ -415,7 +416,7 @@ export default function PromptsPage() {
                       }
                     }}
                     aria-label="Supprimer"
-                    className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-2)] text-[var(--faint)] transition-colors hover:border-[var(--neg)] hover:text-[var(--neg)]"
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-line bg-surface-2 text-ink-3 transition-colors hover:border-neg hover:text-neg"
                   >
                     <Trash2 className="h-[15px] w-[15px]" strokeWidth={2} />
                   </button>
@@ -424,7 +425,7 @@ export default function PromptsPage() {
 
               {/* Le corps du prompt : chasse fixe, interligne large — c'est du
                   texte qu'on relit et qu'on ajuste, pas de la prose. */}
-              <div className="min-h-[220px] whitespace-pre-wrap rounded-[18px] border border-[var(--border)] bg-[var(--surface-2)] p-4 font-mono text-[12.5px] leading-[1.7] text-[var(--ink2)]">
+              <div className="min-h-[220px] whitespace-pre-wrap rounded-lg border border-line bg-surface-2 p-4 font-mono text-sm leading-[1.7] text-ink-2">
                 {selected.contenu}
               </div>
 
@@ -437,18 +438,18 @@ export default function PromptsPage() {
                   <span className={chipCls}>{euros(selected.prixReference)}</span>
                 )}
                 {selected.estDefaut && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--acc)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--acc-ink)]">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-1 font-mono text-xs uppercase tracking-[0.1em] text-accent-ink">
                     <Check className="h-3 w-3" strokeWidth={2.6} />
                     Défaut
                   </span>
                 )}
-                <span className="rounded-full border border-[var(--border)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--faint)]">
+                <span className="rounded-full border border-line px-2.5 py-1 font-mono text-xs uppercase tracking-[0.1em] text-ink-3">
                   Modifié le {new Date(selected.updatedAt).toLocaleDateString("fr-FR")}
                 </span>
               </div>
             </>
           ) : (
-            <p className="py-16 text-center font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--faint)]">
+            <p className="py-16 text-center font-mono text-xs uppercase tracking-[0.14em] text-ink-3">
               {prompts.length > 0
                 ? "Sélectionne un prompt"
                 : "Crée ton premier prompt"}
@@ -524,7 +525,7 @@ export default function PromptsPage() {
               placeholder="Facultatif — ex : 24"
               className={inputCls}
             />
-            <p className="mt-1.5 font-mono text-[10.5px] text-[var(--faint)]">
+            <p className="mt-1.5 font-mono text-xs text-ink-3">
               Pré-rempli dans le QCM de mise en vente quand ce prompt est retenu.
             </p>
           </div>
@@ -533,7 +534,7 @@ export default function PromptsPage() {
             <label className={labelCls}>
               Contenu du prompt
             </label>
-            <p className="mb-2 rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 font-mono text-[11px] leading-[1.7] text-[var(--ink2)]">
+            <p className="mb-2 rounded-md border border-line bg-surface-2 px-3 py-2 font-mono text-xs leading-[1.7] text-ink-2">
               Placeholders disponibles : <code>{"{marque}"}</code>,{" "}
               <code>{"{categorie}"}</code>, <code>{"{taille}"}</code>,{" "}
               <code>{"{etat}"}</code>, <code>{"{matiere}"}</code>,{" "}
@@ -545,36 +546,36 @@ export default function PromptsPage() {
               onChange={(e) => setForm({ ...form, contenu: e.target.value })}
               rows={10}
               placeholder="Rédige une annonce pour ce {marque} {categorie}…"
-              className={`${inputCls} resize-y font-mono text-[13px]`}
+              className={`${inputCls} resize-y font-mono text-sm`}
             />
           </div>
 
-          <label className="flex cursor-pointer items-center gap-2.5 text-[14px] text-[var(--ink)]">
+          <label className="flex cursor-pointer items-center gap-2.5 text-base text-ink">
             <input
               type="checkbox"
               checked={form.estDefaut}
               onChange={(e) => setForm({ ...form, estDefaut: e.target.checked })}
-              className="h-4 w-4 cursor-pointer accent-[var(--acc)]"
+              className="h-4 w-4 cursor-pointer accent-accent"
             />
             Définir comme prompt par défaut
           </label>
 
           {error && (
-            <p className="font-mono text-[12px] text-[var(--neg)]">{error}</p>
+            <p className="font-mono text-xs text-neg">{error}</p>
           )}
 
           <div className="flex justify-end gap-3 pt-1">
             <button
               onClick={() => setOpen(false)}
               disabled={pending}
-              className="min-h-[44px] rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-4 text-[12.5px] font-medium text-[var(--ink2)] transition-colors hover:border-[var(--border-strong)] disabled:opacity-50"
+              className="min-h-11 rounded-full border border-line bg-surface-2 px-4 text-sm font-medium text-ink-2 transition-colors hover:border-line-strong disabled:opacity-50"
             >
               Annuler
             </button>
             <button
               onClick={submit}
               disabled={pending}
-              className="min-h-[44px] rounded-full bg-[var(--acc)] px-5 text-[12.5px] font-semibold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)] disabled:opacity-60"
+              className="min-h-11 rounded-full bg-accent px-5 text-sm font-semibold text-accent-ink transition-colors hover:bg-accent-hover disabled:opacity-60"
             >
               {pending ? "Enregistrement…" : "Enregistrer"}
             </button>

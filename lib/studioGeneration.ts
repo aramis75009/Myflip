@@ -1,4 +1,5 @@
 import "server-only";
+import { urlOpenRouter } from "@/lib/openrouterBase";
 import { resoudreReglages, type ReglagesResolus } from "@/lib/settings";
 import { MIMES_IMAGE, type MimeImage } from "@/lib/studioBlob";
 
@@ -349,7 +350,6 @@ export async function cleDuCompte(userId: string): Promise<string> {
 // Appel réseau (seul morceau qui touche le réseau)
 // ---------------------------------------------------------------------------
 
-const API_BASE = "https://openrouter.ai/api/v1";
 /** Délai total de la génération (la route a `maxDuration = 300`). */
 const DELAI_TOTAL_MS = 280_000;
 const PAUSE_AVANT_NOUVEL_ESSAI_MS = 2000;
@@ -395,7 +395,7 @@ async function appeler(
   for (let tentative = 1; ; tentative++) {
     let res: Response;
     try {
-      res = await fetchImpl(`${API_BASE}${chemin}`, {
+      res = await fetchImpl(urlOpenRouter(chemin), {
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,

@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R13 R15 → M10
 
 // Écran de configuration des dépendances externes : clés IA et accès Trello.
 //
@@ -29,13 +30,13 @@ import type {
 } from "@/lib/types";
 
 const labelCls =
-  "font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--faint)]";
+  "font-mono text-xs uppercase tracking-[0.14em] text-ink-3";
 const inputCls =
-  "min-h-[46px] w-full rounded-[16px] border border-[var(--border)] bg-[var(--surface-2)] px-4 text-[14px] text-[var(--ink)] outline-none transition-colors placeholder:text-[var(--faint-2)] focus:border-[var(--acc)]";
+  "min-h-[46px] w-full rounded-md border border-line bg-surface-2 px-4 text-base text-ink outline-none transition-colors placeholder:text-ink-3 focus:border-accent";
 const boutonCls =
-  "inline-flex min-h-[46px] items-center justify-center rounded-[16px] bg-[var(--acc)] px-5 text-[13.5px] font-semibold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)] disabled:opacity-60";
+  "inline-flex min-h-[46px] items-center justify-center rounded-md bg-accent px-5 text-base font-semibold text-accent-ink transition-colors hover:bg-accent-hover disabled:opacity-60";
 const boutonSecondaireCls =
-  "inline-flex min-h-[46px] items-center justify-center rounded-[16px] border border-[var(--border)] bg-[var(--surface-2)] px-5 text-[13.5px] text-[var(--ink2)] transition-colors hover:border-[var(--border-strong)] disabled:opacity-60";
+  "inline-flex min-h-[46px] items-center justify-center rounded-md border border-line bg-surface-2 px-5 text-base text-ink-2 transition-colors hover:border-line-strong disabled:opacity-60";
 
 /** Valeur du menu qui ouvre la saisie manuelle. Jamais enregistrée telle quelle. */
 const AUTRE_MODELE = "__autre__";
@@ -48,13 +49,13 @@ function Origine({ source }: { source: SourceReglage }) {
     absente: "Aucune clé : la génération échouera",
   }[source];
   const couleur = {
-    utilisateur: "text-[var(--pos)]",
-    app: "text-[var(--warn)]",
-    absente: "text-[var(--faint)]",
+    utilisateur: "text-pos",
+    app: "text-warn",
+    absente: "text-ink-3",
   }[source];
   return (
     <span
-      className={`font-mono text-[10px] uppercase tracking-[0.12em] ${couleur}`}
+      className={`font-mono text-xs uppercase tracking-[0.12em] ${couleur}`}
     >
       {libelle}
     </span>
@@ -98,7 +99,7 @@ function ChampSecret({
         }
         className={inputCls}
       />
-      <p className="text-[12px] leading-snug text-[var(--faint)]">{aide}</p>
+      <p className="text-xs leading-snug text-ink-3">{aide}</p>
       {testable && onTest ? (
         <button
           type="button"
@@ -171,7 +172,7 @@ function ChampChoix({
         />
       )}
       {aide ? (
-        <p className="text-[12px] leading-snug text-[var(--faint)]">{aide}</p>
+        <p className="text-xs leading-snug text-ink-3">{aide}</p>
       ) : null}
     </div>
   );
@@ -397,25 +398,25 @@ export default function Integrations() {
   ] as const;
 
   return (
-    <section className="mt-[14px] grid grid-cols-1 gap-[14px] min-[900px]:grid-cols-2">
+    <section className="mt-3.5 grid grid-cols-1 gap-3.5 min-[900px]:grid-cols-2">
       {/* Clés IA */}
-      <Module className="p-[24px]">
-        <div className="mb-[14px] flex items-center gap-2.5">
+      <Module className="p-6">
+        <div className="mb-3.5 flex items-center gap-2.5">
           <KeyRound
-            className="h-[18px] w-[18px] text-[var(--acc)]"
+            className="h-[18px] w-[18px] text-accent-text"
             strokeWidth={2}
           />
           <CardTitle>Mes clés IA</CardTitle>
         </div>
 
         {!dto.chiffrementDisponible && (
-          <p role="alert" className="mb-3 text-[12.5px] text-[var(--neg)]">
+          <p role="alert" className="mb-3 text-sm text-neg">
             Le chiffrement n&apos;est pas configuré sur ce déploiement
             (ENCRYPTION_KEY) : aucun secret ne peut être enregistré.
           </p>
         )}
 
-        <p className="mb-4 text-[12.5px] leading-relaxed text-[var(--faint)]">
+        <p className="mb-4 text-sm leading-relaxed text-ink-3">
           Tant que tu ne mets pas ta clé, tes annonces sont générées avec celle
           de MyFlip, et donc sur son quota. Une fois enregistrée, ta clé est
           chiffrée et ne peut plus être réaffichée — seuls ses quatre derniers
@@ -454,7 +455,7 @@ export default function Integrations() {
             Enregistrer ma clé
           </button>
 
-          <div className="h-px bg-[var(--border)]" />
+          <div className="h-px bg-line" />
 
           {/* ── Modèle de rédaction ─────────────────────────────────────── */}
           <div className="flex flex-col gap-1.5">
@@ -476,7 +477,7 @@ export default function Integrations() {
               <option value={AUTRE_MODELE}>Autre…</option>
             </select>
 
-            <p className="text-[12px] leading-snug text-[var(--faint)]">
+            <p className="text-xs leading-snug text-ink-3">
               {choixModele === AUTRE_MODELE
                 ? "Identifiant OpenRouter exact, par exemple mistralai/mistral-medium-3.1. Il doit savoir lire des images et rendre du JSON structuré, sinon chaque génération échouera."
                 : (MODELES_PROPOSES.find((m) => m.id === choixModele)?.note ??
@@ -514,7 +515,7 @@ export default function Integrations() {
             </button>
           </div>
 
-          <div className="h-px bg-[var(--border)]" />
+          <div className="h-px bg-line" />
 
           {/* ── Modèle de l'assistant ───────────────────────────────────── */}
           <div className="flex flex-col gap-1.5">
@@ -536,7 +537,7 @@ export default function Integrations() {
               <option value={AUTRE_MODELE}>Autre…</option>
             </select>
 
-            <p className="text-[12px] leading-snug text-[var(--faint)]">
+            <p className="text-xs leading-snug text-ink-3">
               {choixModeleChat === AUTRE_MODELE
                 ? "Identifiant OpenRouter exact, par exemple deepseek/deepseek-v4-pro-0813. Il doit savoir appeler des outils (tool calling), sinon l'assistant ne pourra ni lire tes données ni agir."
                 : (MODELES_CHAT_PROPOSES.find((m) => m.id === choixModeleChat)
@@ -577,10 +578,10 @@ export default function Integrations() {
       </Module>
 
       {/* Trello */}
-      <Module className="p-[24px]">
-        <div className="mb-[14px] flex items-center gap-2.5">
+      <Module className="p-6">
+        <div className="mb-3.5 flex items-center gap-2.5">
           <SquareKanban
-            className="h-[18px] w-[18px] text-[var(--acc)]"
+            className="h-[18px] w-[18px] text-accent-text"
             strokeWidth={2}
           />
           <CardTitle>Mon Trello</CardTitle>
@@ -588,7 +589,7 @@ export default function Integrations() {
 
         {!dto.trello.connecte ? (
           <>
-            <p className="mb-4 text-[12.5px] leading-relaxed text-[var(--faint)]">
+            <p className="mb-4 text-sm leading-relaxed text-ink-3">
               Trello n&apos;est pas connecté. Une fois branché, poser
               l&apos;étiquette « À comptabiliser » sur une carte fait basculer
               les articles dont le SKU figure dans son titre — c&apos;est ce qui
@@ -597,19 +598,19 @@ export default function Integrations() {
             <a href="/api/trello/connect" className={boutonCls}>
               Connecter Trello
             </a>
-            <p className="mt-3 text-[12px] leading-snug text-[var(--faint)]">
+            <p className="mt-3 text-xs leading-snug text-ink-3">
               Tu seras redirigé vers Trello pour autoriser MyFlip à lire tes
               tableaux et à modifier tes cartes. Aucune clé à recopier.
             </p>
           </>
         ) : (
           <div className="flex flex-col gap-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-[16px] bg-[var(--surface-2)] px-3.5 py-3">
-              <span className="text-[13px] text-[var(--ink2)]">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-surface-2 px-3.5 py-3">
+              <span className="text-sm text-ink-2">
                 Trello connecté
                 {dto.trello.membreNom ? ` — ${dto.trello.membreNom}` : ""}
               </span>
-              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--faint)]">
+              <span className="font-mono text-xs uppercase tracking-[0.12em] text-ink-3">
                 {dto.trello.source === "heritee"
                   ? "Connexion par clés API"
                   : "Connexion Trello"}
@@ -617,8 +618,8 @@ export default function Integrations() {
             </div>
 
             {dto.trello.source === "heritee" && (
-              <div className="rounded-[16px] border border-[var(--border)] p-3.5">
-                <p className="mb-2.5 text-[12.5px] leading-snug text-[var(--faint)]">
+              <div className="rounded-md border border-line p-3.5">
+                <p className="mb-2.5 text-sm leading-snug text-ink-3">
                   Cette connexion utilise une clé d&apos;API saisie à la main.
                   Elle continue de fonctionner ; la connexion Trello, elle, se
                   révoque d&apos;un clic et ne dépend d&apos;aucune clé à
@@ -633,7 +634,7 @@ export default function Integrations() {
             {!dto.trello.webhookActif && dto.trello.boardId && (
               <p
                 role="alert"
-                className="text-[12.5px] leading-snug text-[var(--warn)]"
+                className="text-sm leading-snug text-warn"
               >
                 Aucun webhook enregistré : rien ne remonte de Trello pour
                 l&apos;instant. Réenregistre ton board pour le rebrancher.
@@ -711,7 +712,7 @@ export default function Integrations() {
                 type="button"
                 disabled={enCours}
                 onClick={deconnecter}
-                className={`${boutonSecondaireCls} text-[var(--neg)]`}
+                className={`${boutonSecondaireCls} text-neg`}
               >
                 Déconnecter Trello
               </button>

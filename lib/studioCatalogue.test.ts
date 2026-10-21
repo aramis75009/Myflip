@@ -98,12 +98,16 @@ const iso = (ms: number) => new Date(ms).toISOString();
 let errorSpy: MockInstance<typeof console.error>;
 
 beforeEach(() => {
+  // Ces tests vérifient l'adresse PUBLIQUE : un `export OPENROUTER_BASE_URL=…`
+  // dans le shell (suite e2e) ne doit pas les faire échouer.
+  vi.stubEnv("OPENROUTER_BASE_URL", "");
   viderCacheCatalogue();
   maintenant = 1_800_000_000_000;
   errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 });
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 describe("getCatalogue", () => {

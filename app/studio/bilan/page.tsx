@@ -53,7 +53,7 @@ export default async function BilanPage() {
             }
           />
         </div>
-        <p className="mt-3 text-[12.5px] text-[var(--ink2)]">
+        <p className="mt-3 text-sm text-ink-2">
           Taux et moyennes comptent tes décisions (Valider / Rejeter), pas le verdict du modèle de vision. Un essai
           sans décision n’entre dans aucun chiffre.
         </p>
@@ -62,13 +62,13 @@ export default async function BilanPage() {
       <Module>
         <CardTitle aside="TRIÉ PAR COÛT PAR IMAGE VALIDÉE">Par modèle</CardTitle>
         <TableModeles lignes={byModel} libelle={(id) => (id === MODELE_MANUEL ? "Dépôt manuel" : (nomModele.get(id) ?? id))} />
-        <p className="mt-2 text-[12px] text-[var(--ink2)]">
+        <p className="mt-2 text-xs text-ink-2">
           « ≥ » : au moins un essai du modèle n’a pas de coût connu, le chiffre est un minimum. Un coût inconnu
           n’est jamais compté zéro. Les échecs ne consomment pas de numéro d’essai.
         </p>
       </Module>
 
-      <div className="grid grid-cols-2 gap-[14px]">
+      <div className="grid grid-cols-2 gap-3.5">
         <Module>
           <CardTitle>Par angle</CardTitle>
           <TableStats lignes={byAngle} libelle={(id) => nomAngle.get(id) ?? "Angle supprimé"} />
@@ -94,14 +94,14 @@ export default async function BilanPage() {
       <Module>
         <CardTitle aside="SELON LE CONTRÔLE IA">Détails qui dérivent le plus</CardTitle>
         {stats.topDriftingDetails.length === 0 ? (
-          <p className="text-[13px] text-[var(--ink2)]">Aucun détail marqué « dérive » pour l’instant.</p>
+          <p className="text-sm text-ink-2">Aucun détail marqué « dérive » pour l’instant.</p>
         ) : (
-          <ol className="flex flex-col gap-1.5 text-[14px]">
+          <ol className="flex flex-col gap-1.5 text-base">
             {stats.topDriftingDetails.map((d, i) => (
               <li key={d.detail} className="flex gap-3">
-                <span className="font-mono text-[var(--faint)]">{i + 1}.</span>
+                <span className="font-mono text-ink-3">{i + 1}.</span>
                 <span className="font-semibold">{d.detail}</span>
-                <span className="text-[var(--ink2)]">{d.count} essai(s)</span>
+                <span className="text-ink-2">{d.count} essai(s)</span>
               </li>
             ))}
           </ol>
@@ -115,18 +115,18 @@ function Chiffre({ libelle, valeur, sous }: { libelle: string; valeur: string; s
   return (
     <div>
       <Eyebrow>{libelle}</Eyebrow>
-      <div className="mt-1 text-[30px] font-bold tracking-[-0.02em]">{valeur}</div>
-      <div className="text-[12px] text-[var(--ink2)]">{sous}</div>
+      <div className="mt-1 text-xl font-bold tracking-[-0.02em]">{valeur}</div>
+      <div className="text-xs text-ink-2">{sous}</div>
     </div>
   );
 }
 
 function TableStats({ lignes, libelle }: { lignes: GroupStat[]; libelle: (id: string) => React.ReactNode }) {
-  if (lignes.length === 0) return <p className="text-[13px] text-[var(--ink2)]">Aucun essai.</p>;
+  if (lignes.length === 0) return <p className="text-sm text-ink-2">Aucun essai.</p>;
   return (
-    <table className="w-full text-[13px]">
+    <table className="w-full text-sm">
       <thead>
-        <tr className="text-left font-mono text-[10px] tracking-[0.1em] text-[var(--faint)]">
+        <tr className="text-left font-mono text-xs tracking-[0.1em] text-ink-3">
           <th className="pb-2 font-normal"> </th>
           <th className="pb-2 text-right font-normal">1ER ESSAI</th>
           <th className="pb-2 text-right font-normal">ESSAIS MOY.</th>
@@ -134,10 +134,10 @@ function TableStats({ lignes, libelle }: { lignes: GroupStat[]; libelle: (id: st
       </thead>
       <tbody>
         {lignes.map((l) => (
-          <tr key={l.id} className="border-t border-[var(--border)]">
+          <tr key={l.id} className="border-t border-line">
             <td className="py-2 font-semibold">{libelle(l.id)}</td>
             <td className="py-2 text-right font-mono">
-              {pct(l.firstTry)} <span className="text-[var(--faint)]">({l.firstTry.validated}/{l.firstTry.decided})</span>
+              {pct(l.firstTry)} <span className="text-ink-3">({l.firstTry.validated}/{l.firstTry.decided})</span>
             </td>
             <td className="py-2 text-right font-mono">{moy(l.averageTries)}</td>
           </tr>
@@ -148,12 +148,12 @@ function TableStats({ lignes, libelle }: { lignes: GroupStat[]; libelle: (id: st
 }
 
 function TableModeles({ lignes, libelle }: { lignes: ModelStat[]; libelle: (id: string) => string }) {
-  if (lignes.length === 0) return <p className="text-[13px] text-[var(--ink2)]">Aucun essai.</p>;
+  if (lignes.length === 0) return <p className="text-sm text-ink-2">Aucun essai.</p>;
   const cout = (v: number | null, incomplet: boolean) => (v === null ? "—" : `${incomplet ? "≥ " : ""}${formatUsd(v)}`);
   return (
-    <table className="w-full text-[13px]">
+    <table className="w-full text-sm">
       <thead>
-        <tr className="text-left font-mono text-[10px] tracking-[0.1em] text-[var(--faint)]">
+        <tr className="text-left font-mono text-xs tracking-[0.1em] text-ink-3">
           <th className="pb-2 font-normal"> </th>
           <th className="pb-2 text-right font-normal">1ER ESSAI</th>
           <th className="pb-2 text-right font-normal">ESSAIS MOY.</th>
@@ -165,15 +165,15 @@ function TableModeles({ lignes, libelle }: { lignes: ModelStat[]; libelle: (id: 
       </thead>
       <tbody>
         {lignes.map((l) => (
-          <tr key={l.id} className="border-t border-[var(--border)]">
+          <tr key={l.id} className="border-t border-line">
             <td className="py-2 font-semibold">
               {libelle(l.id)}
-              <span className="ml-2 font-mono text-[10.5px] font-normal text-[var(--faint)]">
+              <span className="ml-2 font-mono text-xs font-normal text-ink-3">
                 {l.essais} essai(s) · {l.validated} validé(s)
               </span>
             </td>
             <td className="py-2 text-right font-mono">
-              {pct(l.firstTry)} <span className="text-[var(--faint)]">({l.firstTry.validated}/{l.firstTry.decided})</span>
+              {pct(l.firstTry)} <span className="text-ink-3">({l.firstTry.validated}/{l.firstTry.decided})</span>
             </td>
             <td className="py-2 text-right font-mono">{moy(l.averageTries)}</td>
             <td className="py-2 text-right font-mono">{cout(l.coutMoyenUsd, l.coutIncomplet)}</td>
@@ -181,7 +181,7 @@ function TableModeles({ lignes, libelle }: { lignes: ModelStat[]; libelle: (id: 
             <td className="py-2 text-right font-mono">{l.scoreMoyen ?? "—"}</td>
             <td className="py-2 text-right font-mono">
               {l.echecs}
-              {l.blocagesSecurite > 0 && <span className="text-[var(--neg)]"> · {l.blocagesSecurite} sécu.</span>}
+              {l.blocagesSecurite > 0 && <span className="text-neg"> · {l.blocagesSecurite} sécu.</span>}
             </td>
           </tr>
         ))}

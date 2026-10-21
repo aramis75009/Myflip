@@ -1,26 +1,27 @@
+// design-tokens-dette: R14 → M11
 export default function ConfidentialitePage() {
   return (
-    <main className="min-h-screen bg-[var(--bg)] px-6 py-10">
+    <main className="min-h-screen bg-bg px-6 py-10">
       <div className="mx-auto max-w-2xl">
-        <h1 className="mb-6 font-grotesk text-[26px] font-bold text-[var(--ink)]">
+        <h1 className="mb-6 font-sans text-xl font-bold text-ink">
           Politique de confidentialité
         </h1>
-        <div className="rounded-[22px] border border-[var(--border)] bg-surface p-8">
-          <ul className="space-y-3 text-[14px] leading-relaxed text-[var(--muted)]">
+        <div className="rounded-lg border border-line bg-surface p-8">
+          <ul className="space-y-3 text-base leading-relaxed text-ink-3">
             <li>
-              <span className="font-semibold text-[var(--ink)]">Données collectées</span>{" "}
+              <span className="font-semibold text-ink">Données collectées</span>{" "}
               : email, données de ventes et stock.
             </li>
             <li>
-              <span className="font-semibold text-[var(--ink)]">Finalité</span>{" "}
+              <span className="font-semibold text-ink">Finalité</span>{" "}
               : pilotage personnel de l&apos;activité de revente.
             </li>
             <li>
-              <span className="font-semibold text-[var(--ink)]">Hébergement</span>{" "}
+              <span className="font-semibold text-ink">Hébergement</span>{" "}
               : Neon (PostgreSQL) — serveurs EU.
             </li>
             <li>
-              <span className="font-semibold text-[var(--ink)]">
+              <span className="font-semibold text-ink">
                 Durée de conservation
               </span>{" "}
               : jusqu&apos;à suppression du compte.
@@ -30,7 +31,7 @@ export default function ConfidentialitePage() {
               Contact :{" "}
               <a
                 href="mailto:aramis.begnene@gmail.com"
-                className="text-[var(--acc)] underline-offset-2 hover:underline"
+                className="text-accent-text underline-offset-2 hover:underline"
               >
                 aramis.begnene@gmail.com
               </a>

@@ -144,4 +144,73 @@ describe("étape 4 — annonces", () => {
     e = genere(e, "f1");
     expect(descripteurBarre(e).indice).toBe("2 annonces non enregistrées");
   });
+
+  // QU-61 : « Nouvelle session » efface des annonces générées (donc payées) et
+  // les photos. Le descripteur dit s'il faut demander confirmation, et laquelle.
+  describe("« Nouvelle session » (QU-61)", () => {
+    it("n'est jamais l'action principale de l'étape", () => {
+      let e = reducerMev(etatInitial("f0"), { type: "etape", etape: 4 });
+      e = genere(e, "f0");
+      const d = descripteurBarre(e);
+      expect(d.label).toBe("Nouvelle session");
+      expect(d.variante).toBe("secondary");
+    });
+
+    it("demande confirmation avec 2 annonces non enregistrées", () => {
+      let e = reducerMev(etatInitial("f0"), { type: "etape", etape: 4 });
+      e = reducerMev(e, { type: "fiche/ajout", id: "f1" });
+      e = genere(e, "f0");
+      e = genere(e, "f1");
+      const d = descripteurBarre(e);
+      expect(d.variante).toBe("secondary");
+      expect(d.confirmation).toEqual({
+        titre: "Abandonner 2 annonces non enregistrées ?",
+        confirmer: "Abandonner et recommencer",
+      });
+    });
+
+    it("demande confirmation avec 1 annonce non enregistrée, au singulier", () => {
+      let e = reducerMev(etatInitial("f0"), { type: "etape", etape: 4 });
+      e = genere(e, "f0");
+      expect(descripteurBarre(e).confirmation?.titre).toBe(
+        "Abandonner 1 annonce non enregistrée ?",
+      );
+    });
+
+    it("ne compte que les annonces non enregistrées", () => {
+      let e = reducerMev(etatInitial("f0"), { type: "etape", etape: 4 });
+      e = reducerMev(e, { type: "fiche/ajout", id: "f1" });
+      e = genere(e, "f0");
+      e = genere(e, "f1");
+      e = reducerMev(e, { type: "enregistre", id: "f0", statut: "En vente" });
+      expect(descripteurBarre(e).confirmation?.titre).toBe(
+        "Abandonner 1 annonce non enregistrée ?",
+      );
+    });
+
+    it("ne demande rien quand tout est enregistré", () => {
+      let e = reducerMev(etatInitial("f0"), { type: "etape", etape: 4 });
+      e = genere(e, "f0");
+      e = reducerMev(e, { type: "enregistre", id: "f0", statut: "En vente" });
+      expect(descripteurBarre(e).confirmation).toBeNull();
+    });
+
+    it("ne demande rien quand aucune annonce n'a été générée", () => {
+      const e = reducerMev(etatInitial("f0"), { type: "etape", etape: 4 });
+      expect(descripteurBarre(e).confirmation).toBeNull();
+    });
+  });
+});
+
+describe("poids du bouton principal", () => {
+  it("reste « primary », sans confirmation, aux étapes 1 à 3", () => {
+    const e1 = etatInitial("f0");
+    const e2 = reducerMev(e1, { type: "etape", etape: 2 });
+    const e3 = reducerMev(e1, { type: "etape", etape: 3 });
+    for (const e of [e1, e2, e3]) {
+      const d = descripteurBarre(e);
+      expect(d.variante).toBe("primary");
+      expect(d.confirmation).toBeNull();
+    }
+  });
 });

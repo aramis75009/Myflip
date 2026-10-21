@@ -1,178 +1,59 @@
+/* design-tokens-dette: R5 R17 → LZ */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── Thème (clair / sombre) ──────────────────────────────────────────────
-   Palette « Direction C — Console tactile » en variables CSS.
+/* Values live in app/tokens.css (imported first by app/layout.tsx). This file
+   only holds base rules and theme utilities, written with var(--…).
+   Debt (lot LZ): the Direction C keyframes below and the global
+   reduced-motion safety net, kept while screens still animate inline. */
 
-   Correspondance avec les tokens de la maquette :
-     --bg          → bg        fond de page
-     --surface     → mod       fond des modules
-     --surface-2   → mod2      fond creusé : contrôles, en-têtes de tableau
-     --tint        → mod2      survols (même valeur, la maquette n'en fait qu'un)
-     --raise       → raise     élévation d'un cran : ligne sélectionnée, jeton
-     --border      → line      filet standard
-     --border-strong → line2   filet appuyé (survol d'un contrôle)
-     --ink / --ink2 / --muted+--faint+--faint-2 → ink / ink2 / ink3
-     --acc / --acc-ink        accent + son encre
-     --pos / --neg            valeurs positives / négatives
+@layer base {
+  html {
+    scrollbar-color: rgb(var(--line-strong)) rgb(var(--bg));
+    scroll-padding-top: calc(var(--topbar-h) + 12px);
+  }
 
-   Le thème sombre est activé par data-theme="dark" sur <html> (posé sans
-   flash par un script inline dans layout.tsx). Attention : la maquette est
-   sombre PAR DÉFAUT et bascule en clair ; ici c'est l'inverse, pour ne pas
-   casser le script inline ni la bascule existante. Les valeurs, elles, sont
-   celles de la maquette.
+  body {
+    background-color: rgb(var(--bg));
+    color: rgb(var(--ink));
+    font-family: var(--font-sans);
+    /* 16 px, as before the overhaul (Aramis, 21/10): text with no size of
+       its own reads at the browser default; components set theirs. */
+    font-size: var(--t-md);
+    line-height: var(--lh-ui);
+    font-variant-numeric: tabular-nums;
+  }
 
-   L'accent change de teinte selon le thème, et c'est voulu : le lime #C7F751
-   du thème sombre serait illisible sur fond clair, où la maquette prescrit un
-   vert forêt. Ne jamais coder l'accent en dur — toujours var(--acc). */
-:root {
-  --bg: #e7ece8;
-  --surface: #ffffff;
-  --surface-2: #f3f6f3;
-  --tint: #f3f6f3;
-  --raise: #e9eeea;
-  --border: #dde4df;
-  --border-strong: #c6d1ca;
-  --disabled: #c6d1ca;
-  --ink: #0e1412;
-  --ink2: #4c5b54;
-  --muted: #75857c;
-  --faint: #75857c;
-  --faint-2: #75857c;
-  --nav: #4c5b54;
-  --acc: #0f5132;
-  --acc-ink: #ffffff;
-  --acc-hover: #0b3d25;
-  /* Fond très léger teinté d'accent : ligne sélectionnée, jeton d'icône. */
-  --acc-soft: #e6efe9;
-  /* Encre lisible SUR l'accent plein, en retrait de --acc-ink. */
-  --acc-dim: #9fd4b5;
-  /* Halos de focus. Ils existent en variables plutôt qu'en modificateur
-     d'opacité Tailwind (`ring-primary/15`) parce que Tailwind ne sait appliquer
-     une opacité qu'à une couleur qu'il peut décomposer en canaux : un hex, pas
-     un `var(--*)`. Tant que `primary` valait un hex en dur, le `/15` marchait ;
-     depuis qu'il pointe sur `--acc` pour suivre le thème, il produirait une
-     couleur invalide, donc aucun halo. Ces deux tokens sont la contrepartie. */
-  --acc-ring: rgba(15, 81, 50, 0.15);
-  --acc-ring-strong: rgba(15, 81, 50, 0.4);
-  --pos: #0f5132;
-  --neg: #b03a28;
-  /* Niveau d'alerte intermédiaire (« seuil proche », marge sous objectif).
-     Direction C ne prescrit que accent / positif / négatif ; l'ambre est
-     ajouté ici parce que les Commandes ont trois paliers de rentabilité, pas
-     deux, et que les écraser en un seul perdrait l'information. */
-  --warn: #b5872e;
-  /* Fonds doux des trois états — jetons, bandeaux, pastilles. */
-  --pos-soft: #e4f3ea;
-  --neg-soft: #fbeee7;
-  --warn-soft: #fbf3e2;
-  /* Orange d'alerte des notifications (cloche, pastilles de la nav). Miroir
-     volontaire du statut « À comptabiliser » : une notification d'action et
-     l'étiquette qui la déclenche doivent porter la même couleur.
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-     DÉLIBÉRÉMENT IDENTIQUE DANS LES DEUX THÈMES, comme la table de
-     lib/statutColors.ts : ce n'est pas un oubli de variante sombre. Un badge
-     de compteur doit se reconnaître au même orange d'un thème à l'autre.
-     Défini ici plutôt qu'en littéral parce qu'il était recopié dans quatre
-     fichiers, et qu'une seule des quatre copies aurait bougé le jour où
-     quelqu'un l'ajuste. */
-  --alert: #c2603f;
-  --alert-soft: #fbeee7;
-  /* Second palier de la cloche : « à surveiller » plutôt qu'« à faire ».
-     Même règle, même invariance entre les deux thèmes. */
-  --notice: #b5872e;
-  --notice-soft: #fbf3e2;
-  /* Teinte d'accent appuyée, un cran au-dessus de --acc-soft. Sert au survol
-     d'une surface qui porte DÉJÀ --acc-soft (case du calendrier ayant des
-     ventes) : --raise n'y suffit pas, il n'en diffère que de trois valeurs
-     sur 255 en thème clair, et le survol devenait invisible. */
-  --acc-soft-strong: #cfe6d9;
-  --shadow: 0 8px 24px rgba(14, 20, 18, 0.08);
+  :focus-visible {
+    outline: 2px solid rgb(var(--focus));
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: rgb(var(--accent) / 0.22);
+  }
+
+  /* 16 px in every field under 768 px: iOS no longer zooms on focus.
+     Specificity (0,5,1) beats any text-* utility, no important flag needed. */
+  @media (max-width: 767px) {
+    :root input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+    :root select,
+    :root textarea {
+      font-size: var(--t-md);
+    }
+  }
 }
 
-:root[data-theme="dark"] {
-  --bg: #0b0e0d;
-  --surface: #141817;
-  --surface-2: #1b211f;
-  --tint: #1b211f;
-  --raise: #232a27;
-  --border: #242c29;
-  --border-strong: #313b37;
-  --disabled: #242c29;
-  --ink: #eaf1ec;
-  --ink2: #9faea6;
-  --muted: #71827a;
-  --faint: #71827a;
-  --faint-2: #71827a;
-  --nav: #9faea6;
-  --acc: #c7f751;
-  --acc-ink: #0b0e0d;
-  --acc-hover: #d4fa6a;
-  --acc-soft: #1e2a1c;
-  --acc-dim: #38491f;
-  /* Opacités un cran au-dessus du thème clair : sur le graphite, un halo à 15 %
-     de lime disparaît. */
-  --acc-ring: rgba(199, 247, 81, 0.22);
-  --acc-ring-strong: rgba(199, 247, 81, 0.45);
-  --pos: #5fd39b;
-  --neg: #ff8a7a;
-  --warn: #e5bb63;
-  /* En sombre les fonds doux sont des teintes du fond, pas des pastels
-     éclaircis : sur #0b0e0d un pastel clair brûlerait la hiérarchie. */
-  --pos-soft: #16261d;
-  --neg-soft: #2a1a18;
-  --warn-soft: #262019;
-  --acc-soft-strong: #2f4227;
-  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-  color-scheme: dark;
-}
-
-/* ── Sidebar repliable (desktop) ─────────────────────────────────────────
-   Largeur pilotée par data-sidebar sur <html> (posé sans flash par le script
-   inline de layout.tsx, puis par le bouton de repli). L'apparence rail est
-   pilotée par CSS pour éviter tout flash à l'hydratation. Le mobile (bottom
-   nav) n'est pas concerné : le décalage de contenu ne s'applique qu'en md+. */
-:root {
-  --sidebar-w: 236px;
-}
-:root[data-sidebar="collapsed"] {
-  --sidebar-w: 76px;
-}
-.sb-only-collapsed {
+/* Show one element per theme (theme toggle icon and label). */
+:root[data-theme="dark"] .theme-seul-clair,
+:root:not([data-theme="dark"]) .theme-seul-sombre {
   display: none;
-}
-:root[data-sidebar="collapsed"] .sb-hide-collapsed {
-  display: none !important;
-}
-:root[data-sidebar="collapsed"] .sb-only-collapsed {
-  display: flex;
-}
-/* Rail replié : l'item n'est pas une ligne rognée mais un jeton carré —
-   icône au-dessus, code mono en dessous (DASH, STOCK, COMPTA…). C'est la
-   signature de Direction C : replié, le rail reste lisible sans survol. */
-:root[data-sidebar="collapsed"] .sb-item {
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  height: 48px;
-  padding: 0;
-}
-
-html,
-body {
-  background-color: var(--bg);
-  color: var(--ink);
-  color-scheme: light;
-}
-:root[data-theme="dark"] body {
-  color-scheme: dark;
-}
-
-* {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Animations du redesign (entrées de sections, graphes, empty states). */
@@ -351,17 +232,4 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-}
-
-/* Scrollbar discrète, cohérente avec l'esprit épuré du design system */
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-::-webkit-scrollbar-thumb {
-  background: #e2e2e2;
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #c0c9c0;
 }

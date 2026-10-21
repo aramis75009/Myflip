@@ -1,0 +1,7 @@
+{
+  "lancement": "2026-10-20T22-58-52-720Z",
+  "migration": "migrate deploy",
+  "seed": "e2e/seed/seed-e2e.ts",
+  "dureeMs": 1349,
+  "processusGardes": 2
+}

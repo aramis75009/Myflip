@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toastErreur } from "./toast";
 import { objectifLegacy, oublierObjectifLegacy } from "./objectif";
 import type {
   ArticleDTO,
@@ -17,18 +17,42 @@ import type {
   UserSettingsDTO,
 } from "./types";
 
+/** An API error, with its HTTP status (read by the retry policy, app/providers.tsx). */
+export class ErreurHttp extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ErreurHttp";
+  }
+}
+
+export function estStatut(erreur: unknown, ...statuts: number[]): boolean {
+  return erreur instanceof ErreurHttp && statuts.includes(erreur.status);
+}
+
+// One redirection per page, however many requests get a 401 at once.
+let redirectionSession = false;
+
 async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
   if (res.status === 401) {
-    toast.error("Session expirée, reconnecte-toi.");
-    setTimeout(() => {
-      window.location.href = "/login";
-    }, 1500);
-    throw new Error("Session expirée.");
+    // Same id: parallel 401s show ONE toast. No retry (providers.tsx).
+    toastErreur("Session expirée. Reconnecte-toi pour reprendre ici.", { id: "session" });
+    if (!redirectionSession) {
+      redirectionSession = true;
+      const ici = `${window.location.pathname}${window.location.search}`;
+      setTimeout(() => {
+        window.location.href = `/login?callbackUrl=${encodeURIComponent(ici)}`;
+      }, 1500);
+    }
+    throw new ErreurHttp(401, "Session expirée.");
   }
+  // `res.ok` is read BEFORE the body: an error page is not parsed as data.
   if (!res.ok) {
     let message = "Une erreur est survenue.";
     try {
@@ -37,7 +61,7 @@ async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
     } catch {
       /* corps non-JSON */
     }
-    throw new Error(message);
+    throw new ErreurHttp(res.status, message);
   }
   return res.json() as Promise<T>;
 }
@@ -163,9 +187,14 @@ type UpdateArticleVars = {
   differerInvalidation?: boolean;
 };
 
-export function useUpdateArticle() {
+/**
+ * Callers that show the error themselves pass `{ erreurLocale: true }`;
+ * the others get the global error toast (app/providers.tsx).
+ */
+export function useUpdateArticle(options?: { erreurLocale?: boolean }) {
   const qc = useQueryClient();
   return useMutation({
+    meta: { erreurLocale: options?.erreurLocale === true, objet: "Modification non enregistrée" },
     mutationFn: ({ id, patch }: UpdateArticleVars) =>
       jsonFetch<ArticleDTO>(`/api/articles/${id}`, {
         method: "PATCH",
@@ -212,6 +241,7 @@ export function useUpdateArticle() {
 export function useDeleteArticle() {
   const invalidate = useInvalidateAll();
   return useMutation({
+    meta: { erreurLocale: true },
     mutationFn: (id: string) =>
       jsonFetch<{ ok: true }>(`/api/articles/${id}`, { method: "DELETE" }),
     onSuccess: invalidate,
@@ -259,6 +289,7 @@ export function useObjectifMensuel() {
 export function useSetObjectif() {
   const qc = useQueryClient();
   return useMutation({
+    meta: { erreurLocale: true },
     mutationFn: (objectifMensuel: number | null) =>
       jsonFetch<{ ok: true }>("/api/user/settings", {
         method: "PUT",
@@ -314,6 +345,7 @@ export type CommandeInput = {
 export function useCreateCommande() {
   const invalidate = useInvalidateAll();
   return useMutation({
+    meta: { erreurLocale: true },
     mutationFn: (input: CommandeInput) =>
       jsonFetch<CommandeDTO>("/api/commandes", {
         method: "POST",
@@ -341,6 +373,7 @@ export function useCommandeStats(id: string | null) {
 export function useDeleteCommande() {
   const invalidate = useInvalidateAll();
   return useMutation({
+    meta: { erreurLocale: true },
     mutationFn: (id: string) =>
       jsonFetch<{ ok: true }>(`/api/commandes/${id}`, { method: "DELETE" }),
     onSuccess: invalidate,
@@ -352,6 +385,7 @@ export function useDeleteCommande() {
 export function useBulkUpdateStatus() {
   const invalidate = useInvalidateAll();
   return useMutation({
+    meta: { objet: "Changement de statut non enregistré" },
     mutationFn: ({ ids, statut }: { ids: string[]; statut: string }) =>
       jsonFetch<{ count: number; statut: string }>("/api/articles/bulk", {
         method: "PATCH",
@@ -364,6 +398,7 @@ export function useBulkUpdateStatus() {
 export function useComptabiliser() {
   const invalidate = useInvalidateAll();
   return useMutation({
+    meta: { erreurLocale: true },
     mutationFn: ({
       id,
       prixVente,
@@ -396,6 +431,7 @@ export function useComptabiliser() {
 export function useStats(commandeId?: string | null) {
   return useQuery({
     queryKey: ["stats", commandeId ?? "all"],
+    placeholderData: keepPreviousData,
     queryFn: () =>
       jsonFetch<StatsDTO>(
         commandeId
@@ -412,6 +448,7 @@ export type DashboardPeriode = "all" | "month" | "30j" | "3m";
 export function useDashboard(periode: DashboardPeriode = "all") {
   return useQuery({
     queryKey: ["dashboard", periode],
+    placeholderData: keepPreviousData,
     queryFn: () => jsonFetch<DashboardDTO>(`/api/dashboard?periode=${periode}`),
   });
 }
@@ -421,6 +458,7 @@ export function useDashboard(periode: DashboardPeriode = "all") {
 export function useCalendar(month: string) {
   return useQuery({
     queryKey: ["calendar", month],
+    placeholderData: keepPreviousData,
     queryFn: () => jsonFetch<CalendarDTO>(`/api/calendar?month=${month}`),
   });
 }
@@ -447,6 +485,7 @@ export function usePrompts() {
 export function useCreatePrompt() {
   const qc = useQueryClient();
   return useMutation({
+    meta: { erreurLocale: true },
     mutationFn: (input: PromptInput) =>
       jsonFetch<PromptTemplateDTO>("/api/prompts", {
         method: "POST",
@@ -459,6 +498,7 @@ export function useCreatePrompt() {
 export function useUpdatePrompt() {
   const qc = useQueryClient();
   return useMutation({
+    meta: { erreurLocale: true },
     mutationFn: ({ id, input }: { id: string; input: Partial<PromptInput> }) =>
       jsonFetch<PromptTemplateDTO>(`/api/prompts/${id}`, {
         method: "PATCH",
@@ -471,6 +511,7 @@ export function useUpdatePrompt() {
 export function useDeletePrompt() {
   const qc = useQueryClient();
   return useMutation({
+    meta: { objet: "Prompt non supprimé" },
     mutationFn: (id: string) =>
       jsonFetch<{ ok: true }>(`/api/prompts/${id}`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["prompts"] }),
@@ -500,6 +541,7 @@ export type GenerateResult = {
 
 export function useGenerateListing() {
   return useMutation({
+    meta: { erreurLocale: true },
     mutationFn: (input: GenerateInput) =>
       jsonFetch<GenerateResult>("/api/listings/generate", {
         method: "POST",

@@ -22,6 +22,7 @@
 
 import { MODELE_PAR_DEFAUT } from "@/lib/modelesIA";
 import type { ImageAnnonce } from "@/lib/openrouter";
+import { urlOpenRouter } from "@/lib/openrouterBase";
 import { resoudreReglages } from "@/lib/settings";
 
 // ---------------------------------------------------------------------------
@@ -106,8 +107,6 @@ export class StudioVerifError extends Error {
 // ---------------------------------------------------------------------------
 // Construction de la requête (pur)
 // ---------------------------------------------------------------------------
-
-const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 type TextPart = { type: "text"; text: string };
 type ImagePart = { type: "image_url"; image_url: { url: string } };
@@ -545,7 +544,7 @@ export async function verifyGeneratedImage(
   for (let attempt = 1; ; attempt++) {
     let res: Response;
     try {
-      res = await fetch(API_URL, {
+      res = await fetch(urlOpenRouter("/chat/completions"), {
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,

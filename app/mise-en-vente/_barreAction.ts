@@ -9,6 +9,7 @@
 // `page.tsx` traduit `intention` en action ; c'est la seule chose qu'il reste
 // à faire, et elle tient en un switch.
 
+import { pluriel } from "@/lib/format";
 import {
   fichePrete,
   manquePourGenerer,
@@ -32,12 +33,21 @@ export type DescripteurBarre = {
   /** Vrai quand l'indice est une bonne nouvelle (teinte positive). */
   ok: boolean;
   icone: "fleche" | "etincelles";
+  /**
+   * Poids du bouton : « primary » quand il fait avancer le parcours,
+   * « secondary » quand il sort du parcours (étape 4 : recommencer ne doit
+   * pas être l'action la plus mise en avant de l'écran).
+   */
+  variante: "primary" | "secondary";
+  /**
+   * Confirmation à obtenir AVANT d'exécuter l'intention, ou null s'il n'y a
+   * rien à perdre. Le descripteur dit quoi demander ; `page.tsx` ouvre la
+   * boîte et n'exécute l'intention qu'une fois confirmée.
+   */
+  confirmation: { titre: string; confirmer: string } | null;
   /** Le bouton « Retour » a-t-il un sens ici ? */
   retourPossible: boolean;
 };
-
-const pluriel = (n: number, mot: string, suffixe = "s") =>
-  `${n} ${mot}${n > 1 ? suffixe : ""}`;
 
 export function descripteurBarre(etat: EtatMev): DescripteurBarre {
   const active =
@@ -51,10 +61,12 @@ export function descripteurBarre(etat: EtatMev): DescripteurBarre {
       actif: resolus > 0,
       indice:
         resolus > 0
-          ? `${pluriel(resolus, "article")} ${resolus > 1 ? "trouvés" : "trouvé"}`
+          ? pluriel(resolus, "article trouvé", "articles trouvés")
           : "Saisis au moins un SKU valide",
       ok: resolus > 0,
       icone: "fleche",
+      variante: "primary",
+      confirmation: null,
       retourPossible: false,
     };
   }
@@ -67,10 +79,12 @@ export function descripteurBarre(etat: EtatMev): DescripteurBarre {
       actif: pretes > 0,
       indice:
         pretes > 0
-          ? `${pretes} ${pretes > 1 ? "fiches prêtes" : "fiche prête"} sur ${etat.fiches.length}`
+          ? `${pluriel(pretes, "fiche prête", "fiches prêtes")} sur ${etat.fiches.length}`
           : `Il manque : ${manquePourGenerer(active).join(" · ")}`,
       ok: pretes > 0,
       icone: "etincelles",
+      variante: "primary",
+      confirmation: null,
       retourPossible: true,
     };
   }
@@ -83,6 +97,8 @@ export function descripteurBarre(etat: EtatMev): DescripteurBarre {
       indice: "Rédaction en cours",
       ok: true,
       icone: "etincelles",
+      variante: "primary",
+      confirmation: null,
       // Interdire le retour pendant la file : revenir modifier une fiche dont
       // la génération est en vol produirait une annonce qui ne correspond plus.
       retourPossible: false,
@@ -92,16 +108,32 @@ export function descripteurBarre(etat: EtatMev): DescripteurBarre {
   const aEnregistrer = etat.fiches.filter(
     (f: ArticleEnCours) => f.generation.phase === "ok" && !f.enregistre,
   ).length;
+  const annoncesEnAttente = pluriel(
+    aEnregistrer,
+    "annonce non enregistrée",
+    "annonces non enregistrées",
+  );
   return {
     label: "Nouvelle session",
     intention: "nouvelle-session",
     actif: true,
     indice:
       aEnregistrer > 0
-        ? `${pluriel(aEnregistrer, "annonce")} ${aEnregistrer > 1 ? "non enregistrées" : "non enregistrée"}`
+        ? annoncesEnAttente
         : "Tout est enregistré",
     ok: aEnregistrer === 0,
     icone: "fleche",
+    // Recommencer efface la session : jamais l'action principale de l'étape
+    // (QU-61), et jamais sans confirmation tant qu'une annonce générée n'est
+    // pas enregistrée — elle a coûté un appel au modèle et ne se retrouve pas.
+    variante: "secondary",
+    confirmation:
+      aEnregistrer > 0
+        ? {
+            titre: `Abandonner ${annoncesEnAttente} ?`,
+            confirmer: "Abandonner et recommencer",
+          }
+        : null,
     retourPossible: true,
   };
 }

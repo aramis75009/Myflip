@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R10 R12 → M6
 
 import { useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
@@ -67,7 +68,7 @@ const frNum = (n: number, d = 1) =>
 // « TOTAL INVESTI » de l'écran Commandes : 14 COMMANDES, 1 243 PIÈCES…).
 function Fact({ children }: { children: React.ReactNode }) {
   return (
-    <span className="whitespace-nowrap rounded-full bg-[var(--surface-2)] px-[13px] py-[7px] font-mono text-[10.5px] text-[var(--ink2)]">
+    <span className="whitespace-nowrap rounded-full bg-surface-2 px-[13px] py-[7px] font-mono text-xs text-ink-2">
       {children}
     </span>
   );
@@ -75,7 +76,7 @@ function Fact({ children }: { children: React.ReactNode }) {
 
 function Empty({ children = AUCUNE_VENTE }: { children?: string }) {
   return (
-    <div className="py-[24px] text-center font-mono text-[11px] text-[var(--faint)]">
+    <div className="py-6 text-center font-mono text-xs text-ink-3">
       {children}
     </div>
   );
@@ -107,32 +108,32 @@ function ScopeBar({
   const nom = selected ? selected.fournisseur : TOUT_HISTORIQUE;
 
   return (
-    <section className="rounded-[26px] border border-[var(--border)] bg-surface p-[22px]">
-      <div className="flex flex-wrap items-end justify-between gap-x-[20px] gap-y-[14px]">
+    <section className="rounded-lg border border-line bg-surface p-[22px]">
+      <div className="flex flex-wrap items-end justify-between gap-x-5 gap-y-3.5">
         <div className="relative min-w-0">
           <Eyebrow>PÉRIMÈTRE D’ANALYSE</Eyebrow>
           {open && (
-            <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+            <div className="fixed inset-0 z-overlay" onClick={() => setOpen(false)} />
           )}
           <button
             onClick={() => setOpen(!open)}
             aria-expanded={open}
             aria-haspopup="listbox"
-            className="group relative z-20 mt-[4px] flex min-h-[44px] max-w-full items-center gap-[10px] text-left"
+            className="group relative z-popover mt-1 flex min-h-11 max-w-full items-center gap-2.5 text-left"
           >
-            <span className="truncate text-[24px] font-bold tracking-[-0.03em] text-[var(--ink)] transition-colors group-hover:text-[var(--acc)]">
+            <span className="truncate text-xl font-bold tracking-[-0.03em] text-ink transition-colors group-hover:text-accent-text">
               {nom}
             </span>
-            <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-2)] transition-colors group-hover:border-[var(--border-strong)]">
+            <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full border border-line bg-surface-2 transition-colors group-hover:border-line-strong">
               <ChevronDown
-                className={`h-[14px] w-[14px] text-[var(--ink2)] transition-transform ${open ? "rotate-180" : ""}`}
+                className={`h-3.5 w-3.5 text-ink-2 transition-transform ${open ? "rotate-180" : ""}`}
                 strokeWidth={2}
               />
             </span>
           </button>
           {/* Sous-titre du périmètre : la date distingue les commandes d'un
               même fournisseur, cinq d'entre elles portant le même nom. */}
-          <div className="mt-[2px] font-mono text-[10.5px] text-[var(--faint)]">
+          <div className="mt-0.5 font-mono text-xs text-ink-3">
             {selected
               ? `${dateLongue(selected.date)} · ${frNum(selected.prixUnitaire, 2)} € LA PIÈCE EN MOYENNE`
               : "TOUTES COMMANDES CONFONDUES"}
@@ -141,7 +142,7 @@ function ScopeBar({
           {open && (
             <div
               role="listbox"
-              className="absolute left-0 top-full z-20 mt-[8px] max-h-[340px] w-[300px] overflow-y-auto rounded-[20px] border border-[var(--border)] bg-surface py-[6px] shadow-[var(--shadow)]"
+              className="absolute left-0 top-full z-popover mt-2 max-h-[340px] w-[300px] overflow-y-auto rounded-lg border border-line bg-surface py-1.5 shadow-pop"
             >
               <ScopeOption
                 label={TOUT_HISTORIQUE}
@@ -168,7 +169,7 @@ function ScopeBar({
           )}
         </div>
 
-        <div className="flex flex-wrap gap-[8px]">
+        <div className="flex flex-wrap gap-2">
           {facts.map((f) => (
             <Fact key={f}>{f}</Fact>
           ))}
@@ -194,23 +195,23 @@ function ScopeOption({
       role="option"
       aria-selected={active}
       onClick={onClick}
-      className="flex min-h-[44px] w-full items-center justify-between gap-2 px-[16px] py-[7px] text-left transition-colors hover:bg-[var(--surface-2)]"
+      className="flex min-h-11 w-full items-center justify-between gap-2 px-4 py-[7px] text-left transition-colors hover:bg-surface-2"
     >
       <span className="min-w-0">
         <span
-          className={`block truncate text-[13px] font-semibold ${
-            active ? "text-[var(--acc)]" : "text-[var(--ink)]"
+          className={`block truncate text-sm font-semibold ${
+            active ? "text-accent-text" : "text-ink"
           }`}
         >
           {label}
         </span>
-        <span className="block truncate font-mono text-[10px] text-[var(--faint)]">
+        <span className="block truncate font-mono text-xs text-ink-3">
           {sub}
         </span>
       </span>
       {active && (
         <Check
-          className="h-[14px] w-[14px] flex-none text-[var(--acc)]"
+          className="h-3.5 w-3.5 flex-none text-accent-text"
           strokeWidth={2.5}
         />
       )}
@@ -252,7 +253,7 @@ export default function StatistiquesPage() {
     return (
       <Frame>
         {scopeBar([])}
-        <p className="text-[var(--neg)]">
+        <p className="text-neg">
           {error ? (error as Error).message : "Erreur de chargement."}
         </p>
       </Frame>
@@ -277,49 +278,49 @@ export default function StatistiquesPage() {
       {scopeBar(facts)}
 
       {/* 2 — ARGENT */}
-      <section className="grid grid-cols-1 gap-[14px] min-[900px]:grid-cols-3">
+      <section className="grid grid-cols-1 gap-3.5 min-[900px]:grid-cols-3">
         <CaCard total={caTotal} canaux={data.caParCanal} />
 
-        <div className="rounded-[26px] border border-[var(--border)] bg-surface p-[22px] shadow-[var(--shadow)]">
+        <div className="rounded-lg border border-line bg-surface p-[22px] shadow-pop">
           <Eyebrow>VITESSE DE VENTE</Eyebrow>
-          <div className="mt-[8px] whitespace-nowrap text-[38px] font-bold leading-none tracking-[-0.045em] tabular-nums text-[var(--ink)]">
+          <div className="mt-2 whitespace-nowrap text-2xl font-bold leading-none tracking-[-0.045em] tabular-nums text-ink">
             {frNum(data.vitesse.parJour7)}
-            <span className="text-[15px] font-medium tracking-normal text-[var(--ink2)]">
+            <span className="text-md font-medium tracking-normal text-ink-2">
               {" "}
               ventes / jour
             </span>
           </div>
-          <div className="mt-[14px] flex flex-wrap gap-[8px]">
+          <div className="mt-3.5 flex flex-wrap gap-2">
             <Fact>MOY. 7 J — {frNum(data.vitesse.parJour7)}</Fact>
             <Fact>MOY. 30 J — {frNum(data.vitesse.parJour30)}</Fact>
           </div>
         </div>
 
-        <div className="rounded-[26px] bg-[var(--acc)] p-[22px] text-[var(--acc-ink)] shadow-[var(--shadow)]">
-          <div className="font-mono text-[10.5px] tracking-[0.2em] opacity-70">
+        <div className="rounded-lg bg-accent p-[22px] text-accent-ink shadow-pop">
+          <div className="font-mono text-xs tracking-[0.2em] opacity-70">
             PROJECTION D’ÉCOULEMENT
           </div>
-          <div className="mt-[8px] whitespace-nowrap text-[38px] font-bold leading-none tracking-[-0.045em] tabular-nums">
+          <div className="mt-2 whitespace-nowrap text-2xl font-bold leading-none tracking-[-0.045em] tabular-nums">
             {jours != null ? jours.toLocaleString("fr-FR") : "—"}
-            <span className="text-[15px] font-medium tracking-normal opacity-75">
+            <span className="text-md font-medium tracking-normal opacity-75">
               {" "}
               jours
             </span>
           </div>
-          <div className="mt-[14px] h-[10px] overflow-hidden rounded-full bg-black/[.16]">
+          <div className="mt-3.5 h-2.5 overflow-hidden rounded-full bg-black/[.16]">
             <div
-              className="h-full rounded-full bg-[var(--acc-ink)]"
+              className="h-full rounded-full bg-accent-ink"
               style={{ width: `${Math.round(pctEcoule * 100)}%` }}
             />
           </div>
-          <div className="mt-[7px] flex justify-between font-mono text-[10.5px] opacity-75">
+          <div className="mt-[7px] flex justify-between font-mono text-xs opacity-75">
             <span>{vendus.toLocaleString("fr-FR")} ÉCOULÉS</span>
             <span>{pct1(pctEcoule)} DU STOCK</span>
           </div>
           {/* Hors maquette : sans ce rappel, une cadence trop faible pour
               écouler le stock en moins d'un an passerait inaperçue. */}
           {(jours == null || jours > 365) && (
-            <div className="mt-[10px] rounded-full bg-black/[.16] px-[13px] py-[7px] text-center font-mono text-[10.5px] font-bold">
+            <div className="mt-2.5 rounded-full bg-black/[.16] px-[13px] py-[7px] text-center font-mono text-xs font-bold">
               {jours == null
                 ? "CADENCE NULLE — PROJECTION IMPOSSIBLE"
                 : "PLUS D’UN AN AU RYTHME ACTUEL"}
@@ -329,7 +330,7 @@ export default function StatistiquesPage() {
       </section>
 
       {/* 3 — FORME */}
-      <section className="grid grid-cols-1 gap-[14px] min-[900px]:grid-cols-[1.1fr_1fr]">
+      <section className="grid grid-cols-1 gap-3.5 min-[900px]:grid-cols-[1.1fr_1fr]">
         <WeekdayCard days={data.parJourSemaine} />
         <StatutDonut data={data.repartitionStatuts} />
       </section>
@@ -354,18 +355,18 @@ export default function StatistiquesPage() {
 
 function CaCard({ total, canaux }: { total: number; canaux: CanalCA[] }) {
   return (
-    <div className="rounded-[26px] border border-[var(--border)] bg-surface p-[22px] shadow-[var(--shadow)]">
+    <div className="rounded-lg border border-line bg-surface p-[22px] shadow-pop">
       <Eyebrow>CA DU PÉRIMÈTRE</Eyebrow>
-      <div className="mt-[8px] whitespace-nowrap text-[38px] font-bold leading-none tracking-[-0.045em] tabular-nums text-[var(--ink)]">
+      <div className="mt-2 whitespace-nowrap text-2xl font-bold leading-none tracking-[-0.045em] tabular-nums text-ink">
         {euros(total)}
       </div>
       {canaux.length === 0 ? (
-        <div className="mt-[14px] font-mono text-[10.5px] text-[var(--faint)]">
+        <div className="mt-3.5 font-mono text-xs text-ink-3">
           {AUCUNE_VENTE}
         </div>
       ) : (
         <>
-          <div className="mt-[14px] flex h-[10px] overflow-hidden rounded-full bg-[var(--surface-2)]">
+          <div className="mt-3.5 flex h-2.5 overflow-hidden rounded-full bg-surface-2">
             {canaux.map((c) => (
               <div
                 key={c.canal}
@@ -376,17 +377,17 @@ function CaCard({ total, canaux }: { total: number; canaux: CanalCA[] }) {
               />
             ))}
           </div>
-          <div className="mt-[9px] flex flex-wrap gap-x-[12px] gap-y-[5px]">
+          <div className="mt-[9px] flex flex-wrap gap-x-3 gap-y-[5px]">
             {canaux.map((c) => (
               <span
                 key={c.canal}
-                className="flex items-center gap-[6px] font-mono text-[10px] text-[var(--faint)]"
+                className="flex items-center gap-1.5 font-mono text-xs text-ink-3"
               >
                 <span
                   className="h-[7px] w-[7px] flex-none rounded-full"
                   style={{ background: canalColor(c.canal).bg }}
                 />
-                <span className="uppercase text-[var(--ink2)]">{c.canal}</span>
+                <span className="uppercase text-ink-2">{c.canal}</span>
                 {pct1(total ? c.ca / total : 0)}
               </span>
             ))}
@@ -419,18 +420,18 @@ function WeekdayCard({ days }: { days: WeekdayPoint[] }) {
     // barres sont donc en %, plus en px — d'où `calc(x% - x·0,36px)`, qui vaut
     // exactement x % de (hauteur disponible − BAR_CHROME) : la plus haute barre
     // touche le plafond sans jamais pousser son libellé hors de la carte.
-    <div className="flex h-full flex-col rounded-[26px] border border-[var(--border)] bg-surface p-[22px]">
+    <div className="flex h-full flex-col rounded-lg border border-line bg-surface p-[22px]">
       <CardTitle
         aside={!allZero && best ? best.jour.toUpperCase() : undefined}
       >
         Meilleur jour de la semaine
       </CardTitle>
       {allZero ? (
-        <div className="flex min-h-[160px] flex-1 items-center justify-center font-mono text-[11px] text-[var(--faint)]">
+        <div className="flex min-h-40 flex-1 items-center justify-center font-mono text-xs text-ink-3">
           {AUCUNE_VENTE}
         </div>
       ) : (
-        <div className="flex min-h-[160px] flex-1 items-end justify-center gap-[9px]">
+        <div className="flex min-h-40 flex-1 items-end justify-center gap-[9px]">
           {days.map((d, i) => {
             const pct = (d.vendus / max) * 100;
             return (
@@ -438,28 +439,28 @@ function WeekdayCard({ days }: { days: WeekdayPoint[] }) {
                 key={i}
                 // `max-w` : sans plafond, sept barres réparties sur une carte
                 // large donnent des blocs de 170px qui ne se lisent plus.
-                className="flex h-full max-w-[64px] flex-1 flex-col items-center justify-end gap-[6px]"
+                className="flex h-full max-w-[64px] flex-1 flex-col items-center justify-end gap-1.5"
                 title={
                   d.dateRecente
                     ? `Dernière vente un ${d.jour.toLowerCase()} : ${dateLongue(d.dateRecente)}`
                     : undefined
                 }
               >
-                <span className="font-mono text-[9.5px] tabular-nums text-[var(--ink2)]">
+                <span className="font-mono text-xs tabular-nums text-ink-2">
                   {d.vendus}
                 </span>
                 <div
-                  className="w-full rounded-[8px]"
+                  className="w-full rounded"
                   style={{
                     height: `calc(${pct.toFixed(2)}% - ${((pct * BAR_CHROME) / 100).toFixed(2)}px)`,
                     minHeight: d.vendus > 0 ? 4 : 0,
                     background:
-                      d.vendus === max ? "var(--acc)" : "var(--surface-2)",
+                      d.vendus === max ? "rgb(var(--accent))" : "rgb(var(--surface-2))",
                     transformOrigin: "bottom",
                     animation: `growBar .55s cubic-bezier(.22,1,.36,1) ${(i * 0.05).toFixed(2)}s both`,
                   }}
                 />
-                <span className="font-mono text-[9.5px] uppercase text-[var(--faint)]">
+                <span className="font-mono text-xs uppercase text-ink-3">
                   {d.jour.slice(0, 3)}
                 </span>
               </div>
@@ -506,7 +507,7 @@ function StatutDonut({ data }: { data: StatutCount[] }) {
   });
 
   return (
-    <div className="flex flex-wrap items-center gap-[20px] rounded-[26px] border border-[var(--border)] bg-surface p-[22px]">
+    <div className="flex flex-wrap items-center gap-5 rounded-lg border border-line bg-surface p-[22px]">
       <svg
         viewBox="0 0 42 42"
         className="h-[150px] w-[150px] flex-none"
@@ -517,7 +518,7 @@ function StatutDonut({ data }: { data: StatutCount[] }) {
           cy="21"
           r="15.9"
           fill="none"
-          stroke="var(--surface-2)"
+          stroke="rgb(var(--surface-2))"
           strokeWidth="6"
         />
         {segments.map((s, i) => (
@@ -536,26 +537,26 @@ function StatutDonut({ data }: { data: StatutCount[] }) {
           />
         ))}
       </svg>
-      <div className="min-w-[160px] flex-1">
+      <div className="min-w-40 flex-1">
         <CardTitle aside={`${data.length} STATUTS`}>
           Répartition des statuts
         </CardTitle>
         {segments.map((s, i) => (
           <div
             key={i}
-            className="flex items-center gap-[9px] border-b border-[var(--border)] py-[6px]"
+            className="flex items-center gap-[9px] border-b border-line py-1.5"
           >
             <span
-              className="h-[8px] w-[8px] flex-none rounded-full"
+              className="h-2 w-2 flex-none rounded-full"
               style={{ background: s.color }}
             />
-            <span className="flex-1 truncate text-[12.5px] text-[var(--ink)]">
+            <span className="flex-1 truncate text-sm text-ink">
               {s.statut}
             </span>
-            <span className="font-mono text-[12px] tabular-nums text-[var(--ink)]">
+            <span className="font-mono text-xs tabular-nums text-ink">
               {s.count.toLocaleString("fr-FR")}
             </span>
-            <span className="w-[46px] text-right font-mono text-[10.5px] tabular-nums text-[var(--faint)]">
+            <span className="w-[46px] text-right font-mono text-xs tabular-nums text-ink-3">
               {s.pct}
             </span>
           </div>
@@ -574,7 +575,7 @@ function StatutDonut({ data }: { data: StatutCount[] }) {
 // ─────────────────────────────────────────────────────────────────────────
 
 const TH =
-  "bg-[var(--surface-2)] py-[9px] font-mono text-[9.5px] font-medium uppercase tracking-[0.14em] text-[var(--faint)]";
+  "bg-surface-2 py-[9px] font-mono text-xs font-medium uppercase tracking-[0.14em] text-ink-3";
 
 function BrandTable({
   rows,
@@ -584,7 +585,7 @@ function BrandTable({
   caTotal: number;
 }) {
   return (
-    <div className="overflow-hidden rounded-[26px] border border-[var(--border)] bg-surface">
+    <div className="overflow-hidden rounded-lg border border-line bg-surface">
       <div className="px-[22px] pt-[22px]">
         <CardTitle aside={`${rows.length} MARQUES`}>
           Marques les plus rentables
@@ -592,27 +593,27 @@ function BrandTable({
       </div>
 
       {/* Cartes (< 900px) — CLAUDE.md interdit les tableaux sur mobile. */}
-      <div className="px-[22px] pb-[14px] min-[900px]:hidden">
+      <div className="px-[22px] pb-3.5 min-[900px]:hidden">
         {rows.length === 0 ? (
           <Empty />
         ) : (
           rows.map((b) => (
             <div
               key={b.marque}
-              className="mb-[8px] rounded-[16px] bg-[var(--surface-2)] p-[12px]"
+              className="mb-2 rounded-md bg-surface-2 p-3"
             >
               <div className="flex items-baseline justify-between gap-2">
-                <span className="truncate text-[13px] font-semibold text-[var(--ink)]">
+                <span className="truncate text-sm font-semibold text-ink">
                   {b.marque}
                 </span>
-                <span className="flex-none font-mono text-[11px] font-bold text-[var(--ink)]">
+                <span className="flex-none font-mono text-xs font-bold text-ink">
                   {coefLabel(b.coefMoyen)}
                 </span>
               </div>
-              <div className="mt-[8px] flex flex-wrap gap-x-[16px] gap-y-[4px] font-mono text-[12.5px] tabular-nums">
-                <span className="text-[var(--ink)]">{euros(b.ca)}</span>
-                <span className="text-[var(--pos)]">{euros(b.margeNette)}</span>
-                <span className="text-[var(--faint)]">{b.vendus} VENDUS</span>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-sm tabular-nums">
+                <span className="text-ink">{euros(b.ca)}</span>
+                <span className="text-pos">{euros(b.margeNette)}</span>
+                <span className="text-ink-3">{b.vendus} VENDUS</span>
               </div>
             </div>
           ))
@@ -625,10 +626,10 @@ function BrandTable({
           <thead>
             <tr>
               <th className={`${TH} px-[22px] text-left`}>Marque</th>
-              <th className={`${TH} px-[10px] text-right`}>Vendus</th>
-              <th className={`${TH} px-[10px] text-right`}>CA</th>
-              <th className={`${TH} px-[10px] text-right`}>Marge nette</th>
-              <th className={`${TH} px-[10px] text-right`}>Coef</th>
+              <th className={`${TH} px-2.5 text-right`}>Vendus</th>
+              <th className={`${TH} px-2.5 text-right`}>CA</th>
+              <th className={`${TH} px-2.5 text-right`}>Marge nette</th>
+              <th className={`${TH} px-2.5 text-right`}>Coef</th>
               <th className={`${TH} w-[180px] px-[22px] text-right`}>
                 Part du CA
               </th>
@@ -640,32 +641,32 @@ function BrandTable({
               return (
                 <tr
                   key={b.marque}
-                  className="border-b border-[var(--border)] transition-colors hover:bg-[var(--surface-2)]"
+                  className="border-b border-line transition-colors hover:bg-surface-2"
                 >
-                  <td className="px-[22px] py-[11px] text-[13px] font-semibold text-[var(--ink)]">
+                  <td className="px-[22px] py-[11px] text-sm font-semibold text-ink">
                     {b.marque}
                   </td>
-                  <td className="px-[10px] py-[11px] text-right font-mono text-[12px] text-[var(--faint)]">
+                  <td className="px-2.5 py-[11px] text-right font-mono text-xs text-ink-3">
                     {b.vendus}
                   </td>
-                  <td className="px-[10px] py-[11px] text-right font-mono text-[12.5px] text-[var(--ink)]">
+                  <td className="px-2.5 py-[11px] text-right font-mono text-sm text-ink">
                     {euros(b.ca)}
                   </td>
-                  <td className="px-[10px] py-[11px] text-right font-mono text-[12.5px] text-[var(--pos)]">
+                  <td className="px-2.5 py-[11px] text-right font-mono text-sm text-pos">
                     {euros(b.margeNette)}
                   </td>
-                  <td className="px-[10px] py-[11px] text-right font-mono text-[12.5px] font-bold text-[var(--ink)]">
+                  <td className="px-2.5 py-[11px] text-right font-mono text-sm font-bold text-ink">
                     {coefLabel(b.coefMoyen)}
                   </td>
                   <td className="px-[22px] py-[11px]">
                     <span className="flex items-center gap-[9px]">
-                      <span className="h-[6px] flex-1 overflow-hidden rounded-full bg-[var(--surface-2)]">
+                      <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
                         <span
-                          className="block h-full rounded-full bg-[var(--ink2)]"
+                          className="block h-full rounded-full bg-ink-2"
                           style={{ width: `${Math.round(part * 100)}%` }}
                         />
                       </span>
-                      <span className="w-[46px] flex-none text-right font-mono text-[10px] tabular-nums text-[var(--faint)]">
+                      <span className="w-[46px] flex-none text-right font-mono text-xs tabular-nums text-ink-3">
                         {pct1(part)}
                       </span>
                     </span>
@@ -698,32 +699,32 @@ function BrandTable({
 
 function TopArticles({ rows }: { rows: TopArticle[] }) {
   return (
-    <div className="rounded-[26px] border border-[var(--border)] bg-surface p-[22px]">
+    <div className="rounded-lg border border-line bg-surface p-[22px]">
       <CardTitle aside="PAR PRIX DE VENTE">Meilleures ventes</CardTitle>
       {rows.length === 0 ? (
         <Empty />
       ) : (
-        <div className="grid grid-cols-2 gap-[10px] min-[900px]:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2.5 min-[900px]:grid-cols-5">
           {rows.map((a, i) => (
             <div
               key={a.sku}
-              className="rounded-[18px] bg-[var(--surface-2)] p-[14px] transition-colors hover:bg-[var(--raise)]"
+              className="rounded-lg bg-surface-2 p-3.5 transition-colors hover:bg-surface-3"
             >
               <div className="flex items-baseline justify-between gap-2">
-                <span className="font-mono text-[9.5px] tracking-[0.16em] text-[var(--faint)]">
+                <span className="font-mono text-xs tracking-[0.16em] text-ink-3">
                   N°{i + 1}
                 </span>
-                <span className="truncate font-mono text-[12px] font-bold text-[var(--ink)]">
+                <span className="truncate font-mono text-xs font-bold text-ink">
                   {a.sku}
                 </span>
               </div>
-              <div className="mt-[10px] truncate text-[12.5px] text-[var(--ink2)]">
+              <div className="mt-2.5 truncate text-sm text-ink-2">
                 {a.marque}
               </div>
-              <div className="mt-[6px] text-[20px] font-bold tracking-[-0.03em] tabular-nums text-[var(--ink)]">
+              <div className="mt-1.5 text-lg font-bold tracking-[-0.03em] tabular-nums text-ink">
                 {euros(a.prixVente)}
               </div>
-              <div className="mt-[2px] font-mono text-[10.5px] tabular-nums text-[var(--pos)]">
+              <div className="mt-0.5 font-mono text-xs tabular-nums text-pos">
                 {euros(a.margeNette)} de marge
               </div>
             </div>

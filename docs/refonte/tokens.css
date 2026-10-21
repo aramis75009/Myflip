@@ -1,0 +1,246 @@
+/* =====================================================================
+   VERNIER — tokens de MyFlip (adopté le 20/10/2026)
+   Source : docs/design-system.md. À poser tel quel dans app/globals.css.
+
+   Couleurs en CANAUX « R G B » : on écrit rgb(var(--surface)) ou
+   rgb(var(--surface) / 0.9). Tailwind 3 les expose avec
+   'rgb(var(--surface) / <alpha-value>)', ce qui fait marcher bg-surface/90
+   (cause racine des voiles et barres transparents, PRD § 1).
+
+   Thème : data-theme="light" | "dark" sur <html>, posé avant le premier
+   paint par le script inline (localStorage "myflip-theme"). Sans choix
+   enregistré, aucun attribut : prefers-color-scheme décide.
+   ===================================================================== */
+
+:root {
+  /* ---------- Polices ----------
+     Les familles viennent de next/font (variables posées sur <html>) :
+     --font-archivo et --font-fragment-mono. Jamais de nom de famille ici. */
+  --font-sans: var(--font-archivo, ui-sans-serif), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-fragment-mono, ui-monospace), ui-monospace, Menlo, Consolas, monospace;
+  --wide: 115%;            /* largeur Archivo des titres (axe wdth) */
+
+  /* ---------- Texte : 8 tailles, en rem, plancher 12 px ---------- */
+  --t-xs: 0.75rem;         /* 12 : graduations, en-têtes de tableau, pastilles */
+  --t-sm: 0.8125rem;       /* 13 : cellules de tableau, aides */
+  --t-base: 0.875rem;      /* 14 : interface */
+  --t-md: 1rem;            /* 16 : corps de texte, tous les champs sur mobile */
+  --t-lg: 1.25rem;         /* 20 : titres de panneau, de modale */
+  --t-xl: 1.75rem;         /* 28 : titre de page (Archivo large) */
+  --t-2xl: 2.5rem;         /* 40 : chiffre du mois sur mobile, titres de landing */
+  --t-3xl: 3.5rem;         /* 56 : chiffre du mois sur ordinateur, titre de landing */
+  --lh-tight: 1.05; --lh-snug: 1.25; --lh-ui: 1.45; --lh-prose: 1.6;
+
+  /* ---------- Espacements : pas de 4 px ---------- */
+  --sp-1: 0.25rem; --sp-2: 0.5rem; --sp-3: 0.75rem; --sp-4: 1rem; --sp-5: 1.25rem;
+  --sp-6: 1.5rem; --sp-8: 2rem; --sp-10: 2.5rem; --sp-12: 3rem; --sp-16: 4rem;
+
+  /* ---------- Rayons : petits, croissants avec la surface ---------- */
+  --r-xs: 3px;             /* pastilles, cases, touches */
+  --r-sm: 6px;             /* boutons, champs */
+  --r-md: 8px;             /* panneaux, cartes */
+  --r-lg: 12px;            /* modale, tiroir, feuille */
+  --r-full: 999px;         /* avatar, compteurs */
+
+  /* ---------- Ombres : réservées à ce qui flotte ---------- */
+  --sh-k: 1;               /* multiplicateur : 1 en clair, 2,4 en sombre */
+  --shadow-pop: 0 1px 2px rgb(var(--shadow) / calc(0.08 * var(--sh-k))), 0 6px 16px -4px rgb(var(--shadow) / calc(0.14 * var(--sh-k)));
+  --shadow-over: 0 2px 6px rgb(var(--shadow) / calc(0.08 * var(--sh-k))), 0 28px 64px -16px rgb(var(--shadow) / calc(0.3 * var(--sh-k)));
+
+  /* ---------- Profondeur : échelle de z-index nommée ---------- */
+  --z-base: 0;
+  --z-raised: 10;          /* en-tête de tableau collant */
+  --z-sticky: 20;          /* barre du haut, menu latéral */
+  --z-dock: 30;            /* dock mobile, barres d’actions fixes */
+  --z-fab: 35;             /* bulle de l’assistant, décalée au-dessus des barres */
+  --z-overlay: 40;         /* voile */
+  --z-modal: 50;           /* modale, tiroir, feuille « Plus » */
+  --z-popover: 60;         /* menus et listes, y compris dans une modale */
+  --z-toast: 70;           /* toasts, au-dessus de tout pour garder « Annuler » */
+  --z-tooltip: 80;         /* info-bulles */
+  --z-skip: 90;            /* lien « Aller au contenu » */
+
+  /* ---------- Mouvement ---------- */
+  --d-fast: 120ms;         /* survol, appui, couleur */
+  --d-base: 180ms;         /* toast, barre groupée, coche, pastille */
+  --d-slow: 240ms;         /* modale, tiroir, déplacement de ligne */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);    /* entrées */
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);         /* sorties */
+  --ease-in-out: cubic-bezier(0.6, 0, 0.3, 1);   /* déplacements */
+
+  /* ---------- Cadre ---------- */
+  --sidebar-w: 232px;      /* menu latéral déplié */
+  --sidebar-rail: 64px;    /* rail d’icônes, de 768 à 1099 px ou replié */
+  --topbar-h: 56px;
+  --dock-h: 60px;          /* hors zone sûre */
+  --row-h: 2.75rem;        /* 44 px : ligne du Stock, à reporter dans la virtualisation */
+  --hit: 44px;             /* cible tactile minimale */
+
+  color-scheme: light;
+  /* Neutres, accent, sémantique */
+  --bg: 245 247 249;  /* fond de l’application */
+  --surface: 255 255 255; /* panneaux, tableaux, modales, toasts */
+  --surface-2: 239 241 244; /* en-têtes de tableau, zones creuses, champs désactivés */
+  --surface-3: 229 232 236; /* survol, squelettes, piste des réglettes */
+  --line: 221 224 228; /* filets de 1 px (décoratifs) */
+  --line-strong: 123 129 135; /* bords de champs et de cases, graduations (au moins 3:1) */
+  --ink: 22 27 33;    /* texte principal, aiguille des réglettes */
+  --ink-2: 67 72 79;  /* texte secondaire */
+  --ink-3: 94 100 107; /* libellés, aides, axes (au moins 4,5:1 sur tous les fonds) */
+  --accent: 31 79 204; /* action principale, sélection, remplissage des réglettes */
+  --accent-hover: 18 62 178; /* survol et pression de l’action principale */
+  --accent-ink: 255 255 255; /* texte posé sur l’accent */
+  --accent-text: 28 76 200; /* liens, entrée de menu active, accent écrit */
+  --accent-soft: 233 240 254; /* fond de sélection (ligne, entrée active) */
+  --focus: 31 79 204; /* anneau de focus clavier, 2 px décalé de 2 px */
+  --pos: 19 119 56;   /* hausse, succès, marge positive */
+  --pos-soft: 229 249 232; /* fond des messages de succès */
+  --neg: 186 43 40;   /* baisse, erreur */
+  --neg-soft: 255 238 236; /* fond des messages d’erreur */
+  --warn: 149 89 5;   /* à vérifier, hors budget */
+  --warn-soft: 255 242 221; /* fond des avertissements */
+  --danger: 186 43 40; /* fond du bouton destructif */
+  --danger-ink: 255 255 255; /* texte du bouton destructif */
+  --veil: 10 14 18;   /* voile des modales (toujours à 50 %) */
+  --shadow: 15 18 22; /* teinte des ombres */
+  --bar: 27 32 38;    /* barre d’actions groupées, info-bulle */
+  --bar-ink: 249 250 252; /* texte sur bar */
+  --stage: 223 222 220; /* fond neutre derrière les images à juger (Studio) */
+  --chart: 52 97 201; /* barres et courbes à une série */
+  --chart-2: 126 135 146; /* série de comparaison neutre */
+  /* Statuts d’article : marqueur (icône, filet) / texte / fond de pastille */
+  --st-brouillon: 123 129 135; --st-brouillon-ink: 73 77 84; --st-brouillon-soft: 237 239 241; /* Brouillon */
+  --st-stock: 161 121 12; --st-stock-ink: 108 76 2; --st-stock-soft: 251 240 207; /* En stock */
+  --st-lavage: 33 140 181; --st-lavage-ink: 0 90 123; --st-lavage-soft: 223 244 253; /* En lavage */
+  --st-repasse: 136 100 192; --st-repasse-ink: 92 58 139; --st-repasse-soft: 242 237 255; /* Repassé */
+  --st-photos: 196 80 138; --st-photos-ink: 137 39 86; --st-photos-soft: 255 234 242; /* Photos prêtes */
+  --st-vente: 6 140 140; --st-vente-ink: 4 92 94; --st-vente-soft: 218 247 246; /* En vente */
+  --st-livraison: 190 107 11; --st-livraison-ink: 132 69 0; --st-livraison-soft: 255 237 219; /* En livraison */
+  --st-compta: 197 52 67; --st-compta-ink: 155 29 41; --st-compta-soft: 254 235 233; /* À comptabiliser */
+  --st-vendu: 42 144 75; --st-vendu-ink: 16 96 45; --st-vendu-soft: 224 247 228; /* Vendu */
+  --st-perdu: 102 115 131; --st-perdu-ink: 61 73 88; --st-perdu-soft: 235 239 244; /* Perdu */
+  /* Canaux de vente : marqueur carré, toujours suivi du nom */
+  --ch-vinted: 6 141 158; /* Vinted */
+  --ch-vinted-go: 161 131 8; /* Vinted Go */
+  --ch-vc: 115 77 190; /* Vestiaire Collective */
+  --ch-lbc: 220 99 30; /* Leboncoin */
+  --ch-mp: 188 58 131; /* En main propre */
+  --ch-autre: 123 129 135; /* Autre */
+}
+
+/* ---------- Sombre : choisi, pas inversé (préférence système) ---------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --sh-k: 2.4;
+    /* Neutres, accent, sémantique */
+    --bg: 15 19 24;     /* fond de l’application */
+    --surface: 23 27 33; /* panneaux, tableaux, modales, toasts */
+    --surface-2: 30 35 41; /* en-têtes de tableau, zones creuses, champs désactivés */
+    --surface-3: 38 44 51; /* survol, squelettes, piste des réglettes */
+    --line: 45 50 57;   /* filets de 1 px (décoratifs) */
+    --line-strong: 122 129 138; /* bords de champs et de cases, graduations (au moins 3:1) */
+    --ink: 238 240 243; /* texte principal, aiguille des réglettes */
+    --ink-2: 195 200 206; /* texte secondaire */
+    --ink-3: 160 165 172; /* libellés, aides, axes (au moins 4,5:1 sur tous les fonds) */
+    --accent: 56 107 226; /* action principale, sélection, remplissage des réglettes */
+    --accent-hover: 43 91 209; /* survol et pression de l’action principale */
+    --accent-ink: 255 255 255; /* texte posé sur l’accent */
+    --accent-text: 148 183 254; /* liens, entrée de menu active, accent écrit */
+    --accent-soft: 30 47 84; /* fond de sélection (ligne, entrée active) */
+    --focus: 148 183 254; /* anneau de focus clavier, 2 px décalé de 2 px */
+    --pos: 117 215 141; /* hausse, succès, marge positive */
+    --pos-soft: 26 50 31; /* fond des messages de succès */
+    --neg: 246 133 122; /* baisse, erreur */
+    --neg-soft: 71 33 29; /* fond des messages d’erreur */
+    --warn: 240 190 103; /* à vérifier, hors budget */
+    --warn-soft: 58 43 17; /* fond des avertissements */
+    --danger: 200 58 53; /* fond du bouton destructif */
+    --danger-ink: 255 255 255; /* texte du bouton destructif */
+    --veil: 1 2 2;      /* voile des modales (toujours à 50 %) */
+    --shadow: 0 0 1;    /* teinte des ombres */
+    --bar: 66 72 80;    /* barre d’actions groupées, info-bulle */
+    --bar-ink: 244 245 247; /* texte sur bar */
+    --stage: 46 46 44;  /* fond neutre derrière les images à juger (Studio) */
+    --chart: 105 144 226; /* barres et courbes à une série */
+    --chart-2: 99 106 114; /* série de comparaison neutre */
+    /* Statuts d’article : marqueur (icône, filet) / texte / fond de pastille */
+    --st-brouillon: 141 147 154; --st-brouillon-ink: 205 209 216; --st-brouillon-soft: 43 46 50; /* Brouillon */
+    --st-stock: 215 179 85; --st-stock-ink: 236 214 155; --st-stock-soft: 55 44 21; /* En stock */
+    --st-lavage: 97 183 222; --st-lavage-ink: 172 220 245; --st-lavage-soft: 23 49 62; /* En lavage */
+    --st-repasse: 182 153 235; --st-repasse-ink: 218 204 247; --st-repasse-soft: 52 42 70; /* Repassé */
+    --st-photos: 233 135 179; --st-photos-ink: 251 194 214; --st-photos-soft: 68 37 51; /* Photos prêtes */
+    --st-vente: 87 197 197; --st-vente-ink: 166 225 224; --st-vente-soft: 17 52 53; /* En vente */
+    --st-livraison: 239 165 85; --st-livraison-ink: 248 202 167; --st-livraison-soft: 66 42 25; /* En livraison */
+    --st-compta: 237 116 115; --st-compta-ink: 252 192 184; --st-compta-soft: 70 38 35; /* À comptabiliser */
+    --st-vendu: 111 200 132; --st-vendu-ink: 180 226 188; --st-vendu-soft: 28 52 34; /* Vendu */
+    --st-perdu: 128 141 159; --st-perdu-ink: 197 207 219; --st-perdu-soft: 42 46 52; /* Perdu */
+    /* Canaux de vente : marqueur carré, toujours suivi du nom */
+    --ch-vinted: 6 141 158; /* Vinted */
+    --ch-vinted-go: 176 146 46; /* Vinted Go */
+    --ch-vc: 142 113 214; /* Vestiaire Collective */
+    --ch-lbc: 223 108 50; /* Leboncoin */
+    --ch-mp: 199 76 142; /* En main propre */
+    --ch-autre: 123 129 135; /* Autre */
+  }
+}
+
+/* ---------- Sombre : choisi dans MyFlip ---------- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --sh-k: 2.4;
+  /* Neutres, accent, sémantique */
+  --bg: 15 19 24;     /* fond de l’application */
+  --surface: 23 27 33; /* panneaux, tableaux, modales, toasts */
+  --surface-2: 30 35 41; /* en-têtes de tableau, zones creuses, champs désactivés */
+  --surface-3: 38 44 51; /* survol, squelettes, piste des réglettes */
+  --line: 45 50 57;   /* filets de 1 px (décoratifs) */
+  --line-strong: 122 129 138; /* bords de champs et de cases, graduations (au moins 3:1) */
+  --ink: 238 240 243; /* texte principal, aiguille des réglettes */
+  --ink-2: 195 200 206; /* texte secondaire */
+  --ink-3: 160 165 172; /* libellés, aides, axes (au moins 4,5:1 sur tous les fonds) */
+  --accent: 56 107 226; /* action principale, sélection, remplissage des réglettes */
+  --accent-hover: 43 91 209; /* survol et pression de l’action principale */
+  --accent-ink: 255 255 255; /* texte posé sur l’accent */
+  --accent-text: 148 183 254; /* liens, entrée de menu active, accent écrit */
+  --accent-soft: 30 47 84; /* fond de sélection (ligne, entrée active) */
+  --focus: 148 183 254; /* anneau de focus clavier, 2 px décalé de 2 px */
+  --pos: 117 215 141; /* hausse, succès, marge positive */
+  --pos-soft: 26 50 31; /* fond des messages de succès */
+  --neg: 246 133 122; /* baisse, erreur */
+  --neg-soft: 71 33 29; /* fond des messages d’erreur */
+  --warn: 240 190 103; /* à vérifier, hors budget */
+  --warn-soft: 58 43 17; /* fond des avertissements */
+  --danger: 200 58 53; /* fond du bouton destructif */
+  --danger-ink: 255 255 255; /* texte du bouton destructif */
+  --veil: 1 2 2;      /* voile des modales (toujours à 50 %) */
+  --shadow: 0 0 1;    /* teinte des ombres */
+  --bar: 66 72 80;    /* barre d’actions groupées, info-bulle */
+  --bar-ink: 244 245 247; /* texte sur bar */
+  --stage: 46 46 44;  /* fond neutre derrière les images à juger (Studio) */
+  --chart: 105 144 226; /* barres et courbes à une série */
+  --chart-2: 99 106 114; /* série de comparaison neutre */
+  /* Statuts d’article : marqueur (icône, filet) / texte / fond de pastille */
+  --st-brouillon: 141 147 154; --st-brouillon-ink: 205 209 216; --st-brouillon-soft: 43 46 50; /* Brouillon */
+  --st-stock: 215 179 85; --st-stock-ink: 236 214 155; --st-stock-soft: 55 44 21; /* En stock */
+  --st-lavage: 97 183 222; --st-lavage-ink: 172 220 245; --st-lavage-soft: 23 49 62; /* En lavage */
+  --st-repasse: 182 153 235; --st-repasse-ink: 218 204 247; --st-repasse-soft: 52 42 70; /* Repassé */
+  --st-photos: 233 135 179; --st-photos-ink: 251 194 214; --st-photos-soft: 68 37 51; /* Photos prêtes */
+  --st-vente: 87 197 197; --st-vente-ink: 166 225 224; --st-vente-soft: 17 52 53; /* En vente */
+  --st-livraison: 239 165 85; --st-livraison-ink: 248 202 167; --st-livraison-soft: 66 42 25; /* En livraison */
+  --st-compta: 237 116 115; --st-compta-ink: 252 192 184; --st-compta-soft: 70 38 35; /* À comptabiliser */
+  --st-vendu: 111 200 132; --st-vendu-ink: 180 226 188; --st-vendu-soft: 28 52 34; /* Vendu */
+  --st-perdu: 128 141 159; --st-perdu-ink: 197 207 219; --st-perdu-soft: 42 46 52; /* Perdu */
+  /* Canaux de vente : marqueur carré, toujours suivi du nom */
+  --ch-vinted: 6 141 158; /* Vinted */
+  --ch-vinted-go: 176 146 46; /* Vinted Go */
+  --ch-vc: 142 113 214; /* Vestiaire Collective */
+  --ch-lbc: 223 108 50; /* Leboncoin */
+  --ch-mp: 199 76 142; /* En main propre */
+  --ch-autre: 123 129 135; /* Autre */
+}
+
+/* ---------- Mouvement réduit : les durées tombent à 0, sans !important ---------- */
+@media (prefers-reduced-motion: reduce) {
+  :root { --d-fast: 0ms; --d-base: 0ms; --d-slow: 0ms; }
+}

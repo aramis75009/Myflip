@@ -1,13 +1,16 @@
 import "server-only";
 
+import { urlOpenRouter } from "@/lib/openrouterBase";
 import { normaliserModele, tarifDepuisEndpoints, type ModeleImage, type Tarif } from "@/lib/studioModeles";
 
 /**
  * Lecture du catalogue des modèles d'image d'OpenRouter, avec leur tarif.
  *
- *  1. GET /api/v1/images/models (public, sans clé, 8 s) : la liste ;
+ *  1. GET <base>/images/models (public, sans clé, 8 s) : la liste ;
  *  2. pour chaque modèle retenu par `normaliserModele`, GET
- *     /api/v1/images/models/{id}/endpoints (6 s chacun, en parallèle) : le tarif.
+ *     <base>/images/models/{id}/endpoints (6 s chacun, en parallèle) : le tarif.
+ *  <base> vient de `urlOpenRouter` (lib/openrouterBase.ts) : l'API publique,
+ *  sauf en e2e où elle vise un serveur factice local.
  *     Un échec sur un modèle ne coûte que le tarif de CE modèle (« inconnu »,
  *     donc confirmation requise) : on ne devine jamais un prix.
  *
@@ -22,8 +25,6 @@ import { normaliserModele, tarifDepuisEndpoints, type ModeleImage, type Tarif } 
 export const CATALOGUE_TTL_MS = 10 * 60_000;
 export const CATALOGUE_TIMEOUT_MS = 8_000;
 export const ENDPOINTS_TIMEOUT_MS = 6_000;
-
-const LISTE_URL = "https://openrouter.ai/api/v1/images/models";
 
 const ENTETES = {
   Accept: "application/json",
@@ -80,7 +81,7 @@ export async function trouverModele(id: string, opts?: Parameters<typeof getCata
 async function lireCatalogue(fetchImpl: typeof fetch, now: number): Promise<Catalogue> {
   let erreur: string;
   try {
-    const res = await fetchImpl(LISTE_URL, {
+    const res = await fetchImpl(urlOpenRouter("/images/models"), {
       headers: ENTETES,
       cache: "no-store",
       signal: AbortSignal.timeout(CATALOGUE_TIMEOUT_MS),
@@ -143,7 +144,7 @@ const cheminModele = (id: string): string =>
 
 /** Rejette sur une réponse non 2xx ou illisible : l'appelant en fait « inconnu ». */
 async function lireTarif(id: string, fetchImpl: typeof fetch): Promise<Tarif> {
-  const res = await fetchImpl(`${LISTE_URL}/${cheminModele(id)}/endpoints`, {
+  const res = await fetchImpl(`${urlOpenRouter("/images/models")}/${cheminModele(id)}/endpoints`, {
     headers: ENTETES,
     cache: "no-store",
     signal: AbortSignal.timeout(ENDPOINTS_TIMEOUT_MS),

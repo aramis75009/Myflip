@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R13 → M8
 
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
@@ -213,35 +214,35 @@ export default function TableauCases({
     <Module className="p-[22px]">
       <div className="flex flex-wrap items-start gap-4">
         <div className="min-w-0 flex-1">
-          <h2 className="text-[20px] font-bold tracking-[-0.01em]">Choisir les angles</h2>
-          <p className="mt-0.5 text-[14px] text-[var(--ink2)]">
+          <h2 className="text-lg font-bold tracking-[-0.01em]">Choisir les angles</h2>
+          <p className="mt-0.5 text-base text-ink-2">
             Une ligne par vraie photo, une colonne par prompt d’angle. Une case déjà mise en vente ou déjà générée pour ce coloris ne se choisit plus.
           </p>
         </div>
-        <div className="flex items-center gap-2 text-[14px]">
-          <span className="text-[var(--ink2)]">Photos pour</span>
-          <span className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--acc)] bg-[var(--acc-soft)] px-3.5">
+        <div className="flex items-center gap-2 text-base">
+          <span className="text-ink-2">Photos pour</span>
+          <span className="inline-flex h-9 items-center gap-1.5 rounded-full border border-accent bg-accent-soft px-3.5">
             <span className="font-mono font-bold">{cible ?? "—"}</span>
-            {cible && <span className="text-[var(--ink2)]">· prochaine annonce</span>}
+            {cible && <span className="text-ink-2">· prochaine annonce</span>}
           </span>
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-[13px] text-[var(--ink2)]">
-        <Legende cls="bg-[var(--surface-2)] border-[var(--border-strong)]" texte="Déjà en vente (verrouillé)" />
-        <Legende cls="bg-[var(--pos-soft)] border-[var(--pos)]" texte={cible ? `Validée pour ${cible}` : "Validée"} />
-        <Legende cls="bg-[var(--warn-soft)] border-[var(--warn)]" texte="Générée, à juger" />
-        <Legende cls="bg-surface border-[var(--border-strong)]" texte="Libre, clique pour choisir" />
+      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-ink-2">
+        <Legende cls="bg-surface-2 border-line-strong" texte="Déjà en vente (verrouillé)" />
+        <Legende cls="bg-pos-soft border-pos" texte={cible ? `Validée pour ${cible}` : "Validée"} />
+        <Legende cls="bg-warn-soft border-warn" texte="Générée, à juger" />
+        <Legende cls="bg-surface border-line-strong" texte="Libre, clique pour choisir" />
       </div>
 
       {lignes.length === 0 ? (
-        <div className="mt-4 rounded-[18px] border border-dashed border-[var(--border-strong)] p-6 text-center text-[14px] text-[var(--ink2)]">
+        <div className="mt-4 rounded-lg border border-dashed border-line-strong p-6 text-center text-base text-ink-2">
           Le tableau apparaît dès que les vraies photos sont importées.
         </div>
       ) : angles.length === 0 ? (
-        <div className="mt-4 rounded-[18px] border border-dashed border-[var(--border-strong)] p-6 text-center text-[14px] text-[var(--ink2)]">
+        <div className="mt-4 rounded-lg border border-dashed border-line-strong p-6 text-center text-base text-ink-2">
           Aucun prompt d’angle.{" "}
-          <a href="/parametres?onglet=studio" className="font-semibold text-[var(--ink)] underline underline-offset-2">
+          <a href="/parametres?onglet=studio" className="font-semibold text-ink underline underline-offset-2">
             Ajoute-les dans Prompts, onglet Studio
           </a>
           .
@@ -249,31 +250,31 @@ export default function TableauCases({
       ) : (
         <div className="mt-4 overflow-x-auto">
           <div className="min-w-max" role="table" aria-label="Photos × prompts d’angle">
-            <div className="grid items-end gap-1.5 border-b border-[var(--border)] pb-2" style={grille} role="row">
-              <span className="font-mono text-[11px] tracking-[0.14em] text-[var(--ink2)]" role="columnheader">
+            <div className="grid items-end gap-1.5 border-b border-line pb-2" style={grille} role="row">
+              <span className="font-mono text-xs tracking-[0.14em] text-ink-2" role="columnheader">
                 VRAIE PHOTO
               </span>
               {angles.map((a) => (
                 <div key={a.id} title={a.angle} role="columnheader" className="px-1">
-                  <div className="truncate text-[13.5px] font-semibold">{a.nom}</div>
-                  <div className="truncate text-[11.5px] text-[var(--ink2)]">{usage(a.id)}</div>
+                  <div className="truncate text-base font-semibold">{a.nom}</div>
+                  <div className="truncate text-xs text-ink-2">{usage(a.id)}</div>
                 </div>
               ))}
             </div>
             {lignes.map((l) => (
-              <div key={l.id} className="grid items-center gap-1.5 border-b border-[var(--border)] py-1.5" style={grille} role="row">
+              <div key={l.id} className="grid items-center gap-1.5 border-b border-line py-1.5" style={grille} role="row">
                 <div className="flex min-w-0 items-center gap-2.5" role="rowheader">
-                  <div className="h-[52px] w-[39px] flex-none overflow-hidden rounded-lg border border-[var(--border)]">
+                  <div className="h-[52px] w-[39px] flex-none overflow-hidden rounded-md border border-line">
                     {/* eslint-disable-next-line @next/next/no-img-element -- image privée servie par /api/studio/image */}
                     <img src={`/api/studio/image?ref=${l.id}`} alt="" loading="lazy" className="h-full w-full object-cover" />
                   </div>
-                  <span className="font-mono text-[12px] text-[var(--ink2)]">{String(l.ordre).padStart(2, "0")}</span>
+                  <span className="font-mono text-xs text-ink-2">{String(l.ordre).padStart(2, "0")}</span>
                   <select
                     value={l.ordre}
                     onChange={(e) => void deplacer(l.id, Number(e.target.value))}
                     aria-label={`Prise de la photo ${l.ordre}`}
                     title="Changer de prise (échange avec la photo qui l’occupe)"
-                    className="min-w-0 flex-1 truncate rounded-lg border border-transparent bg-transparent py-1 text-[13.5px] font-medium text-[var(--ink)] hover:border-[var(--border)] focus:border-[var(--acc)] focus:outline-none"
+                    className="min-w-0 flex-1 truncate rounded-md border border-transparent bg-transparent py-1 text-base font-medium text-ink hover:border-line focus:border-accent focus:outline-none"
                   >
                     {prisesPour(fiche.generation).map((nom, i) => (
                       <option key={nom} value={i + 1}>
@@ -299,31 +300,31 @@ export default function TableauCases({
       )}
 
       {lignes.length > 0 && angles.length > 0 && (
-        <div className="mt-4 rounded-[20px] bg-[var(--surface-2)] p-4">
+        <div className="mt-4 rounded-lg bg-surface-2 p-4">
           <div className="flex flex-wrap items-center gap-4">
             <div className="min-w-0 flex-1">
-              <div className="text-[15px] font-semibold">
+              <div className="text-md font-semibold">
                 {cible ? `${cible} : ${pl(pretes, "photo")} prête${pretes > 1 ? "s" : ""}, ${aJuger} à juger, ${choisies.length} à générer` : `${choisies.length} à générer`}
               </div>
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[var(--ink2)]">
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-2">
                 <span>
                   {choisies.length >= restantes
                     ? "Une variante choisie pour chaque photo restante."
                     : `${pl(restantes - choisies.length, "photo")} sans variante choisie.`}
                 </span>
-                <button type="button" className="font-semibold text-[var(--ink)] underline underline-offset-2" onClick={() => setManuels(null)}>
+                <button type="button" className="font-semibold text-ink underline underline-offset-2" onClick={() => setManuels(null)}>
                   Choisir automatiquement
                 </button>
                 <button
                   type="button"
-                  className="font-semibold text-[var(--ink)] underline underline-offset-2"
+                  className="font-semibold text-ink underline underline-offset-2"
                   onClick={() => setManuels(Object.fromEntries(lignes.map((l) => [l.id, null])))}
                 >
                   Tout décocher
                 </button>
               </div>
             </div>
-            <div className="inline-flex gap-0.5 rounded-[14px] bg-[var(--raise)] p-1" role="tablist" aria-label="Façon de générer">
+            <div className="inline-flex gap-0.5 rounded-md bg-surface-3 p-1" role="tablist" aria-label="Façon de générer">
               {(
                 [
                   ["api", "Par API"],
@@ -336,8 +337,8 @@ export default function TableauCases({
                   role="tab"
                   aria-selected={mode === m}
                   onClick={() => setMode(m)}
-                  className={`h-9 rounded-[11px] px-3.5 text-[13.5px] font-semibold transition-colors ${
-                    mode === m ? "bg-surface text-[var(--ink)] shadow-sm" : "text-[var(--ink2)] hover:text-[var(--ink)]"
+                  className={`h-9 rounded px-3.5 text-base font-semibold transition-colors ${
+                    mode === m ? "bg-surface text-ink" : "text-ink-2 hover:text-ink"
                   }`}
                 >
                   {nom}
@@ -348,10 +349,10 @@ export default function TableauCases({
 
           {mode === "api" ? (
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <span className="font-mono text-[11px] tracking-[0.14em] text-[var(--ink2)]">MODÈLE</span>
+              <span className="font-mono text-xs tracking-[0.14em] text-ink-2">MODÈLE</span>
               <div className="flex flex-wrap gap-1.5">
                 {modeles.chargement && !modeles.catalogue ? (
-                  <span className="text-[13px] text-[var(--ink2)]">Chargement du catalogue…</span>
+                  <span className="text-sm text-ink-2">Chargement du catalogue…</span>
                 ) : modeles.erreur && !modeles.catalogue ? (
                   <button type="button" className={btn} onClick={modeles.recharger}>
                     Catalogue indisponible ({modeles.erreur}) — réessayer
@@ -365,13 +366,13 @@ export default function TableauCases({
                         type="button"
                         aria-pressed={actif}
                         onClick={() => setModeleId(m.id)}
-                        className={`inline-flex h-10 items-center gap-2 rounded-full border px-3.5 text-[13.5px] font-semibold transition-colors ${
-                          actif ? "border-[var(--acc)] bg-[var(--acc-soft)] text-[var(--ink)]" : "border-[var(--border)] bg-surface text-[var(--ink2)] hover:text-[var(--ink)]"
+                        className={`inline-flex h-10 items-center gap-2 rounded-full border px-3.5 text-base font-semibold transition-colors ${
+                          actif ? "border-accent bg-accent-soft text-ink" : "border-line bg-surface text-ink-2 hover:text-ink"
                         }`}
                       >
-                        {favoris.includes(m) && <Star size={12} className="fill-current text-[var(--warn)]" aria-label="favori" />}
+                        {favoris.includes(m) && <Star size={12} className="fill-current text-warn" aria-label="favori" />}
                         {m.nom}
-                        <span className="font-mono text-[11.5px] font-medium opacity-75">{libelleTarif(m.tarif)}</span>
+                        <span className="font-mono text-xs font-medium opacity-75">{libelleTarif(m.tarif)}</span>
                       </button>
                     );
                   })
@@ -381,7 +382,7 @@ export default function TableauCases({
                     value=""
                     onChange={(e) => e.target.value && setModeleId(e.target.value)}
                     aria-label="Autre modèle"
-                    className="h-10 rounded-full border border-[var(--border)] bg-surface px-3 text-[13px] text-[var(--ink2)]"
+                    className="h-10 rounded-full border border-line bg-surface px-3 text-sm text-ink-2"
                   >
                     <option value="">Autre modèle…</option>
                     {catalogue
@@ -396,10 +397,10 @@ export default function TableauCases({
               </div>
               <div className="ml-auto text-right">
                 <div className="flex items-baseline justify-end gap-2">
-                  <span className="text-[13px] text-[var(--ink2)]">Devis</span>
-                  <span className="font-mono text-[15px] font-bold">{devis ? montantDevis(devis) : "—"}</span>
+                  <span className="text-sm text-ink-2">Devis</span>
+                  <span className="font-mono text-md font-bold">{devis ? montantDevis(devis) : "—"}</span>
                 </div>
-                <div className="text-[12px] text-[var(--ink2)]">
+                <div className="text-xs text-ink-2">
                   {!devis
                     ? "Choisis au moins une case."
                     : devis.confirmationRequise
@@ -409,7 +410,7 @@ export default function TableauCases({
               </div>
               <button
                 type="button"
-                className={`${btnAcc} h-11 rounded-full px-5 text-[14px]`}
+                className={`${btnAcc} h-11 rounded-full px-5 text-base`}
                 disabled={!!bloque || !modele || enCours}
                 title={bloque ?? undefined}
                 onClick={() => void generer(false)}
@@ -418,12 +419,12 @@ export default function TableauCases({
                 {enCours ? `Génération ${progression!.faits} / ${progression!.total}…` : choisies.length ? `Générer ${pl(choisies.length, "image")}` : "Générer"}
               </button>
               {attente && devis && modele && (
-                <div role="alertdialog" aria-label="Confirmer la dépense" className="w-full rounded-xl border border-[var(--warn)] bg-[var(--warn-soft)] p-3 text-[13.5px]">
+                <div role="alertdialog" aria-label="Confirmer la dépense" className="w-full rounded-lg border border-warn bg-warn-soft p-3 text-base">
                   <p className="font-semibold">
                     {pl(choisies.length, "image")} avec {modele.nom} :{" "}
                     {devis.inconnus > 0 && devis.totalConnuUsd === 0 ? "coût inconnu (tarif au jeton)" : `estimé à ${montantDevis(devis)}`}. Confirmer ?
                   </p>
-                  <p className="mt-1 text-[12.5px] text-[var(--ink2)]">
+                  <p className="mt-1 text-sm text-ink-2">
                     Confirmation demandée au-delà de {SEUIL_TEXTE} ou dès qu’un tarif est inconnu. Ta clé OpenRouter paie.
                   </p>
                   <div className="mt-2 flex gap-2">
@@ -480,7 +481,7 @@ export default function TableauCases({
           )}
 
           {progression && progression.erreurs.length > 0 && !enCours && (
-            <ul className="mt-3 flex flex-col gap-0.5 rounded-xl border border-[var(--neg)] bg-[var(--neg-soft)] p-3 text-[12.5px] text-[var(--ink)]">
+            <ul className="mt-3 flex flex-col gap-0.5 rounded-lg border border-neg bg-neg-soft p-3 text-sm text-ink">
               {progression.erreurs.map((m) => (
                 <li key={m}>{m}</li>
               ))}
@@ -495,7 +496,7 @@ export default function TableauCases({
 function Legende({ cls, texte }: { cls: string; texte: string }) {
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className={`h-3 w-3 rounded-[4px] border ${cls}`} aria-hidden="true" />
+      <span className={`h-3 w-3 rounded-xs border ${cls}`} aria-hidden="true" />
       {texte}
     </span>
   );
@@ -503,9 +504,9 @@ function Legende({ cls, texte }: { cls: string; texte: string }) {
 
 function Etape({ n, titre, children }: { n: number; titre: string; children: ReactNode }) {
   return (
-    <li className="flex flex-col gap-2 rounded-[16px] bg-surface p-3.5 text-[13px] text-[var(--ink2)]">
-      <div className="flex items-center gap-2 text-[14px] font-semibold text-[var(--ink)]">
-        <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-[var(--surface-2)] text-[12.5px] font-bold">{n}</span>
+    <li className="flex flex-col gap-2 rounded-md bg-surface p-3.5 text-sm text-ink-2">
+      <div className="flex items-center gap-2 text-base font-semibold text-ink">
+        <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-surface-2 text-sm font-bold">{n}</span>
         {titre}
       </div>
       {children}
@@ -514,7 +515,7 @@ function Etape({ n, titre, children }: { n: number; titre: string; children: Rea
 }
 
 function Case({ etat, cible, choisie, onChoisir }: { etat: EtatCase | undefined; cible: string | null; choisie: boolean; onChoisir: () => void }) {
-  const base = "flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border text-[12.5px] font-semibold";
+  const base = "flex h-11 w-full items-center justify-center gap-1.5 rounded-lg border text-sm font-semibold";
   if (!etat || etat.kind === "libre") {
     return (
       <div role="cell">
@@ -524,12 +525,12 @@ function Case({ etat, cible, choisie, onChoisir }: { etat: EtatCase | undefined;
           onClick={onChoisir}
           className={`${base} transition-colors ${
             choisie
-              ? "border-[var(--acc)] bg-[var(--acc-soft)] font-bold text-[var(--ink)]"
-              : "border-[var(--border)] bg-surface font-medium text-[var(--ink2)] hover:border-[var(--border-strong)]"
+              ? "border-accent bg-accent-soft font-bold text-ink"
+              : "border-line bg-surface font-medium text-ink-2 hover:border-line-strong"
           }`}
         >
           <span
-            className={`h-3.5 w-3.5 rounded-full border-2 ${choisie ? "border-[var(--acc)] bg-[var(--acc)]" : "border-[var(--border-strong)] bg-surface"}`}
+            className={`h-3.5 w-3.5 rounded-full border-2 ${choisie ? "border-accent bg-accent" : "border-line-strong bg-surface"}`}
             aria-hidden="true"
           />
           {choisie ? "Choisie" : "Libre"}
@@ -539,7 +540,7 @@ function Case({ etat, cible, choisie, onChoisir }: { etat: EtatCase | undefined;
   }
   if (etat.kind === "vente") {
     return (
-      <div role="cell" title={`Utilisée dans l’annonce de ${etat.sku}`} className={`${base} border-[var(--border-strong)] bg-[var(--surface-2)] text-[var(--ink2)]`}>
+      <div role="cell" title={`Utilisée dans l’annonce de ${etat.sku}`} className={`${base} border-line-strong bg-surface-2 text-ink-2`}>
         <Lock size={12} aria-hidden="true" />
         <span className="font-mono">{etat.sku}</span>
       </div>
@@ -547,14 +548,14 @@ function Case({ etat, cible, choisie, onChoisir }: { etat: EtatCase | undefined;
   }
   if (etat.kind === "validee") {
     return (
-      <div role="cell" className={`${base} border-[var(--pos)] bg-[var(--pos-soft)] text-[var(--pos)]`}>
+      <div role="cell" className={`${base} border-pos bg-pos-soft text-pos`}>
         Validée{etat.sku && etat.sku !== cible ? ` · ${etat.sku}` : ""}
       </div>
     );
   }
   return (
-    <div role="cell" className={`${base} border-[var(--warn)] bg-[var(--warn-soft)] text-[var(--ink)]`}>
-      <span className="h-[7px] w-[7px] rounded-full bg-[var(--warn)]" aria-hidden="true" />À juger
+    <div role="cell" className={`${base} border-warn bg-warn-soft text-ink`}>
+      <span className="h-[7px] w-[7px] rounded-full bg-warn" aria-hidden="true" />À juger
     </div>
   );
 }

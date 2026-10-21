@@ -15,8 +15,9 @@
 // coûte que la fiche 3.
 
 import { AlertTriangle, Check, Loader2, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { progression, type ArticleEnCours } from "../_reducer";
-import { btnGhost, cardCls } from "../_ui";
+import { cardCls } from "../_ui";
 
 type Props = {
   fiches: ArticleEnCours[];
@@ -38,16 +39,16 @@ export default function FileGeneration({
   const pct = total > 0 ? Math.round((faites / total) * 100) : 0;
 
   return (
-    <div className={`${cardCls} px-6 py-10 [animation:stepIn_.3s_both]`}>
+    <div className={`${cardCls} px-6 py-10 motion-safe:animate-entree`}>
       <div className="mx-auto max-w-[520px]">
-        <h2 className="text-center font-grotesk text-[22px] font-bold tracking-[-0.02em]">
+        <h2 className="text-center font-sans text-lg font-bold tracking-[-0.02em]">
           {termine
             ? erreurs > 0
               ? `${faites} annonce${faites > 1 ? "s" : ""} sur ${total}`
               : "Annonces générées"
             : "Génération en cours…"}
         </h2>
-        <p className="mt-2 text-center text-[13.5px] font-medium text-[var(--faint-2)]">
+        <p className="mt-2 text-center text-base font-medium text-ink-3">
           {termine
             ? erreurs > 0
               ? "Relance celles qui ont échoué, ou continue sans elles."
@@ -55,13 +56,13 @@ export default function FileGeneration({
             : "MyFlip rédige tes annonces une par une."}
         </p>
 
-        <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-[var(--surface-2)]">
+        <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-surface-2">
           <div
-            className="h-full rounded-full bg-[var(--acc)] transition-[width] duration-500 ease-out"
+            className="h-full rounded-full bg-accent transition-[width] duration-slow ease-out"
             style={{ width: `${pct}%` }}
           />
         </div>
-        <p className="mt-1.5 text-center font-mono text-[11px] uppercase tracking-[0.1em] text-[var(--faint)]">
+        <p className="mt-1.5 text-center font-mono text-xs uppercase tracking-[0.1em] text-ink-3">
           {faites} / {total}
         </p>
 
@@ -71,28 +72,28 @@ export default function FileGeneration({
             return (
               <li
                 key={f.id}
-                className="flex items-center gap-3 rounded-[14px] border border-[var(--border)] bg-[var(--tint)] px-4 py-3"
+                className="flex items-center gap-3 rounded-md border border-line bg-surface-2 px-4 py-3"
               >
                 <span className="flex h-6 w-6 flex-none items-center justify-center">
                   {g.phase === "encours" && (
-                    <Loader2 className="h-[17px] w-[17px] animate-spin text-[var(--acc)]" />
+                    <Loader2 className="h-[17px] w-[17px] motion-safe:animate-spin text-accent-text" />
                   )}
                   {g.phase === "ok" && (
-                    <Check className="h-[17px] w-[17px] text-[var(--pos)]" strokeWidth={2.6} />
+                    <Check className="h-[17px] w-[17px] text-pos" strokeWidth={2.6} />
                   )}
                   {g.phase === "erreur" && (
-                    <AlertTriangle className="h-[17px] w-[17px] text-[var(--neg)]" />
+                    <AlertTriangle className="h-[17px] w-[17px] text-neg" />
                   )}
                   {(g.phase === "prete" || g.phase === "vide") && (
-                    <span className="h-2 w-2 rounded-full bg-[var(--border-strong)]" />
+                    <span className="h-2 w-2 rounded-full bg-line-strong" />
                   )}
                 </span>
 
                 <span className="min-w-0 flex-1">
-                  <span className="block font-mono text-[12.5px] font-bold text-[var(--ink)]">
+                  <span className="block font-mono text-sm font-bold text-ink">
                     {f.sku.trim() || "—"}
                   </span>
-                  <span className="block truncate text-[12px] text-[var(--faint-2)]">
+                  <span className="block truncate text-xs text-ink-3">
                     {g.phase === "ok"
                       ? g.resultat.titre
                       : g.phase === "erreur"
@@ -104,13 +105,15 @@ export default function FileGeneration({
                 </span>
 
                 {g.phase === "erreur" && !enCours && (
-                  <button
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => onRelancer(f.id)}
-                    className="inline-flex min-h-[34px] flex-none items-center gap-1.5 rounded-full border border-[var(--border)] bg-surface px-3 text-[12px] font-semibold text-[var(--ink2)] transition-colors hover:border-[var(--acc)] hover:text-[var(--acc)]"
+                    className="flex-none"
                   >
-                    <RefreshCw className="h-3.5 w-3.5" strokeWidth={2.2} />
+                    <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} />
                     Relancer
-                  </button>
+                  </Button>
                 )}
               </li>
             );
@@ -119,16 +122,13 @@ export default function FileGeneration({
 
         {termine && (
           <div className="mt-7 flex flex-wrap justify-center gap-2.5">
-            <button onClick={onRetour} className={btnGhost}>
+            <Button variant="secondary" size="lg" onClick={onRetour}>
               Revenir aux fiches
-            </button>
+            </Button>
             {faites > 0 && (
-              <button
-                onClick={onVoirResultats}
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-[var(--acc)] px-5 text-[13.5px] font-bold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)]"
-              >
+              <Button size="lg" onClick={onVoirResultats}>
                 Voir les annonces
-              </button>
+              </Button>
             )}
           </div>
         )}
