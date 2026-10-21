@@ -18,8 +18,10 @@ export default function AccountMenu() {
   const { initiale, nom } = useIdentite();
   const replie = useMenuReplie();
 
+  // Not modal: a modal Radix menu aria-hides everything outside it, the
+  // avatar included, which then loses its name and aria-expanded state.
   return (
-    <Menu>
+    <Menu modal={false}>
       <MenuTrigger asChild>
         <button
           type="button"
