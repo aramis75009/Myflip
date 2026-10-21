@@ -58,6 +58,7 @@ scripts/init-user.mjs
 /e2e/.auth/
 /e2e/captures.nosync/
 /e2e/rapports/courant*/
+/e2e/rapports/apres-*/
 /test-results*/
 /playwright-report*/
 # Captures des pistes de direction rejetées (20/10) et doublons iCloud des rapports.
