@@ -110,7 +110,8 @@ export default function MiseEnVentePage() {
 
   const { data: prompts = [] } = usePrompts();
   const generate = useGenerateListing();
-  const updateArticle = useUpdateArticle();
+  // Les erreurs sont montrées ici (message de fiche, toast) : pas de toast global en double.
+  const updateArticle = useUpdateArticle({ erreurLocale: true });
   const queryClient = useQueryClient();
 
   const fiche = etat.fiches.find((f) => f.id === etat.active) ?? etat.fiches[0];
