@@ -136,7 +136,8 @@ function ContenuVente({
             prixVente: p.prix,
             dateVente,
             canal,
-            ...(compte ? { compteVente: compte } : {}),
+            // The account field is hidden for channels without an account: never send its stale value.
+            ...(compte && compteVisible(canal) ? { compteVente: compte } : {}),
           },
         },
         { onSuccess: (vendu) => reussi(vendu, p.prix) },
