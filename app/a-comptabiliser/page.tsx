@@ -5,17 +5,15 @@ import { useMemo, useState } from "react";
 import { Check, RotateCw, Trash2 } from "lucide-react";
 import {
   useArticles,
-  useComptabiliser,
   useDashboard,
   useDeleteArticle,
   useUpdateArticle,
 } from "@/lib/hooks";
 import { euros, naturalSort, STATUT_A_COMPTABILISER } from "@/lib/calc";
 import Loader from "@/components/Loader";
-import type { ArticleDTO, CompteVente } from "@/lib/types";
-import SellDialog from "@/components/SellDialog";
+import type { ArticleDTO } from "@/lib/types";
+import { FenetreVente } from "@/components/metier/FenetreVente";
 import StatutBadge from "@/components/StatutBadge";
-import { celebrateSale } from "@/lib/celebrate";
 import { CardTitle, Frame, Module } from "@/components/console";
 
 /**
@@ -62,30 +60,10 @@ export default function AComptabiliserPage() {
     () => [...articles].sort((a, b) => naturalSort(a.sku, b.sku)),
     [articles],
   );
-  const valider = useComptabiliser();
   const remettreEnStock = useUpdateArticle();
   const supprimer = useDeleteArticle();
   const [target, setTarget] = useState<ArticleDTO | null>(null);
   const [toDelete, setToDelete] = useState<ArticleDTO | null>(null);
-
-  const confirm = (
-    prixVente: number,
-    dateVenteISO: string,
-    canal: string,
-    compteVente: CompteVente,
-  ) => {
-    if (!target) return;
-    valider.mutate(
-      { id: target.id, prixVente, dateVente: dateVenteISO, canal, compteVente },
-      {
-        onSuccess: ({ article }) => {
-          setTarget(null);
-          // Même célébration que la vente depuis le Stock : confettis + toast.
-          celebrateSale(article.prixVente ?? prixVente, article.margeNette);
-        },
-      },
-    );
-  };
 
   const confirmDelete = () => {
     if (!toDelete) return;
@@ -300,17 +278,7 @@ export default function AComptabiliserPage() {
         </>
       )}
 
-      <SellDialog
-        open={!!target}
-        sku={target?.sku}
-        defaultPrix={target?.prixVente}
-        defaultCanal={target?.canal}
-        defaultCompteVente={target?.compteVente}
-        pending={valider.isPending}
-        error={valider.isError ? (valider.error as Error).message : null}
-        onClose={() => setTarget(null)}
-        onConfirm={confirm}
-      />
+      <FenetreVente article={target} contexte="comptabiliser" onClose={() => setTarget(null)} />
 
       {toDelete && (
         <div

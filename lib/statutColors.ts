@@ -1,60 +1,159 @@
-// design-tokens-dette: R4 → L3
-// Couleurs de statut en HEX (styles inline) — PAS de classes Tailwind dynamiques,
-// car le JIT de Tailwind ne les compile pas en production (Vercel).
+// Status colours, on the design tokens of app/tokens.css (`--st-<key>`,
+// `--st-<key>-ink`, `--st-<key>-soft`, both themes).
 //
-// `color` est LA couleur du statut, relevée sur la maquette « Direction C —
-// Console ». C'est elle qui doit servir partout où un statut se signale :
-// filet de la colonne SKU, pastille des chips, texte du sélecteur de statut,
-// segments et légende du donut des Statistiques. Une seule valeur par statut,
-// pour que le même statut ait la même couleur d'un écran à l'autre.
+// - `repere` (dot, rule, donut segment, chip dot): decorative, the status
+//   label is always written next to it (WCAG 1.4.1);
+// - `texte`: the status written in its colour (≥ 4.5:1 on surface, surface-2
+//   and bg, checked by lib/designTokens.test.ts);
+// - `pastille`: filled read-only badge (soft background + ink text).
 //
-// `bg` / `ink` ne servent QUE au badge plein pastel (StatutBadge, modal de
-// détail) : un aplat de `color` avec du texte dessus ne serait pas lisible.
-//
-// Réserve assumée : ces teintes ont été calibrées pour le fond graphite du
-// thème sombre. Posées en texte sur le fond clair, elles plafonnent entre
-// 1,7:1 et 2,9:1 de contraste, là où WCAG AA en demande 4,5:1. C'est un choix
-// explicite du produit (fidélité à la maquette) ; le libellé du statut reste
-// toujours doublé par un repère de forme ou de position, jamais porté par la
-// seule couleur.
-export type StatutColor = { color: string; bg: string; ink: string };
+// Class strings are written IN FULL below: Tailwind only compiles classes it
+// can read literally in the sources (lib/ is in its `content`).
 
-export const STATUT_COLORS: Record<string, StatutColor> = {
-  Brouillon:         { color: "#9AA79F", bg: "#F1F4EF", ink: "#71807A" },
-  "En stock":        { color: "#D8B23A", bg: "#FCF3CF", ink: "#8A6D0F" },
-  // Photos prêtes = rose : jalon photo, distinct des voisins (jaune / bleu).
-  "Photos prêtes":   { color: "#E58CB4", bg: "#FBEAF1", ink: "#BE4B7E" },
-  "En vente":        { color: "#6FA8FF", bg: "#E7F0FF", ink: "#3B6FD4" },
-  "En livraison":    { color: "#D9A94E", bg: "#FBF3E2", ink: "#B5872E" },
-  "À comptabiliser": { color: "#F09068", bg: "#FBEEE7", ink: "#C2603F" },
-  // Littéraux et non var(--acc*) : cette table doit rester une paire pastel
-  // stable, indépendante de l'accent (qui vire au lime en thème sombre).
-  Vendu:             { color: "#5FD39B", bg: "#EAF3ED", ink: "#1B4332" },
-  // En lavage = magenta. C'était un cyan (#4FC8D4) : à la taille d'une pastille
-  // de 8px (légende du donut, chips du Stock), il ne se distinguait plus du
-  // vert de « Vendu » — 36° de teinte d'écart mais la même clarté. Le magenta
-  // occupe le seul vrai creux de la roue (entre l'indigo 248° de « Repassé » et
-  // le rose 335° de « Photos prêtes »), à ~45° de chacun.
-  "En lavage":       { color: "#C44FD0", bg: "#FAE8FB", ink: "#A32FAD" },
-  // Repassé = jalon franchi après le lavage. Indigo doux : assez proche du
-  // magenta du lavage pour dire « même étape de remise en état », assez
-  // distinct (46° de teinte, 18 points de clarté) pour ne pas s'y confondre —
-  // ni avec le bleu de « En vente ».
-  "Repassé":         { color: "#9A8FEA", bg: "#EDEBFB", ink: "#5B4FBE" },
-  Perdu:             { color: "#8695A0", bg: "#ECEEF0", ink: "#2B3942" },
+export type CleStatut =
+  | "brouillon"
+  | "stock"
+  | "lavage"
+  | "repasse"
+  | "photos"
+  | "vente"
+  | "livraison"
+  | "compta"
+  | "vendu"
+  | "perdu";
+
+const CLES: Record<string, CleStatut> = {
+  Brouillon: "brouillon",
+  "En stock": "stock",
+  "En lavage": "lavage",
+  "Repassé": "repasse",
+  "Photos prêtes": "photos",
+  "En vente": "vente",
+  "En livraison": "livraison",
+  "À comptabiliser": "compta",
+  Vendu: "vendu",
+  Perdu: "perdu",
 };
 
-const FALLBACK: StatutColor = {
-  color: "#9AA79F",
-  bg: "#EEF1ED",
-  ink: "#71807A",
-};
-
-export function statutColor(statut: string): StatutColor {
-  return STATUT_COLORS[statut] ?? FALLBACK;
+/** Token key of a status; an unknown status reads as « Brouillon ». */
+export function cleStatut(statut: string): CleStatut {
+  return CLES[statut] ?? "brouillon";
 }
 
-/** La couleur du statut. À préférer partout sauf sur le badge plein pastel. */
+export type StyleStatut = {
+  cle: CleStatut;
+  /** Filled badge: soft background + ink text. */
+  pastille: string;
+  /** Text in the status colour. */
+  texte: string;
+  /** Background of a dot / marker. */
+  repere: string;
+  /** Border in the status colour. */
+  trait: string;
+  /** SVG fill. */
+  remplissage: string;
+};
+
+const STYLES: Record<CleStatut, Omit<StyleStatut, "cle">> = {
+  brouillon: {
+    pastille: "bg-st-brouillon-soft text-st-brouillon-ink",
+    texte: "text-st-brouillon-ink",
+    repere: "bg-st-brouillon",
+    trait: "border-st-brouillon",
+    remplissage: "fill-st-brouillon",
+  },
+  stock: {
+    pastille: "bg-st-stock-soft text-st-stock-ink",
+    texte: "text-st-stock-ink",
+    repere: "bg-st-stock",
+    trait: "border-st-stock",
+    remplissage: "fill-st-stock",
+  },
+  lavage: {
+    pastille: "bg-st-lavage-soft text-st-lavage-ink",
+    texte: "text-st-lavage-ink",
+    repere: "bg-st-lavage",
+    trait: "border-st-lavage",
+    remplissage: "fill-st-lavage",
+  },
+  repasse: {
+    pastille: "bg-st-repasse-soft text-st-repasse-ink",
+    texte: "text-st-repasse-ink",
+    repere: "bg-st-repasse",
+    trait: "border-st-repasse",
+    remplissage: "fill-st-repasse",
+  },
+  photos: {
+    pastille: "bg-st-photos-soft text-st-photos-ink",
+    texte: "text-st-photos-ink",
+    repere: "bg-st-photos",
+    trait: "border-st-photos",
+    remplissage: "fill-st-photos",
+  },
+  vente: {
+    pastille: "bg-st-vente-soft text-st-vente-ink",
+    texte: "text-st-vente-ink",
+    repere: "bg-st-vente",
+    trait: "border-st-vente",
+    remplissage: "fill-st-vente",
+  },
+  livraison: {
+    pastille: "bg-st-livraison-soft text-st-livraison-ink",
+    texte: "text-st-livraison-ink",
+    repere: "bg-st-livraison",
+    trait: "border-st-livraison",
+    remplissage: "fill-st-livraison",
+  },
+  compta: {
+    pastille: "bg-st-compta-soft text-st-compta-ink",
+    texte: "text-st-compta-ink",
+    repere: "bg-st-compta",
+    trait: "border-st-compta",
+    remplissage: "fill-st-compta",
+  },
+  vendu: {
+    pastille: "bg-st-vendu-soft text-st-vendu-ink",
+    texte: "text-st-vendu-ink",
+    repere: "bg-st-vendu",
+    trait: "border-st-vendu",
+    remplissage: "fill-st-vendu",
+  },
+  perdu: {
+    pastille: "bg-st-perdu-soft text-st-perdu-ink",
+    texte: "text-st-perdu-ink",
+    repere: "bg-st-perdu",
+    trait: "border-st-perdu",
+    remplissage: "fill-st-perdu",
+  },
+};
+
+/** Tailwind classes of a status (see the header comment for each role). */
+export function styleStatut(statut: string): StyleStatut {
+  const cle = cleStatut(statut);
+  return { cle, ...STYLES[cle] };
+}
+
+// ── Compatibility until lot LZ (inline styles of screens not migrated yet) ──
+
+export type StatutColor = { color: string; bg: string; ink: string };
+
+const enLigne = (cle: CleStatut): StatutColor => ({
+  color: `rgb(var(--st-${cle}))`,
+  bg: `rgb(var(--st-${cle}-soft))`,
+  ink: `rgb(var(--st-${cle}-ink))`,
+});
+
+/** @deprecated Use `styleStatut` (classes). Kept until lot LZ. */
+export const STATUT_COLORS: Record<string, StatutColor> = Object.fromEntries(
+  Object.entries(CLES).map(([statut, cle]) => [statut, enLigne(cle)]),
+);
+
+/** @deprecated Use `styleStatut` (classes). Kept until lot LZ. */
+export function statutColor(statut: string): StatutColor {
+  return enLigne(cleStatut(statut));
+}
+
+/** @deprecated Use `styleStatut(statut).repere`. Kept until lot LZ. */
 export function statutMarker(statut: string): string {
-  return (STATUT_COLORS[statut] ?? FALLBACK).color;
+  return `rgb(var(--st-${cleStatut(statut)}))`;
 }

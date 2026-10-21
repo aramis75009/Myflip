@@ -32,14 +32,13 @@ import type { ArticleDTO } from "@/lib/types";
 import EditableCell from "@/components/EditableCell";
 import { COMPTES_VENTE, isCompteVente, labelCompteVente } from "@/lib/comptesVente";
 import { joursEnVente, jourParis } from "@/lib/dateMiseEnVente";
-import SellModal from "@/components/SellModal";
+import { FenetreVente } from "@/components/metier/FenetreVente";
 import NewCommandeModal from "@/components/NewCommandeModal";
 import CanalBadge from "@/components/CanalBadge";
 import StatutBadge from "@/components/StatutBadge";
 import Modal from "@/components/Modal";
 import Loader from "@/components/Loader";
 import { toast } from "sonner";
-import { celebrateSale } from "@/lib/celebrate";
 import {
   Plus,
   Download,
@@ -1173,31 +1172,6 @@ function StockInner() {
 
   const handleShowDetail = useCallback((a: ArticleDTO) => setDetailTarget(a), []);
 
-  const confirmSell = (
-    prixVente: number,
-    dateVenteISO: string,
-    canal: string,
-  ) => {
-    if (!sellTarget) return;
-    update.mutate(
-      {
-        id: sellTarget.id,
-        patch: {
-          statut: STATUT_VENDU,
-          prixVente,
-          dateVente: dateVenteISO,
-          canal,
-        },
-      },
-      {
-        onSuccess: (updated) => {
-          setSellTarget(null);
-          celebrateSale(updated.prixVente ?? prixVente, updated.margeNette);
-        },
-      },
-    );
-  };
-
   const sortIndicator = (key: SortKey) =>
     key === sortKey ? (sortDir === "asc" ? " ↑" : " ↓") : "";
 
@@ -1641,15 +1615,7 @@ function StockInner() {
         open={newCommande}
         onClose={() => setNewCommande(false)}
       />
-      <SellModal
-        open={!!sellTarget}
-        sku={sellTarget?.sku}
-        defaultCanal={sellTarget?.canal}
-        pending={update.isPending}
-        error={update.isError ? (update.error as Error).message : null}
-        onClose={() => setSellTarget(null)}
-        onConfirm={confirmSell}
-      />
+      <FenetreVente article={sellTarget} contexte="stock" onClose={() => setSellTarget(null)} />
 
       <Modal
         open={!!detailTarget}

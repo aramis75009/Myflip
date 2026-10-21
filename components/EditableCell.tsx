@@ -1,8 +1,16 @@
 "use client";
-// design-tokens-dette: R13 → L3
 
 import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/cn";
 
+/**
+ * Table cell editable in place.
+ *
+ * At rest the value is a real button (reachable with Tab, named « Modifier
+ * <champ> de <sku> : <valeur> »): Enter or F2 opens the editor, as does a
+ * double click. While editing: Enter saves, Escape cancels (focus back on the
+ * cell), Tab saves and lets the focus move on.
+ */
 export default function EditableCell({
   value,
   display,
@@ -11,25 +19,40 @@ export default function EditableCell({
   editable = true,
   placeholder = "—",
   options,
+  champ,
+  sku,
   onSave,
 }: {
   value: string | number | null;
   display?: string;
-  /** « select » : liste fermée, qui exige `options`. La valeur vide = « — ». */
+  /** « select »: closed list, requires `options`. The empty value = « — ». */
   type?: "text" | "number" | "date" | "select";
   align?: "left" | "right" | "center";
   editable?: boolean;
   placeholder?: string;
   options?: ReadonlyArray<{ value: string; label: string }>;
+  /** Field name, for the accessible name (« prix achat »). */
+  champ?: string;
+  /** SKU of the row, for the accessible name. */
+  sku?: string;
   onSave: (raw: string) => void | Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const selectRef = useRef<HTMLSelectElement>(null);
+  const boutonRef = useRef<HTMLButtonElement>(null);
+  // Editing closed from the keyboard (Enter, Escape): focus returns to the cell.
+  const rendreFocus = useRef(false);
 
   useEffect(() => {
-    if (!editing) return;
+    if (!editing) {
+      if (rendreFocus.current) {
+        rendreFocus.current = false;
+        boutonRef.current?.focus();
+      }
+      return;
+    }
     if (type === "select") {
       selectRef.current?.focus();
       return;
@@ -62,8 +85,8 @@ export default function EditableCell({
         : "text-left";
 
   if (editing && type === "select") {
-    // Une liste se valide au choix : pas d'Entrée à taper. Échap et la perte de
-    // focus referment sans rien changer.
+    // A list commits on choice: no Enter needed. Escape and blur close it
+    // without changing anything.
     return (
       <select
         ref={selectRef}
@@ -73,10 +96,14 @@ export default function EditableCell({
         onKeyDown={(e) => {
           if (e.key === "Escape") {
             e.preventDefault();
+            rendreFocus.current = true;
             cancel();
           }
         }}
-        className={`w-full cursor-pointer rounded border border-accent bg-surface px-2 py-1 text-ink outline-none ring-2 ring-focus ${alignCls}`}
+        className={cn(
+          "w-full cursor-pointer rounded border border-accent bg-surface px-2 py-1 text-ink focus-visible:outline-none ring-2 ring-focus",
+          alignCls,
+        )}
       >
         <option value="">{placeholder}</option>
         {(options ?? []).map((o) => (
@@ -100,13 +127,18 @@ export default function EditableCell({
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
+            rendreFocus.current = true;
             void commit();
           } else if (e.key === "Escape") {
             e.preventDefault();
+            rendreFocus.current = true;
             cancel();
           }
         }}
-        className={`w-full rounded border border-accent bg-surface px-2 py-1 text-ink outline-none ring-2 ring-focus ${alignCls}`}
+        className={cn(
+          "w-full rounded border border-accent bg-surface px-2 py-1 text-ink focus-visible:outline-none ring-2 ring-focus",
+          alignCls,
+        )}
       />
     );
   }
@@ -116,15 +148,35 @@ export default function EditableCell({
     ? false
     : value == null || value === "";
 
+  if (!editable) {
+    return (
+      <div className={cn("cursor-default truncate rounded px-2 py-1", alignCls, isPlaceholder && "text-ink-3")}>
+        {shown}
+      </div>
+    );
+  }
+
   return (
-    <div
+    <button
+      ref={boutonRef}
+      type="button"
+      aria-label={champ && sku ? "Modifier " + champ + " de " + sku + " : " + shown : "Modifier la valeur"}
       onDoubleClick={start}
-      title={editable ? "Double-clic pour modifier" : undefined}
-      className={`truncate rounded px-2 py-1 ${alignCls} ${
-        editable ? "cursor-cell hover:bg-surface-2" : "cursor-default"
-      } ${isPlaceholder ? "text-ink-3" : ""}`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === "F2") {
+          e.preventDefault();
+          start();
+        }
+      }}
+      title="Double-clic pour modifier"
+      className={cn(
+        "block w-full cursor-cell truncate rounded px-2 py-1 hover:bg-surface-2",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
+        alignCls,
+        isPlaceholder && "text-ink-3",
+      )}
     >
       {shown}
-    </div>
+    </button>
   );
 }
