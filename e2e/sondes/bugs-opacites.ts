@@ -123,7 +123,7 @@ export const SONDES_OPACITES: readonly Sonde[] = [
       });
       if (!dom) return { mesure: { erreur: "Barre introuvable." }, corrige: null };
       const a = alpha(dom.fond);
-      const capture = await ctx.capturer(page.locator("div.fixed", { has: page.getByRole("button", { name: /^Continuer/ }) }).first());
+      const capture = await ctx.capturer(page.locator("div.fixed, section.fixed", { has: page.getByRole("button", { name: /^Continuer/ }) }).first());
       return { mesure: { ...dom, alpha: a }, corrige: a !== null && a >= 0.9, capture };
     },
   },

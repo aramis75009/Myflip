@@ -204,6 +204,12 @@ sonde ÉCHOUE, elle ne mesure pas une page à moitié chargée.
 
 ## Écarts avec l'étude, et limites
 
+- **Sélecteurs suivis dans le nouveau DOM (lot LS, version minimale).** Aucun critère ni seuil n'a bougé :
+  **X4** repère `aside a[data-active=true]` (le menu n'a plus d'indicateur mesuré : s'il n'y a pas de
+  `aside nav > span[aria-hidden]`, l'indicateur est le lien actif lui-même, jugé sur son fond, opaque et à 3:1 au
+  moins de celui de l'aside) et le bouton de repli `aside button[aria-expanded]` ; **F1** prend pour témoin
+  `header h1` (sinon l'ancien `div` « Dashboard ») ; **X5** cherche les éléments collants parmi `div, header` ;
+  **O2** (Mise en vente) capture `div.fixed` ou `section.fixed` (BarreActions est une `<section>`).
 - **F1 : le symptôme ne se voit pas sous `next dev`.** En développement, `next/font` garde le
   nom « Space Grotesk » dans son `@font-face` : le Loader s'affiche, par hasard, dans la bonne
   police. En production le nom est hashé (`__Space_Grotesk_xxxx`) et le littéral retombe sur

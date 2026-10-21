@@ -166,21 +166,25 @@ function virtualWindow(v: Virtualizer<Window, Element>) {
  * given to the row virtualiser as its size, so the virtual height always
  * equals the rendered one: rows are not measured, they cannot drift.
  *
- * It must stay ≥ the tallest cell, all single-line (rows are
- * `whitespace-nowrap`): an EditableCell in 13 px text (line 1.45 → 18.85)
- * + its 2 × 4 px + the cell's 2 × 9 px + the 1 px rule ≈ 45.85; the status
- * pill 32 + 2 × 6 + 1 = 45; the action buttons 32 + 2 × 6 + 1 = 45. Change
- * a cell padding, a control height or a text size → recompute.
+ * It is the MEASURED height (e2e `[M1] virtualisation : hauteur totale =
+ * hauteur rendue`, which fails if it drifts), not a sum of paddings: the
+ * status pill (32 px, `inline-flex`, no text inside) sits on the baseline of
+ * the cell's 14 px / 20.3 px line, so the cell is 32 + 6.3 + 2 × 6 = 50.3 px,
+ * the tallest of the row (the text cells are 26.84 + 2 × 9 = 44.84). 46 was a
+ * computed value, 4.3 px short per row: ~5 000 px off on 1 200 articles. It
+ * must stay ≥ the tallest cell, all single-line (rows are `whitespace-nowrap`).
+ * Change a cell padding, a control height or a text size → measure again.
  */
-const HAUTEUR_LIGNE_PX = 46;
+const HAUTEUR_LIGNE_PX = 50.3;
 
 /**
  * Height of a mobile card, in px: the estimate of the card virtualiser
- * (cards are measured, their price line may wrap). Single-line card: 12 gap
- * + 2 border + 32 padding + 3 lines × 18.85 + 6 + 8 + actions (12 + 1 + 12
- * + 44) ≈ 185.55.
+ * (cards are measured, their price line may wrap). It is the MEASURED height
+ * of a single-line card, wrapper included (the 12 px gap is its `pb-3`):
+ * 185.53 px, checked by the same e2e test as the rows. A wrapped card is
+ * taller; the estimate must be that of the usual one.
  */
-const HAUTEUR_CARTE_PX = 186;
+const HAUTEUR_CARTE_PX = 185.53;
 
 // « Jours en vente » n'est pas un champ de l'article : il se calcule.
 const sortValue = (a: ArticleDTO, key: SortKey) =>
@@ -1147,6 +1151,9 @@ function StockInner() {
   const cardVirtualizer = useWindowVirtualizer({
     count: sorted.length,
     estimateSize: () => HAUTEUR_CARTE_PX,
+    // The default measure is `offsetHeight`, an integer: a 185.53 px card would
+    // count 186 and the list would drift by 0.47 px per card (~560 px on 1 200).
+    measureElement: (el) => el.getBoundingClientRect().height,
     overscan: 6,
     scrollMargin: mobileWrapRef.current?.offsetTop ?? 0,
   });

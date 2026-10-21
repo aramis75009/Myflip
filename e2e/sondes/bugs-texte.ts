@@ -59,7 +59,9 @@ export const SONDES_TEXTE: readonly Sonde[] = [
             const parTexte = (t: string) =>
               [...document.querySelectorAll("div")].find((d) => d.firstChild?.nodeType === 3 && (d.firstChild.textContent ?? "").trim() === t);
             const hydrate = (e: Element | undefined) => !!e && Object.keys(e).some((k) => k.startsWith("__reactFiber$"));
-            return hydrate(parTexte("Chargement du dashboard")) && hydrate(parTexte("Dashboard"));
+            // Témoin : le titre de la barre du haut, `header h1` (lot L2a), sinon l'ancien div « Dashboard ».
+            const temoin = document.querySelector("header h1") ?? parTexte("Dashboard");
+            return hydrate(parTexte("Chargement du dashboard")) && hydrate(temoin ?? undefined);
           },
           null,
           { timeout: 60_000 },
@@ -69,8 +71,10 @@ export const SONDES_TEXTE: readonly Sonde[] = [
           const el = [...document.querySelectorAll("div")].find((d) => d.firstChild?.nodeType === 3 && (d.firstChild.textContent ?? "").trim() === "Chargement du dashboard");
           if (!el) return null;
           el.setAttribute("data-sonde", "loader");
-          // Témoin : le titre de la barre du haut (« Dashboard »), qui porte la police de l'interface.
-          const titre = [...document.querySelectorAll("div")].find((d) => d.firstChild?.nodeType === 3 && (d.firstChild.textContent ?? "").trim() === "Dashboard");
+          // Témoin : le titre de la barre du haut (`header h1`, sinon l'ancien div « Dashboard »), qui porte la police de l'interface.
+          const titre =
+            document.querySelector("header h1") ??
+            [...document.querySelectorAll("div")].find((d) => d.firstChild?.nodeType === 3 && (d.firstChild.textContent ?? "").trim() === "Dashboard");
           titre?.setAttribute("data-sonde-temoin", "1");
           return {
             declaree: getComputedStyle(el).fontFamily,

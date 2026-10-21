@@ -13,7 +13,8 @@
  *    rejettent sur-le-champ) : seulement des clics sur des boutons sans effet
  *    serveur, écritures bloquées en plus ;
  *  - les boîtes natives (confirm, beforeunload) n'apparaissent pas sur une
- *    capture : leur texte est vérifié par un test à part ;
+ *    capture : leur texte est vérifié par un test à part (celles qui sont
+ *    devenues des AlertDialog le sont par « confirmation destructive ») ;
  *  - les états non capturés sont listés dans NON_CAPTURES avec leur raison,
  *    et un test vérifie que les 73 états de l'étude sont couverts par l'un ou
  *    l'autre.
@@ -385,7 +386,7 @@ const ETATS: DefEtat[] = [
       await simulerJson(c.page, { chemin: "/api/dashboard" }, 401, { error: "Non authentifié (simulation e2e)." });
       c.simule("GET /api/dashboard → 401 (au changement de période) ; navigation vers /login retenue");
       await c.page.getByRole("button", { name: "30J", exact: true }).click();
-      await expect(toast(c.page, "Session expirée, reconnecte-toi.")).toBeVisible();
+      await expect(toast(c.page, "Session expirée. Reconnecte-toi pour reprendre ici.")).toBeVisible();
       await c.capture(undefined, IMMEDIAT);
       // React Query relance la requête (1 s, 2 s, 4 s) : un 2e toast s'empile. La capture doit précéder le premier.
       await expect(c.page.locator("[data-sonner-toast]"), "un seul toast au moment de la capture").toHaveCount(1);
@@ -546,7 +547,7 @@ const ETATS: DefEtat[] = [
       await attendreStock(c.page);
       await chercherSku(c.page, "PIS7");
       await visible(c.page.getByRole("combobox", { name: "Statut de PIS7" })).selectOption("Vendu");
-      const dialogue = c.page.getByRole("dialog", { name: /Vendre PIS7/ });
+      const dialogue = c.page.getByRole("dialog", { name: /^Enregistrer la vente de PIS7/ });
       await expect(dialogue).toBeVisible();
       await c.capture();
       await dialogue.getByRole("button", { name: "Annuler" }).click();
@@ -783,7 +784,13 @@ const ETATS: DefEtat[] = [
       // 2. Arrivée par le menu (navigation interne) : le Toaster est déjà monté, le toast s'affiche.
       await aller(page, "/dashboard", "demo");
       await attendreDashboard(page);
-      await visible(page.locator('a[href="/mise-en-vente"]')).click();
+      if (c.mobile) {
+        // Sur mobile, « Mise en vente » n'est plus dans le dock mais dans la feuille « Plus » (L2a).
+        await page.getByRole("navigation", { name: "Navigation mobile" }).getByRole("button", { name: "Plus", exact: true }).click();
+        await page.getByRole("dialog", { name: "Plus", exact: true }).getByRole("link", { name: /^Mise en vente/ }).click();
+      } else {
+        await visible(page.locator('a[href="/mise-en-vente"]')).click();
+      }
       await expect(toast(page, /Session restaurée : 2 articles/)).toBeVisible();
       // Le toast de l'image du Studio arrive après sa requête : sans lui, la pile de toasts varie.
       await expect(toast(page, /1 image du Studio ajoutée à SDN3/)).toBeVisible();
@@ -827,9 +834,13 @@ const ETATS: DefEtat[] = [
       await aller(c.page, "/a-comptabiliser", "demo");
       await expect(visible(c.page.getByText(/^CHD3/))).toBeVisible();
       await visible(c.page.getByRole("button", { name: "Valider" })).click();
-      await expect(visible(c.page.getByRole("button", { name: "Confirmer la vente" }))).toBeVisible();
+      // La même fenêtre que depuis le Stock (FenetreVente), titrée « Comptabiliser… ».
+      const dialogue = c.page.getByRole("dialog", { name: /^Comptabiliser la vente de CHD3/ });
+      await expect(dialogue).toBeVisible();
+      await expect(dialogue.getByRole("button", { name: "Enregistrer la vente" })).toBeVisible();
       await c.capture();
-      await visible(c.page.getByRole("button", { name: "Annuler" })).click();
+      await dialogue.getByRole("button", { name: "Annuler" }).click();
+      await expect(dialogue).toBeHidden();
     },
   },
   {
@@ -842,9 +853,12 @@ const ETATS: DefEtat[] = [
       await aller(c.page, "/a-comptabiliser", "demo");
       await expect(visible(c.page.getByText(/^CHD3/))).toBeVisible();
       await visible(c.page.getByRole("button", { name: "Supprimer" })).click();
-      await expect(c.page.getByRole("heading", { name: /^Supprimer l.article$/ })).toBeVisible();
+      // Une boîte de confirmation (AlertDialog), plus une modale à titre simple.
+      const dialogue = c.page.getByRole("alertdialog", { name: /^Supprimer CHD3 \?/ });
+      await expect(dialogue).toBeVisible();
       await c.capture();
-      await visible(c.page.getByRole("button", { name: "Annuler" })).click();
+      await dialogue.getByRole("button", { name: "Annuler" }).click();
+      await expect(dialogue).toBeHidden();
     },
   },
   {
@@ -1613,7 +1627,7 @@ const ETATS: DefEtat[] = [
 const NON_CAPTURES: { id: string; raison: string }[] = [
   { id: "shell.logout", raison: "signOut détruit la session du contexte ; jamais déclenché." },
   { id: "shell.welcome-modal", raison: "N'existe plus dans le code (remplacée par la carte de démarrage, capturée : etat.dashboard.demarrage-card)." },
-  { id: "stock.delete-confirm", raison: "window.confirm natif, invisible sur une capture ; son texte est vérifié par le test « boîtes natives » (refusé, aucune requête)." },
+  { id: "stock.delete-confirm", raison: "AlertDialog (L1, M1), pas capturée : son titre et son annulation sont vérifiés par le test « confirmation destructive : stock » (aucune requête)." },
   { id: "stock.export-csv", raison: "Téléchargement local d'un fichier, sans rendu à l'écran." },
   { id: "params.delete-prompt", raison: "window.confirm natif ; texte vérifié par le test « boîtes natives »." },
   { id: "mev.beforeunload", raison: "Boîte native « Quitter le site ? », jamais rendue dans une capture." },
@@ -1680,34 +1694,46 @@ for (const d of ETATS) {
 test.describe("boîtes natives", () => {
   test.use({ compte: "demo" });
 
-  test("confirm de suppression : refusé, aucune requête", async ({ page, dialogues, isMobile }) => {
+  // Le Stock a une AlertDialog (L1, M1) : plus aucune boîte native, et l'annulation n'écrit rien.
+  test("confirmation destructive : stock", async ({ page, dialogues, isMobile }) => {
     test.skip(isMobile, "Boutons desktop ; le texte ne dépend pas du viewport.");
     const garde = await bloquerEcritures(page);
 
     await aller(page, "/stock", "demo");
     await attendreStock(page);
     await page.getByRole("button", { name: "Supprimer", exact: true }).first().click();
-    await expect.poll(() => dialogues.length).toBe(1);
+    const confirmation = page.getByRole("alertdialog", { name: /^Supprimer ADI1 \?/ });
+    await expect(confirmation).toBeVisible();
+    await confirmation.getByRole("button", { name: "Annuler" }).click();
+    await expect(confirmation).toBeHidden();
+
+    expect(dialogues, "aucune boîte native").toEqual([]);
+    expect(garde.bloquees).toEqual([]);
+  });
+
+  // Réglages et Commandes gardent leur window.confirm tant que M9 et M4 ne sont pas passés :
+  // même assertions qu'avant la refonte (boîte refusée, texte exact, aucune requête).
+  test("confirm de suppression : refusé, aucune requête", async ({ page, dialogues, isMobile }) => {
+    test.skip(isMobile, "Boutons desktop ; le texte ne dépend pas du viewport.");
+    const garde = await bloquerEcritures(page);
 
     await aller(page, "/parametres", "demo");
     await expect(visible(page.getByText(/^Prompt par défaut$/))).toBeVisible();
     await visible(page.getByRole("button", { name: "Supprimer", exact: true })).click();
-    await expect.poll(() => dialogues.length).toBe(2);
+    await expect.poll(() => dialogues.length).toBe(1);
 
     await aller(page, "/commandes", "demo");
     await page.getByRole("button", { name: "Actions" }).first().click();
     await visible(page.getByRole("button", { name: "Supprimer" })).click();
-    await expect.poll(() => dialogues.length).toBe(3);
+    await expect.poll(() => dialogues.length).toBe(2);
 
     test.info().annotations.push(...dialogues.map((d) => ({ type: `boîte ${d.type}`, description: d.message })));
     expect(dialogues.map((d) => [d.type, d.reponse])).toEqual([
       ["confirm", "refuse"],
       ["confirm", "refuse"],
-      ["confirm", "refuse"],
     ]);
-    expect(dialogues[0].message).toMatch(/^Supprimer ADI1 \?/);
-    expect(dialogues[1].message).toMatch(/^Supprimer le prompt « Prompt par défaut » \?/);
-    expect(dialogues[2].message).toMatch(/^Supprimer la commande « .+ » et ses articles \?/);
+    expect(dialogues[0].message).toMatch(/^Supprimer le prompt « Prompt par défaut » \?/);
+    expect(dialogues[1].message).toMatch(/^Supprimer la commande « .+ » et ses articles \?/);
     expect(garde.bloquees).toEqual([]);
   });
 });

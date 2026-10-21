@@ -6,7 +6,7 @@
  */
 import type { Page } from "@playwright/test";
 
-import { arrondi, contraste } from "./couleurs";
+import { alpha, arrondi, contraste } from "./couleurs";
 import { DESKTOP, DESKTOP_CLAIR, etape, MOBILE_CLAIR, type MesureSonde, type Sonde, TOUS } from "./harness";
 import { releveDebordements, releveFixes } from "./mesures";
 import { aller, attendreStable } from "./pages";
@@ -209,16 +209,31 @@ export const SONDES_CADRE: readonly Sonde[] = [
     projets: DESKTOP_CLAIR,
     compte: "demo",
     executer: async (page, ctx) => {
-      await aller(page, "/statistiques", { repere: "aside nav > span[aria-hidden]" });
+      // Lot LS : le menu n'a plus d'indicateur mesuré, le lien actif porte lui-même son fond
+      // (`aside a[data-active=true]`). L'« indicateur » est `aside nav > span[aria-hidden]` s'il existe,
+      // sinon le lien actif : dTop = dH = 0 par construction, et le verdict repose alors sur son fond
+      // (opaque, et à 3:1 au moins de celui de l'aside), sinon l'entrée active ne se verrait pas.
+      await aller(page, "/statistiques", { repere: "aside a[data-active=true]" });
       const ecart = () =>
         page.evaluate(() => {
-          const a = document.querySelector("aside a[data-active=true]")?.getBoundingClientRect();
-          const i = document.querySelector("aside nav > span[aria-hidden]")?.getBoundingClientRect();
-          if (!a || !i) return null;
-          return { dTop: Math.round(i.top - a.top), dH: Math.round(i.height - a.height) };
+          const lien = document.querySelector("aside a[data-active=true]");
+          const span = document.querySelector("aside nav > span[aria-hidden]");
+          const indicateur = span ?? lien;
+          if (!lien || !indicateur) return null;
+          const a = lien.getBoundingClientRect();
+          const i = indicateur.getBoundingClientRect();
+          return {
+            indicateur: span ? "span[aria-hidden]" : "lien actif",
+            dTop: Math.round(i.top - a.top),
+            dH: Math.round(i.height - a.height),
+            fond: getComputedStyle(indicateur).backgroundColor,
+            fondAside: getComputedStyle(document.querySelector("aside") as Element).backgroundColor,
+          };
         });
       const initial = await ecart();
-      const bascule = page.locator("button[aria-label='Réduire ou agrandir le menu']");
+      // aria-expanded n'est posé qu'une fois le menu hydraté : attendre le bouton, c'est attendre l'hydratation.
+      // Repli : l'ancien bouton, repéré par son aria-label.
+      const bascule = page.locator("aside button[aria-expanded], aside button[aria-label='Réduire ou agrandir le menu']").first();
       await bascule.click();
       await page.waitForTimeout(450);
       const replie = await ecart();
@@ -226,10 +241,25 @@ export const SONDES_CADRE: readonly Sonde[] = [
       await bascule.click();
       await page.waitForTimeout(450);
       const deplie = await ecart();
-      const ok = (e: { dTop: number; dH: number } | null) => e !== null && e.dTop === 0 && e.dH === 0;
+      type Ecart = NonNullable<Awaited<ReturnType<typeof ecart>>>;
+      const detail = (e: Ecart | null) => {
+        if (e === null) return null;
+        const c = contraste(e.fond, e.fondAside);
+        return { ...e, alphaFond: alpha(e.fond), contrasteFond: arrondi(c) };
+      };
+      const ok = (e: Ecart | null): boolean | null => {
+        if (e === null) return false;
+        if (e.dTop !== 0 || e.dH !== 0) return false;
+        if (e.indicateur === "span[aria-hidden]") return true;
+        const a = alpha(e.fond);
+        const c = contraste(e.fond, e.fondAside);
+        if (a === null || c === null) return null;
+        return a >= 1 && c >= 3;
+      };
+      const verdicts = [ok(replie), ok(deplie)];
       return {
-        mesure: { initial, replie, deplie },
-        corrige: ok(replie) && ok(deplie),
+        mesure: { initial: detail(initial), replie: detail(replie), deplie: detail(deplie) },
+        corrige: verdicts.includes(false) ? false : verdicts.includes(null) ? null : true,
         capture: captureReplie,
       };
     },
@@ -248,7 +278,8 @@ export const SONDES_CADRE: readonly Sonde[] = [
       await page.evaluate(() => window.scrollTo(0, 800));
       await page.waitForTimeout(400);
       const m = await page.evaluate(() => {
-        const sticky = [...document.querySelectorAll("div")].filter((d) => getComputedStyle(d).position === "sticky");
+        // La barre du haut est un <header> (lot L2a), la carte photos un <div> : les deux sont cherchés.
+        const sticky = [...document.querySelectorAll("div, header")].filter((d) => getComputedStyle(d).position === "sticky");
         const carte = sticky.find((d) => d.closest("main"));
         const barre = sticky.find((d) => !d.closest("main"));
         if (!carte || !barre) return null;

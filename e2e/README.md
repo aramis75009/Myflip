@@ -249,3 +249,12 @@ décalages voisins (0 et 1) partageraient le port 4011.
 - `/login` : les `<label>` ne sont pas liés aux champs (`getByLabel` échoue) ;
   `auth.setup.ts` utilise `input[type=email][autocomplete=email]` et
   `input[type=password][autocomplete=current-password]`.
+
+- **`e2e/fondations.spec.ts`** : tests des comportements nouveaux de la refonte, titres préfixés par le lot qui
+  les fait passer (`[M1] …`). Pour l'instant : `[M1] virtualisation : hauteur totale = hauteur rendue` (Stock,
+  ordinateur et mobile : le conteneur virtuel garde sa hauteur de haut en bas et vaut la somme des places réelles
+  des lignes ; mobile : la taille estimée d'une carte vaut une carte à ligne simple).
+- **États et boîtes de confirmation** : depuis la refonte, la suppression d'un article du Stock et celle de
+  l'écran « À comptabiliser » sont des `AlertDialog` (`getByRole("alertdialog")`), testées par
+  `confirmation destructive : stock` et `etat.compta.delete-modal` ; Réglages et Commandes gardent leur
+  `window.confirm` tant que M9 et M4 ne sont pas passés (test `confirm de suppression`).
