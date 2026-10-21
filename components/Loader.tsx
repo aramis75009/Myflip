@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R2 R4 R5 R6 R12 R16 → L2b
 
 type Props = {
   label?: string;
@@ -25,7 +26,7 @@ export default function Loader({ label = "Chargement", size = "md" }: Props) {
           // La tuile porte son propre fond sombre : le M mint et sa lueur ne
           // sont lisibles que là-dessus. Elle ne doit donc PAS suivre le thème.
           //
-          // Le dégradé finissait sur var(--ink), qui vaut #0e1412 en clair mais
+          // Le dégradé finissait sur rgb(var(--ink)), qui vaut #0e1412 en clair mais
           // #eaf1ec en sombre : la tuile virait au blanc dès qu'on basculait le
           // thème, et le logo mint disparaissait dessus. Fin de dégradé en dur.
           background:
@@ -34,7 +35,7 @@ export default function Loader({ label = "Chargement", size = "md" }: Props) {
       >
         <svg width={g.svg} height={g.svg} viewBox="0 0 96 96" fill="none">
           {/* Rail du tracé, sous le M animé. Littéral pour la même raison que
-              la tuile : var(--pos) ne se voyait qu'en thème sombre (#5fd39b) et
+              la tuile : rgb(var(--pos)) ne se voyait qu'en thème sombre (#5fd39b) et
               disparaissait en clair (#0f5132 posé sur #0e1412). */}
           <path
             d="M27 69 V31 L48 54 L69 31 V69"
@@ -69,7 +70,7 @@ export default function Loader({ label = "Chargement", size = "md" }: Props) {
           fontFamily: "'Space Grotesk', sans-serif",
           fontWeight: 600,
           fontSize: g.fontSize,
-          color: "var(--ink)",
+          color: "rgb(var(--ink))",
           letterSpacing: "-0.01em",
         }}
       >
@@ -83,7 +84,7 @@ export default function Loader({ label = "Chargement", size = "md" }: Props) {
                 width: 3,
                 height: 3,
                 borderRadius: "50%",
-                background: "var(--pos)",
+                background: "rgb(var(--pos))",
                 animation: "atlas-dots 1.4s infinite",
                 animationDelay: `${delay}s`,
               }}

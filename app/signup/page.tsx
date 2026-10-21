@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R13 R14 → M11
 
 import { signIn } from "next-auth/react";
 import Link from "next/link";
@@ -64,20 +65,20 @@ function SignupForm() {
   }
 
   const inputCls =
-    "mb-4 w-full rounded-xl border border-[var(--border)] bg-[var(--tint)] px-4 py-3 text-[14px] text-[var(--ink)] outline-none transition-colors placeholder:text-[var(--faint-2)] focus:border-[var(--acc)] focus:bg-surface";
+    "mb-4 w-full rounded-lg border border-line bg-surface-2 px-4 py-3 text-base text-ink outline-none transition-colors placeholder:text-ink-3 focus:border-accent focus:bg-surface";
   const labelCls =
-    "mb-1.5 block text-[12.5px] font-semibold text-[var(--muted)]";
+    "mb-1.5 block text-sm font-semibold text-ink-3";
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[var(--bg)] px-4 py-10">
-      <div className="w-full max-w-sm rounded-[22px] border border-[var(--border)] bg-surface p-8 shadow-[0_14px_40px_-20px_rgba(20,53,40,.2)]">
+    <main className="flex min-h-screen items-center justify-center bg-bg px-4 py-10">
+      <div className="w-full max-w-sm rounded-lg border border-line bg-surface p-8 shadow-pop">
         <div className="mb-6 flex items-center gap-2.5">
-          <span className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-[var(--acc)] text-lg font-bold text-[var(--acc-ink)]">
+          <span className="flex h-10 w-10 items-center justify-center rounded bg-accent text-lg font-bold text-accent-ink">
             M
           </span>
           <div>
-            <p className="font-bold text-[var(--ink)]">MyFlip</p>
-            <p className="text-[13px] text-[var(--muted)]">
+            <p className="font-bold text-ink">MyFlip</p>
+            <p className="text-sm text-ink-3">
               {planLabel ? `Créer ton compte ${planLabel}` : "Créer ton compte"}
             </p>
           </div>
@@ -126,7 +127,7 @@ function SignupForm() {
           />
           <p
             id="password-aide"
-            className="-mt-2.5 mb-4 text-[11.5px] text-[var(--faint-2)]"
+            className="-mt-2.5 mb-4 text-xs text-ink-3"
           >
             8 caractères minimum.
           </p>
@@ -147,7 +148,7 @@ function SignupForm() {
           {error && (
             <p
               role="alert"
-              className="mb-4 rounded-xl bg-[var(--neg-soft)] px-4 py-2.5 text-[13.5px] text-[var(--neg)]"
+              className="mb-4 rounded-lg bg-neg-soft px-4 py-2.5 text-base text-neg"
             >
               {error}
             </p>
@@ -156,7 +157,7 @@ function SignupForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-[var(--acc)] py-3 text-[13.5px] font-bold text-[var(--acc-ink)] shadow-[0_10px_22px_-12px_rgba(20,53,40,.8)] transition-colors hover:bg-[var(--acc-hover)] disabled:opacity-60"
+            className="w-full rounded-lg bg-accent py-3 text-base font-bold text-accent-ink shadow-pop transition-colors hover:bg-accent-hover disabled:opacity-60"
           >
             {loading ? "Création…" : "Créer mon compte"}
           </button>
@@ -164,7 +165,7 @@ function SignupForm() {
           {/* min-h-44 : cible tactile, règle mobile de CLAUDE.md. */}
           <Link
             href="/login"
-            className="mt-2 flex min-h-[44px] items-center justify-center text-[12.5px] text-[var(--faint-2)] transition-colors hover:text-[var(--muted)]"
+            className="mt-2 flex min-h-11 items-center justify-center text-sm text-ink-3 transition-colors hover:text-ink-3"
           >
             J&apos;ai déjà un compte
           </Link>

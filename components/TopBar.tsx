@@ -33,12 +33,12 @@ export default function TopBar() {
     { title: "MyFlip", sub: "CONSOLE REVENTE" };
 
   return (
-    <div className="sticky top-0 z-40 flex h-[62px] flex-shrink-0 items-center justify-between gap-3 border-b border-line bg-[var(--bg)] pl-4 pr-3 backdrop-blur-md md:pl-[26px] md:pr-5">
+    <div className="sticky top-0 z-sticky flex h-[62px] flex-shrink-0 items-center justify-between gap-3 border-b border-line bg-bg pl-4 pr-3 backdrop-blur-md md:pl-[26px] md:pr-5">
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[19px] font-bold tracking-[-0.02em] text-ink">
+        <div className="truncate text-lg font-bold tracking-[-0.02em] text-ink">
           {entry.title}
         </div>
-        <div className="hidden truncate font-mono text-[10.5px] tracking-[0.06em] text-[var(--faint)] md:block">
+        <div className="hidden truncate font-mono text-xs tracking-[0.06em] text-ink-3 md:block">
           {entry.sub}
         </div>
       </div>

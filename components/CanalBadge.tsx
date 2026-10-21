@@ -10,11 +10,11 @@
 import { canalColor } from "@/lib/canalColors";
 
 export default function CanalBadge({ canal }: { canal: string | null }) {
-  if (!canal) return <span className="text-[var(--faint-2)]">—</span>;
+  if (!canal) return <span className="text-ink-3">—</span>;
   const c = canalColor(canal);
   return (
     <span
-      className="inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 font-mono text-[10px] font-medium"
+      className="inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 font-mono text-xs font-medium"
       style={{ backgroundColor: c.bg, color: c.text }}
     >
       {canal}

@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R10 R12 → M2
 
 import { useMemo, useState } from "react";
 import { Check, RotateCw, Trash2 } from "lucide-react";
@@ -33,15 +34,15 @@ function Tete({
 }) {
   return (
     <div
-      className={`rounded-[22px] p-5 ${
+      className={`rounded-lg p-5 ${
         accent
-          ? "bg-[var(--acc)] text-[var(--acc-ink)]"
-          : "border border-[var(--border)] bg-surface"
+          ? "bg-accent text-accent-ink"
+          : "border border-line bg-surface"
       }`}
     >
       <div
-        className={`font-mono text-[9.5px] uppercase tracking-[0.16em] ${
-          accent ? "opacity-70" : "text-[var(--faint)]"
+        className={`font-mono text-xs uppercase tracking-[0.16em] ${
+          accent ? "opacity-70" : "text-ink-3"
         }`}
       >
         {label}
@@ -102,23 +103,23 @@ export default function AComptabiliserPage() {
   return (
     <Frame>
       {/* Le titre et le kicker « VENTES EN ATTENTE » sont posés par la TopBar. */}
-      <section className="grid grid-cols-1 gap-[14px] min-[900px]:grid-cols-3">
+      <section className="grid grid-cols-1 gap-3.5 min-[900px]:grid-cols-3">
         <Tete label="Ventes en attente" accent>
-          <div className="mt-2 text-[34px] font-bold tabular-nums">
+          <div className="mt-2 text-2xl font-bold tabular-nums">
             {articles.length}
           </div>
         </Tete>
         <Tete label="Ventes comptabilisées">
-          <div className="mt-2 text-[34px] font-bold tabular-nums">
+          <div className="mt-2 text-2xl font-bold tabular-nums">
             {dashboard ? dashboard.vendus.toLocaleString("fr-FR") : "—"}
           </div>
         </Tete>
         <Tete label="Synchro">
           <div className="mt-3 flex items-center gap-2.5">
-            <span className="inline-block h-[9px] w-[9px] flex-none rounded-full bg-[var(--pos)]" />
-            <span className="text-[15px] font-semibold">Temps réel</span>
+            <span className="inline-block h-[9px] w-[9px] flex-none rounded-full bg-pos" />
+            <span className="text-md font-semibold">Temps réel</span>
           </div>
-          <div className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--faint)]">
+          <div className="mt-1.5 font-mono text-xs uppercase tracking-[0.1em] text-ink-3">
             Trello · étiquette « à comptabiliser »
           </div>
         </Tete>
@@ -126,20 +127,20 @@ export default function AComptabiliserPage() {
 
       {/* Empty state (synchro auto, pas de bouton) */}
       {showEmpty && (
-        <div className="rounded-[26px] border border-[var(--border)] bg-surface px-8 py-[70px] text-center">
+        <div className="rounded-lg border border-line bg-surface px-8 py-[70px] text-center">
           <div
-            className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full shadow-[var(--shadow)]"
+            className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full shadow-pop"
             style={{
-              background: "var(--acc-soft)",
+              background: "rgb(var(--accent-soft))",
               animation: "pop .6s cubic-bezier(.2,.8,.2,1) both",
             }}
           >
-            <Check className="h-12 w-12 text-[var(--acc)]" strokeWidth={2.6} />
+            <Check className="h-12 w-12 text-accent-text" strokeWidth={2.6} />
           </div>
-          <h2 className="text-[24px] font-bold tracking-[-0.02em] text-[var(--ink)]">
+          <h2 className="text-xl font-bold tracking-[-0.02em] text-ink">
             Tout est à jour !
           </h2>
-          <p className="mx-auto mt-2.5 max-w-[400px] text-[14.5px] font-medium leading-[1.55] text-[var(--muted)]">
+          <p className="mx-auto mt-2.5 max-w-[400px] text-base font-medium leading-[1.55] text-ink-3">
             Aucune vente n’attend d’être comptabilisée. Les nouvelles ventes
             apparaissent ici automatiquement dès leur synchronisation.
           </p>
@@ -149,7 +150,7 @@ export default function AComptabiliserPage() {
       {/* États chargement / erreur */}
       {isLoading && <Loader />}
       {isError && (
-        <div className="rounded-[20px] border border-[var(--border)] bg-surface px-6 py-10 text-center font-mono text-[12px] text-[var(--neg)]">
+        <div className="rounded-lg border border-line bg-surface px-6 py-10 text-center font-mono text-xs text-neg">
           {(error as Error).message}
         </div>
       )}
@@ -162,46 +163,46 @@ export default function AComptabiliserPage() {
             {sorted.map((a) => (
               <div
                 key={a.id}
-                className="rounded-[22px] border border-[var(--border)] bg-surface p-4"
+                className="rounded-lg border border-line bg-surface p-4"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="truncate font-mono text-[12.5px] font-bold text-[var(--ink)]">
+                  <span className="truncate font-mono text-sm font-bold text-ink">
                     {a.sku}
                   </span>
                   <StatutBadge statut={a.statut} />
                 </div>
-                <dl className="mt-3 space-y-1.5 text-[14px]">
+                <dl className="mt-3 space-y-1.5 text-base">
                   <div className="flex justify-between gap-2">
-                    <dt className="text-[var(--faint-2)]">Marque</dt>
-                    <dd className="text-[var(--ink)]">{a.marque}</dd>
+                    <dt className="text-ink-3">Marque</dt>
+                    <dd className="text-ink">{a.marque}</dd>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <dt className="text-[var(--faint-2)]">Catégorie</dt>
-                    <dd className="text-[var(--muted)]">{a.categorie}</dd>
+                    <dt className="text-ink-3">Catégorie</dt>
+                    <dd className="text-ink-3">{a.categorie}</dd>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <dt className="text-[var(--faint-2)]">Prix achat</dt>
-                    <dd className="text-[var(--ink)]">{euros(a.prixAchat)}</dd>
+                    <dt className="text-ink-3">Prix achat</dt>
+                    <dd className="text-ink">{euros(a.prixAchat)}</dd>
                   </div>
                 </dl>
                 <div className="mt-4 space-y-2">
                   <button
                     onClick={() => setTarget(a)}
-                    className="w-full rounded-xl bg-[var(--acc)] px-4 py-3 text-[13.5px] font-bold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)]"
+                    className="w-full rounded-lg bg-accent px-4 py-3 text-base font-bold text-accent-ink transition-colors hover:bg-accent-hover"
                   >
                     Valider
                   </button>
                   <button
                     onClick={() => remettre(a)}
                     disabled={remiseEnCours(a)}
-                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-surface px-4 py-3 text-[13.5px] font-semibold text-[var(--acc)] transition-colors hover:bg-[var(--tint)] disabled:opacity-50"
+                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-4 py-3 text-base font-semibold text-accent-text transition-colors hover:bg-surface-2 disabled:opacity-50"
                   >
                     <RotateCw className="h-4 w-4" strokeWidth={2} />
                     Remettre en stock
                   </button>
                   <button
                     onClick={() => setToDelete(a)}
-                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-[13.5px] font-semibold text-[var(--neg)] transition-colors hover:border-[var(--neg)]"
+                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-line bg-surface-2 px-4 py-3 text-base font-semibold text-neg transition-colors hover:border-neg"
                   >
                     <Trash2 className="h-4 w-4" strokeWidth={2} />
                     Supprimer
@@ -215,14 +216,14 @@ export default function AComptabiliserPage() {
           <Module className="hidden overflow-hidden md:block">
             <div className="flex flex-wrap items-center justify-between gap-2 px-5 pb-3 pt-[18px]">
               <CardTitle className="">File d&apos;attente comptable</CardTitle>
-              <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--faint)]">
+              <span className="font-mono text-xs uppercase tracking-[0.1em] text-ink-3">
                 {articles.length} EN ATTENTE
               </span>
             </div>
             <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] border-collapse text-[14px]">
+            <table className="w-full min-w-[900px] border-collapse text-base">
               <thead>
-                <tr className="border-b border-[var(--border)] bg-[var(--tint)] text-left font-mono text-[9.5px] font-medium uppercase tracking-[0.14em] text-[var(--faint)]">
+                <tr className="border-b border-line bg-surface-2 text-left font-mono text-xs font-medium uppercase tracking-[0.14em] text-ink-3">
                   <th className="px-[22px] py-[15px]">SKU</th>
                   <th className="px-3 py-[15px]">Marque</th>
                   <th className="px-3 py-[15px]">Catégorie</th>
@@ -237,28 +238,28 @@ export default function AComptabiliserPage() {
                 {sorted.map((a) => (
                   <tr
                     key={a.id}
-                    className="border-b border-[var(--bg)] transition-colors hover:bg-[var(--tint)]"
+                    className="border-b border-bg transition-colors hover:bg-surface-2"
                   >
                     <td className="px-[22px] py-3.5">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-[12.5px] font-bold text-[var(--ink)]">
+                        <span className="font-mono text-sm font-bold text-ink">
                           {a.sku}
                         </span>
                         <StatutBadge statut={a.statut} />
                       </div>
                     </td>
-                    <td className="px-3 py-3.5 text-[var(--ink2)]">{a.marque}</td>
-                    <td className="px-3 py-3.5 text-[var(--muted)]">{a.categorie}</td>
-                    <td className="px-3 py-3.5 text-right text-[var(--ink2)]">
+                    <td className="px-3 py-3.5 text-ink-2">{a.marque}</td>
+                    <td className="px-3 py-3.5 text-ink-3">{a.categorie}</td>
+                    <td className="px-3 py-3.5 text-right text-ink-2">
                       {euros(a.prixAchat)}
                     </td>
-                    <td className="px-3 py-3.5 text-[var(--muted)]">
+                    <td className="px-3 py-3.5 text-ink-3">
                       {a.transporteur ?? "—"}
                     </td>
-                    <td className="px-3 py-3.5 text-right text-[var(--muted)]">
+                    <td className="px-3 py-3.5 text-right text-ink-3">
                       {a.prixVente != null ? euros(a.prixVente) : "—"}
                     </td>
-                    <td className="px-3 py-3.5 text-[var(--muted)]">
+                    <td className="px-3 py-3.5 text-ink-3">
                       {a.dateVente
                         ? new Date(a.dateVente).toLocaleDateString("fr-FR")
                         : "—"}
@@ -267,14 +268,14 @@ export default function AComptabiliserPage() {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => setTarget(a)}
-                          className="rounded-full bg-[var(--acc)] px-4 py-1.5 text-[12.5px] font-bold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)]"
+                          className="rounded-full bg-accent px-4 py-1.5 text-sm font-bold text-accent-ink transition-colors hover:bg-accent-hover"
                         >
                           Valider
                         </button>
                         <button
                           onClick={() => remettre(a)}
                           disabled={remiseEnCours(a)}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-surface px-3 py-1.5 text-[12.5px] font-semibold text-[var(--acc)] transition-colors hover:bg-[var(--tint)] disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-accent-text transition-colors hover:bg-surface-2 disabled:opacity-50"
                           title="Remettre en stock"
                         >
                           <RotateCw className="h-3.5 w-3.5" strokeWidth={2} />
@@ -282,7 +283,7 @@ export default function AComptabiliserPage() {
                         </button>
                         <button
                           onClick={() => setToDelete(a)}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-[12.5px] font-semibold text-[var(--neg)] transition-colors hover:border-[var(--neg)]"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-3 py-1.5 text-sm font-semibold text-neg transition-colors hover:border-neg"
                           title="Supprimer"
                         >
                           <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
@@ -313,25 +314,25 @@ export default function AComptabiliserPage() {
 
       {toDelete && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          className="fixed inset-0 z-modal flex items-center justify-center bg-black/40 px-4"
           onClick={() => !supprimer.isPending && setToDelete(null)}
         >
           <div
-            className="w-full max-w-md rounded-[20px] border border-[var(--border)] bg-surface p-6"
+            className="w-full max-w-md rounded-lg border border-line bg-surface p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-[17px] font-bold tracking-[-0.02em] text-[var(--ink)]">
+            <h2 className="text-md font-bold tracking-[-0.02em] text-ink">
               Supprimer l’article
             </h2>
-            <p className="mt-2 text-[14px] text-[var(--muted)]">
+            <p className="mt-2 text-base text-ink-3">
               Supprimer l’article{" "}
-              <span className="font-mono text-[12.5px] font-bold text-[var(--ink)]">
+              <span className="font-mono text-sm font-bold text-ink">
                 {toDelete.sku}
               </span>{" "}
               ? Cette action est irréversible.
             </p>
             {supprimer.isError && (
-              <p className="mt-3 font-mono text-[12px] text-[var(--neg)]">
+              <p className="mt-3 font-mono text-xs text-neg">
                 {(supprimer.error as Error).message}
               </p>
             )}
@@ -339,14 +340,14 @@ export default function AComptabiliserPage() {
               <button
                 onClick={() => setToDelete(null)}
                 disabled={supprimer.isPending}
-                className="rounded-full border border-[var(--border)] bg-surface px-4 py-1.5 text-[13px] font-semibold text-[var(--muted)] transition-colors hover:bg-[var(--tint)] disabled:opacity-50"
+                className="rounded-full border border-line bg-surface px-4 py-1.5 text-sm font-semibold text-ink-3 transition-colors hover:bg-surface-2 disabled:opacity-50"
               >
                 Annuler
               </button>
               <button
                 onClick={confirmDelete}
                 disabled={supprimer.isPending}
-                className="rounded-full bg-[var(--neg)] px-4 py-1.5 text-[13px] font-bold text-[var(--bg)] transition-colors hover:opacity-90 disabled:opacity-50"
+                className="rounded-full bg-neg px-4 py-1.5 text-sm font-bold text-bg transition-colors hover:opacity-90 disabled:opacity-50"
               >
                 {supprimer.isPending ? "Suppression…" : "Supprimer"}
               </button>

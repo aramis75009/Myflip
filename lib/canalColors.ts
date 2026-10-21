@@ -1,3 +1,4 @@
+// design-tokens-dette: R4 → L3
 // Couleurs des canaux de vente en HEX (styles inline) — même approche que
 // statutColors : pas de classes Tailwind dynamiques (non compilées par le JIT).
 export type CanalColor = { bg: string; text: string };

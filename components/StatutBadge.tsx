@@ -5,7 +5,7 @@ export default function StatutBadge({ statut }: { statut: string }) {
   const c = statutColor(statut);
   return (
     <span
-      className="inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-[12.5px] font-bold"
+      className="inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-sm font-bold"
       style={{ backgroundColor: c.bg, color: c.ink }}
     >
       {statut}

@@ -1,17 +1,18 @@
+// design-tokens-dette: R14 → L2b
 import Link from "next/link";
 
 export default function NotFound() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-[var(--bg)] px-5 text-center">
-      <div className="font-grotesk text-[80px] font-bold leading-none text-[var(--acc)]">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-bg px-5 text-center">
+      <div className="font-sans text-3xl font-bold leading-none text-accent-text">
         404
       </div>
-      <p className="mt-4 text-[18px] font-medium text-[var(--muted)]">
+      <p className="mt-4 text-lg font-medium text-ink-3">
         Cette page n&apos;existe pas.
       </p>
       <Link
         href="/dashboard"
-        className="mt-8 inline-flex items-center rounded-xl bg-[var(--acc)] px-6 py-3 text-[14px] font-bold text-[var(--acc-ink)] shadow-[0_10px_22px_-12px_rgba(20,53,40,.8)] transition-colors hover:bg-[var(--acc-hover)]"
+        className="mt-8 inline-flex items-center rounded-lg bg-accent px-6 py-3 text-base font-bold text-accent-ink shadow-pop transition-colors hover:bg-accent-hover"
       >
         ← Retour au dashboard
       </Link>

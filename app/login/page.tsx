@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R13 R14 → M11
 
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -53,18 +54,18 @@ function LoginForm() {
   }
 
   const inputCls =
-    "mb-4 w-full rounded-xl border border-[var(--border)] bg-[var(--tint)] px-4 py-3 text-[14px] text-[var(--ink)] outline-none transition-colors placeholder:text-[var(--faint-2)] focus:border-[var(--acc)] focus:bg-surface";
+    "mb-4 w-full rounded-lg border border-line bg-surface-2 px-4 py-3 text-base text-ink outline-none transition-colors placeholder:text-ink-3 focus:border-accent focus:bg-surface";
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[var(--bg)] px-4">
-      <div className="w-full max-w-sm rounded-[22px] border border-[var(--border)] bg-surface p-8 shadow-[0_14px_40px_-20px_rgba(20,53,40,.2)]">
+    <main className="flex min-h-screen items-center justify-center bg-bg px-4">
+      <div className="w-full max-w-sm rounded-lg border border-line bg-surface p-8 shadow-pop">
         <div className="mb-6 flex items-center gap-2.5">
-          <span className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-[var(--acc)] font-bold text-[var(--acc-ink)] text-lg">
+          <span className="flex h-10 w-10 items-center justify-center rounded bg-accent font-bold text-accent-ink text-lg">
             M
           </span>
           <div>
-            <p className="font-bold text-[var(--ink)]">MyFlip</p>
-            <p className="text-[13px] text-[var(--muted)]">
+            <p className="font-bold text-ink">MyFlip</p>
+            <p className="text-sm text-ink-3">
               {mode === "login" ? "Connecte-toi pour continuer." : "Réinitialiser ton mot de passe"}
             </p>
           </div>
@@ -72,7 +73,7 @@ function LoginForm() {
 
         {mode === "login" ? (
           <form onSubmit={onSubmit} className="flex flex-col">
-            <label className="mb-1.5 block text-[12.5px] font-semibold text-[var(--muted)]">
+            <label className="mb-1.5 block text-sm font-semibold text-ink-3">
               Email
             </label>
             <input
@@ -83,7 +84,7 @@ function LoginForm() {
               onChange={(e) => setEmail(e.target.value)}
               className={inputCls}
             />
-            <label className="mb-1.5 block text-[12.5px] font-semibold text-[var(--muted)]">
+            <label className="mb-1.5 block text-sm font-semibold text-ink-3">
               Mot de passe
             </label>
             <input
@@ -95,40 +96,40 @@ function LoginForm() {
               className={inputCls}
             />
             {error && (
-              <p className="mb-4 rounded-xl bg-[var(--neg-soft)] px-4 py-2.5 text-[13.5px] text-[var(--neg)]">
+              <p className="mb-4 rounded-lg bg-neg-soft px-4 py-2.5 text-base text-neg">
                 {error}
               </p>
             )}
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-[var(--acc)] py-3 text-[13.5px] font-bold text-[var(--acc-ink)] shadow-[0_10px_22px_-12px_rgba(20,53,40,.8)] transition-colors hover:bg-[var(--acc-hover)] disabled:opacity-60"
+              className="w-full rounded-lg bg-accent py-3 text-base font-bold text-accent-ink shadow-pop transition-colors hover:bg-accent-hover disabled:opacity-60"
             >
               {loading ? "Connexion…" : "Se connecter"}
             </button>
             <button
               type="button"
               onClick={() => { setMode("forgot"); setError(null); }}
-              className="mt-4 text-center text-[12.5px] text-[var(--faint-2)] transition-colors hover:text-[var(--muted)]"
+              className="mt-4 text-center text-sm text-ink-3 transition-colors hover:text-ink-3"
             >
               Mot de passe oublié ?
             </button>
           </form>
         ) : forgotDone ? (
           <div className="space-y-4">
-            <div className="rounded-xl bg-[var(--pos-soft)] px-4 py-4 text-[14px] font-medium text-[var(--pos)]">
+            <div className="rounded-lg bg-pos-soft px-4 py-4 text-base font-medium text-pos">
               Si cet email est enregistré, un lien de réinitialisation a été envoyé.
             </div>
             <button
               onClick={() => { setMode("login"); setForgotDone(false); setForgotEmail(""); }}
-              className="text-[12.5px] text-[var(--faint-2)] transition-colors hover:text-[var(--muted)]"
+              className="text-sm text-ink-3 transition-colors hover:text-ink-3"
             >
               ← Retour à la connexion
             </button>
           </div>
         ) : (
           <form onSubmit={onForgot} className="flex flex-col">
-            <label className="mb-1.5 block text-[12.5px] font-semibold text-[var(--muted)]">
+            <label className="mb-1.5 block text-sm font-semibold text-ink-3">
               Ton adresse email
             </label>
             <input
@@ -143,14 +144,14 @@ function LoginForm() {
             <button
               type="submit"
               disabled={forgotLoading}
-              className="w-full rounded-xl bg-[var(--acc)] py-3 text-[13.5px] font-bold text-[var(--acc-ink)] shadow-[0_10px_22px_-12px_rgba(20,53,40,.8)] transition-colors hover:bg-[var(--acc-hover)] disabled:opacity-60"
+              className="w-full rounded-lg bg-accent py-3 text-base font-bold text-accent-ink shadow-pop transition-colors hover:bg-accent-hover disabled:opacity-60"
             >
               {forgotLoading ? "Envoi…" : "Envoyer le lien"}
             </button>
             <button
               type="button"
               onClick={() => setMode("login")}
-              className="mt-4 text-center text-[12.5px] text-[var(--faint-2)] transition-colors hover:text-[var(--muted)]"
+              className="mt-4 text-center text-sm text-ink-3 transition-colors hover:text-ink-3"
             >
               ← Retour à la connexion
             </button>

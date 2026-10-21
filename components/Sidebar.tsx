@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R10 R12 R14 → L2a
 
 import { Fragment, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -70,14 +71,14 @@ function isActive(pathname: string, href: string) {
 
 // Libellé d'un item de la sidebar desktop : texte complet quand elle est
 // dépliée, code mono quand elle est repliée en rail. La bascule est purement
-// CSS (`.sb-hide-collapsed` / `.sb-only-collapsed` dans globals.css).
+// CSS (variante `replie:` de tailwind.config.ts).
 function ItemLabel({ label, short }: { label: string; short: string }) {
   return (
     <>
-      <span className="sb-hide-collapsed flex-1 truncate text-[13.5px]">
+      <span className="replie:hidden flex-1 truncate text-base">
         {label}
       </span>
-      <span className="sb-only-collapsed font-mono text-[8.5px] tracking-[0.04em]">
+      <span className="hidden replie:flex font-mono text-xs tracking-[0.04em]">
         {short}
       </span>
     </>
@@ -101,12 +102,12 @@ function DockTile({
 }) {
   return (
     <span
-      className={`flex min-h-[44px] w-full flex-col items-center justify-center gap-1 rounded-[14px] transition-colors ${
-        active ? "bg-[var(--acc)] text-[var(--acc-ink)]" : "text-[var(--nav)]"
+      className={`flex min-h-11 w-full flex-col items-center justify-center gap-1 rounded-md transition-colors ${
+        active ? "bg-accent text-accent-ink" : "text-ink-2"
       }`}
     >
       <Icon className="h-[18px] w-[18px]" strokeWidth={active ? 2.3 : 2} />
-      <span className="font-mono text-[8.5px] tracking-[0.04em]">{short}</span>
+      <span className="font-mono text-xs tracking-[0.04em]">{short}</span>
     </span>
   );
 }
@@ -150,13 +151,13 @@ export default function Sidebar() {
   return (
     <>
       {/* Sidebar verticale fixe (desktop), repliable en rail d'icônes */}
-      <aside className="fixed left-0 top-0 z-40 hidden h-screen w-[var(--sidebar-w)] flex-col border-r border-[var(--border)] bg-surface px-3 pb-[18px] pt-[14px] transition-[width] duration-200 ease-out md:flex">
+      <aside className="fixed left-0 top-0 z-sticky hidden h-screen w-[var(--sidebar-w)] flex-col border-r border-line bg-surface px-3 pb-[18px] pt-3.5 transition-[width] duration-base ease-out md:flex">
         {/* Bouton de repli, posé sur la bordure droite */}
         <button
           onClick={toggleSidebar}
           aria-label="Réduire ou agrandir le menu"
           title="Réduire / agrandir le menu"
-          className="absolute -right-3.5 top-1/2 z-50 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--border)] bg-surface text-[var(--nav)] shadow-[0_2px_10px_rgba(20,53,40,.14)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--acc)]"
+          className="absolute -right-3.5 top-1/2 z-raised flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-surface text-ink-2 shadow-pop transition-colors hover:border-line-strong hover:text-accent-text"
         >
           <PanelLeft className="h-[15px] w-[15px]" strokeWidth={2} />
         </button>
@@ -169,15 +170,15 @@ export default function Sidebar() {
         <div className="mb-3.5 flex items-center gap-2.5 px-1 pb-1">
           <span
             aria-hidden="true"
-            className="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-[13px] bg-[var(--acc)] text-[16px] font-bold text-[var(--acc-ink)]"
+            className="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-md bg-accent text-md font-bold text-accent-ink"
           >
             M
           </span>
-          <span className="sb-hide-collapsed min-w-0 flex-1">
-            <span className="block text-[15px] font-bold tracking-[-0.02em] text-[var(--ink)]">
+          <span className="replie:hidden min-w-0 flex-1">
+            <span className="block text-md font-bold tracking-[-0.02em] text-ink">
               MyFlip
             </span>
-            <span className="block font-mono text-[9px] tracking-[0.14em] text-[var(--faint)]">
+            <span className="block font-mono text-xs tracking-[0.14em] text-ink-3">
               CONSOLE REVENTE
             </span>
           </span>
@@ -188,7 +189,7 @@ export default function Sidebar() {
           {indicator && (
             <span
               aria-hidden
-              className="pointer-events-none absolute inset-x-0 z-0 rounded-[15px] bg-[var(--acc)] transition-[top,height] duration-300 ease-[cubic-bezier(.34,1.4,.5,1)]"
+              className="pointer-events-none absolute inset-x-0 z-base rounded-md bg-accent transition-[top,height] duration-slow ease-[cubic-bezier(.34,1.4,.5,1)]"
               style={{ top: indicator.top, height: indicator.height }}
             />
           )}
@@ -200,17 +201,17 @@ export default function Sidebar() {
                 {index === PREMIER_SECONDAIRE && (
                   <div
                     role="separator"
-                    className="relative z-10 mx-3 my-1.5 border-t border-[var(--border)]"
+                    className="relative z-raised mx-3 my-1.5 border-t border-line"
                   />
                 )}
                 <Link
                   href={item.href}
                   title={item.label}
                   data-active={active}
-                  className={`sb-item relative z-10 flex min-h-[46px] items-center gap-[11px] rounded-[15px] px-3 transition-colors ${
+                  className={`replie:h-12 replie:flex-col replie:items-center replie:justify-center replie:gap-0.5 replie:p-0 relative z-raised flex min-h-[46px] items-center gap-[11px] rounded-md px-3 transition-colors ${
                     active
-                      ? "font-bold text-[var(--acc-ink)]"
-                      : "font-medium text-[var(--nav)] hover:bg-[var(--tint)] hover:text-[var(--ink)]"
+                      ? "font-bold text-accent-ink"
+                      : "font-medium text-ink-2 hover:bg-surface-2 hover:text-ink"
                   }`}
                 >
                   <Icon
@@ -227,11 +228,11 @@ export default function Sidebar() {
                           sombre — sans lui, le contraste tombe à ~2,3:1. */}
                       <span
                         aria-label={`${count} article${count > 1 ? "s" : ""} à comptabiliser`}
-                        className="sb-hide-collapsed inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[var(--alert)] px-1.5 font-mono text-[10px] font-bold text-white ring-2 ring-[var(--surface)]"
+                        className="replie:hidden inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-danger px-1.5 font-mono text-xs font-bold text-white ring-2 ring-surface"
                       >
                         {count}
                       </span>
-                      <span className="sb-only-collapsed absolute right-2 top-1.5 h-[6px] w-[6px] rounded-full bg-[var(--alert)]" />
+                      <span className="hidden replie:flex absolute right-2 top-1.5 h-1.5 w-1.5 rounded-full bg-danger" />
                     </>
                   )}
                 </Link>
@@ -246,24 +247,24 @@ export default function Sidebar() {
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             title="Déconnexion"
-            className="sb-item flex min-h-[46px] w-full items-center gap-[11px] rounded-[15px] px-3 font-medium text-[var(--nav)] transition-colors hover:bg-[var(--tint)] hover:text-[var(--ink)]"
+            className="replie:h-12 replie:flex-col replie:items-center replie:justify-center replie:gap-0.5 replie:p-0 flex min-h-[46px] w-full items-center gap-[11px] rounded-md px-3 font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
           >
             <LogOut className="h-[18px] w-[18px] flex-shrink-0" strokeWidth={2} />
             <ItemLabel label="Déconnexion" short="SORTIR" />
           </button>
-          <div className="sb-hide-collapsed mt-2 border-t border-[var(--border)] px-3 pt-3">
-            <div className="flex flex-wrap gap-x-3 gap-y-1 font-mono text-[9.5px] tracking-[0.06em] text-[var(--faint)]">
-              <a href="/legal/mentions-legales" className="hover:text-[var(--ink2)]">
+          <div className="replie:hidden mt-2 border-t border-line px-3 pt-3">
+            <div className="flex flex-wrap gap-x-3 gap-y-1 font-mono text-xs tracking-[0.06em] text-ink-3">
+              <a href="/legal/mentions-legales" className="hover:text-ink-2">
                 MENTIONS
               </a>
-              <a href="/legal/cgu" className="hover:text-[var(--ink2)]">
+              <a href="/legal/cgu" className="hover:text-ink-2">
                 CGU
               </a>
-              <a href="/legal/confidentialite" className="hover:text-[var(--ink2)]">
+              <a href="/legal/confidentialite" className="hover:text-ink-2">
                 CONFIDENTIALITÉ
               </a>
             </div>
-            <p className="mt-1.5 font-mono text-[9px] tracking-[0.06em] text-[var(--faint)] opacity-70">
+            <p className="mt-1.5 font-mono text-xs tracking-[0.06em] text-ink-3 opacity-70">
               © 2026 MYFLIP
             </p>
           </div>
@@ -272,7 +273,7 @@ export default function Sidebar() {
 
       {/* Bottom navigation (mobile) — défilable horizontalement */}
       <nav
-        className="fixed bottom-0 left-0 z-40 flex w-full items-stretch overflow-x-auto border-t border-[var(--border)] bg-surface md:hidden"
+        className="fixed bottom-0 left-0 z-dock flex w-full items-stretch overflow-x-auto border-t border-line bg-surface md:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         {NAV_DOCK.map((item) => (
@@ -283,7 +284,7 @@ export default function Sidebar() {
               active={isActive(pathname, item.href)}
             />
             {item.badge && count > 0 && (
-              <span className="absolute right-1.5 top-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[var(--alert)] px-1 font-mono text-[9px] font-bold text-white">
+              <span className="absolute right-1.5 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 font-mono text-xs font-bold text-white">
                 {count}
               </span>
             )}

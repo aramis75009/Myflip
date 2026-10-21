@@ -1,24 +1,26 @@
 import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { Toaster } from "sonner";
+import "./tokens.css";
 import "./globals.css";
 import Providers from "./providers";
 import AppShell from "@/components/AppShell";
+import { SCRIPT_THEME } from "@/lib/themeMeta";
 
-// Police d'interface de Direction C : Space Grotesk porte tout, des libellés
-// aux chiffres héros. Plus Jakarta Sans a été retirée une fois Calendrier et
-// Mise en vente convertis — c'était sa dernière dépendance.
-const grotesk = Space_Grotesk({
+// Interface font (Space Grotesk) and monospace (JetBrains Mono: SKU, amounts).
+// Their variables are set on <html> so that `:root` (app/tokens.css) can build
+// --font-sans / --font-mono from them. Changing a font = changing these two
+// imports, nothing else.
+const ui = Space_Grotesk({
   subsets: ["latin"],
-  variable: "--font-grotesk",
+  variable: "--font-famille-ui",
+  display: "swap",
 });
 
-// Police mono du Stock (SKU, montants, micro-labels d'en-tête). Sa chasse fixe
-// est ce qui aligne les colonnes de chiffres à l'œil sur 1 200 lignes ; les
-// autres pages ne la chargent pas tant qu'elles ne posent pas `font-mono`.
 const mono = JetBrains_Mono({
   subsets: ["latin"],
-  variable: "--font-mono",
+  variable: "--font-famille-mono",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -52,14 +54,9 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  // Valeurs de --bg (globals.css), le fond sur lequel s'appuie la barre
-  // supérieure. Une seule couleur fixe (#1B4332, héritée de l'ancien design)
-  // laissait une bande vert forêt au-dessus d'une app qui n'a plus cette teinte,
-  // et un liseré clair au-dessus du thème sombre.
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#e7ece8" },
-    { media: "(prefers-color-scheme: dark)", color: "#0b0e0d" },
-  ],
+  // No themeColor here: <meta name="theme-color"> belongs to the inline theme
+  // script and to appliquerTheme() (lib/themeMeta.ts). Declared here, Next
+  // would rewrite it and React would report a hydration mismatch.
 };
 
 export default function RootLayout({
@@ -68,17 +65,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" suppressHydrationWarning>
-      <body
-        className={`${grotesk.variable} ${mono.variable} ${grotesk.className} min-h-screen bg-bg text-ink antialiased`}
-      >
-        {/* Applique le thème avant le premier paint pour éviter tout flash clair
-            au chargement en mode sombre. Miroir de ThemeToggle (clé identique). */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem('myflip-theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.dataset.theme='dark';}catch(e){}try{if(localStorage.getItem('myflip-sidebar')==='collapsed')document.documentElement.dataset.sidebar='collapsed';}catch(e){}`,
-          }}
-        />
+    <html lang="fr" className={[ui.variable, mono.variable].join(" ")} suppressHydrationWarning>
+      <body className="antialiased">
+        {/* Theme, theme-color and sidebar state before the first paint. */}
+        <script dangerouslySetInnerHTML={{ __html: SCRIPT_THEME }} />
         <Providers>
           <AppShell>{children}</AppShell>
           <Toaster position="bottom-right" />

@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R13 → M10
 
 import { useState } from "react";
 import { useSession } from "next-auth/react";
@@ -20,11 +21,11 @@ function initiales(email: string | null): string {
 /** Tuile creusée de la maquette : micro-libellé mono, valeur en 15px/600. */
 function Tuile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[16px] bg-[var(--surface-2)] p-3.5">
-      <div className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--faint)]">
+    <div className="rounded-md bg-surface-2 p-3.5">
+      <div className="font-mono text-xs uppercase tracking-[0.14em] text-ink-3">
         {label}
       </div>
-      <div className="mt-1.5 text-[15px] font-semibold">{value}</div>
+      <div className="mt-1.5 text-md font-semibold">{value}</div>
     </div>
   );
 }
@@ -73,24 +74,24 @@ export default function ComptePage() {
   }
 
   const labelCls =
-    "font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--faint)]";
+    "font-mono text-xs uppercase tracking-[0.14em] text-ink-3";
   const inputCls =
-    "min-h-[46px] w-full rounded-[16px] border border-[var(--border)] bg-[var(--surface-2)] px-4 text-[14px] text-[var(--ink)] outline-none transition-colors placeholder:text-[var(--faint-2)] focus:border-[var(--acc)]";
+    "min-h-[46px] w-full rounded-md border border-line bg-surface-2 px-4 text-base text-ink outline-none transition-colors placeholder:text-ink-3 focus:border-accent";
 
   return (
     <Frame>
-      <section className="grid grid-cols-1 gap-[14px] min-[900px]:grid-cols-2">
+      <section className="grid grid-cols-1 gap-3.5 min-[900px]:grid-cols-2">
         {/* Identité */}
-        <Module className="p-[24px]">
+        <Module className="p-6">
           <div className="flex items-center gap-4">
-            <span className="flex h-[66px] w-[66px] flex-none items-center justify-center rounded-[22px] bg-[var(--acc)] text-[24px] font-bold text-[var(--acc-ink)]">
+            <span className="flex h-[66px] w-[66px] flex-none items-center justify-center rounded-lg bg-accent text-xl font-bold text-accent-ink">
               {initiales(email)}
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-[20px] font-bold tracking-[-0.02em]">
+              <span className="block truncate text-lg font-bold tracking-[-0.02em]">
                 {email?.split("@")[0] ?? "—"}
               </span>
-              <span className="mt-[3px] block truncate font-mono text-[11px] text-[var(--faint)]">
+              <span className="mt-[3px] block truncate font-mono text-xs text-ink-3">
                 {email ?? "—"}
               </span>
             </span>
@@ -106,16 +107,16 @@ export default function ComptePage() {
 
           <Link
             href="/parametres"
-            className="mt-3 flex min-h-[46px] w-full items-center justify-center rounded-[16px] border border-[var(--border)] bg-[var(--surface-2)] text-[13.5px] text-[var(--ink2)] transition-colors hover:border-[var(--border-strong)]"
+            className="mt-3 flex min-h-[46px] w-full items-center justify-center rounded-md border border-line bg-surface-2 text-base text-ink-2 transition-colors hover:border-line-strong"
           >
             Modifier l&apos;objectif mensuel
           </Link>
         </Module>
 
         {/* Sécurité */}
-        <Module className="p-[24px]">
-          <div className="mb-[14px] flex items-center gap-2.5">
-            <Lock className="h-[18px] w-[18px] text-[var(--acc)]" strokeWidth={2} />
+        <Module className="p-6">
+          <div className="mb-3.5 flex items-center gap-2.5">
+            <Lock className="h-[18px] w-[18px] text-accent-text" strokeWidth={2} />
             <CardTitle className="">Changer le mot de passe</CardTitle>
           </div>
 
@@ -159,7 +160,7 @@ export default function ComptePage() {
             <button
               type="submit"
               disabled={loading}
-              className="mt-1 inline-flex min-h-[46px] items-center justify-center rounded-[16px] bg-[var(--acc)] px-5 text-[13.5px] font-semibold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)] disabled:opacity-60"
+              className="mt-1 inline-flex min-h-[46px] items-center justify-center rounded-md bg-accent px-5 text-base font-semibold text-accent-ink transition-colors hover:bg-accent-hover disabled:opacity-60"
             >
               {loading ? "Mise à jour…" : "Mettre à jour"}
             </button>

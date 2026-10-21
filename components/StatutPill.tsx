@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R4 → L3
 
 import { ChevronDown } from "lucide-react";
 import { STATUTS } from "@/lib/calc";
@@ -63,8 +64,8 @@ export default function StatutPill({
           color: c.color,
           WebkitAppearance: "none",
         }}
-        className={`peer absolute inset-0 h-full w-full cursor-pointer appearance-none truncate rounded-full border border-[var(--border)] bg-[var(--tint)] font-semibold leading-none outline-none transition-colors hover:border-[var(--border-strong)] focus-visible:ring-2 focus-visible:ring-[var(--acc-ring-strong)] ${
-          md ? "pl-4 pr-9 text-[13px]" : "pl-2.5 pr-7 text-[11.5px]"
+        className={`peer absolute inset-0 h-full w-full cursor-pointer appearance-none truncate rounded-full border border-line bg-surface-2 font-semibold leading-none outline-none transition-colors hover:border-line-strong focus-visible:ring-2 focus-visible:ring-focus ${
+          md ? "pl-4 pr-9 text-sm" : "pl-2.5 pr-7 text-xs"
         }`}
       >
         {STATUTS.map((s) => (

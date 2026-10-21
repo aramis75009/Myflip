@@ -1,0 +1,240 @@
+/* =====================================================================
+   MyFlip design tokens — the ONLY place where a value lives.
+
+   Colours are stored as CHANNELS "R G B" so that Tailwind can apply an
+   alpha modifier: tailwind.config.ts exposes them as
+   rgb(var(--x) / <alpha-value>). In hand-written CSS or inline styles,
+   write rgb(var(--x)) or rgb(var(--x) / 0.5), never var(--x) alone.
+
+   Values: the "Direction C" palette (forest green in light, lime in dark,
+   greened neutrals), kept as-is and corrected ONLY where a WCAG AA ratio
+   failed (--line-strong, --ink-3, --warn, a few status inks). Both themes
+   are checked by lib/designTokens.test.ts.
+
+   Theme: the inline script (lib/themeMeta.ts) ALWAYS sets
+   data-theme="light" | "dark" on <html> before the first paint.
+   ===================================================================== */
+
+:root {
+  /* ---------- Fonts ----------
+     Families come from next/font (app/layout.tsx), whose variables are set
+     on <html>. No family name is ever written here. */
+  --font-sans: var(--font-famille-ui, ui-sans-serif), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-famille-mono, ui-monospace), ui-monospace, Menlo, Consolas, monospace;
+
+  /* ---------- Text: 8 sizes, in rem, 12 px floor ---------- */
+  --t-xs: 0.75rem;     /* 12 */
+  --t-sm: 0.8125rem;   /* 13 */
+  --t-base: 0.875rem;  /* 14, body */
+  --t-md: 1rem;        /* 16, every form field under 768 px */
+  --t-lg: 1.25rem;     /* 20 */
+  --t-xl: 1.75rem;     /* 28 */
+  --t-2xl: 2.5rem;     /* 40 */
+  --t-3xl: 3.5rem;     /* 56 */
+  --lh-tight: 1.05;
+  --lh-snug: 1.25;
+  --lh-ui: 1.45;
+  --lh-prose: 1.6;
+
+  /* ---------- Radii (provisional, close to the current look) ---------- */
+  --r-xs: 4px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 22px;
+  --r-full: 9999px;
+
+  /* ---------- Shadows: only for what floats ---------- */
+  --sh-k: 1;
+  --shadow-pop: 0 6px 16px -4px rgb(var(--shadow) / calc(0.14 * var(--sh-k)));
+  --shadow-over: 0 28px 64px -16px rgb(var(--shadow) / calc(0.3 * var(--sh-k)));
+
+  /* ---------- Depth: named z-index scale ---------- */
+  --z-base: 0;
+  --z-raised: 10;
+  --z-sticky: 20;
+  --z-dock: 30;
+  --z-fab: 35;
+  --z-overlay: 40;
+  --z-modal: 50;
+  --z-popover: 60;
+  --z-toast: 70;
+  --z-tooltip: 80;
+  --z-skip: 90;
+
+  /* ---------- Motion ---------- */
+  --d-fast: 120ms;
+  --d-base: 180ms;
+  --d-slow: 240ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out: cubic-bezier(0.6, 0, 0.3, 1);
+
+  /* ---------- Frame ---------- */
+  --sidebar-w: 236px;
+  --topbar-h: 62px;
+  --dock-h: 60px;      /* without the safe area */
+  --hit: 44px;
+  --fab-offset: 0px;   /* written by an open action bar (components/ui/barre-actions) */
+
+  /* ---------- Colours, light theme ---------- */
+  color-scheme: light;
+  --bg: 231 236 232;
+  --surface: 255 255 255;
+  --surface-2: 243 246 243;
+  --surface-3: 233 238 234;
+  --line: 221 228 223;
+  --line-strong: 126 136 130;
+  --ink: 14 20 18;
+  --ink-2: 76 91 84;
+  --ink-3: 93 108 100;
+  --accent: 15 81 50;
+  --accent-hover: 11 61 37;
+  --accent-ink: 255 255 255;
+  --accent-text: 15 81 50;
+  --accent-soft: 230 239 233;
+  --focus: 15 81 50;
+  --pos: 15 81 50;
+  --pos-soft: 228 243 234;
+  --neg: 176 58 40;
+  --neg-soft: 251 238 231;
+  --warn: 146 102 0;
+  --warn-soft: 251 243 226;
+  --danger: 176 58 40;
+  --danger-ink: 255 255 255;
+  --veil: 14 20 18;
+  --veil-a: 0.5;
+  --veil-fort-a: 0.8;
+  --shadow: 14 20 18;
+  --bar: 15 81 50;
+  --bar-ink: 255 255 255;
+  --stage: 233 238 234;
+  --chart: 15 81 50;
+  --chart-2: 126 136 130;
+
+  /* Statuses: marker / text / pill background */
+  --st-brouillon: 154 167 159;
+  --st-brouillon-ink: 94 108 102;
+  --st-brouillon-soft: 241 244 239;
+  --st-stock: 216 178 58;
+  --st-stock-ink: 131 102 0;
+  --st-stock-soft: 252 243 207;
+  --st-lavage: 196 79 208;
+  --st-lavage-ink: 163 47 173;
+  --st-lavage-soft: 250 232 251;
+  --st-repasse: 154 143 234;
+  --st-repasse-ink: 91 79 190;
+  --st-repasse-soft: 237 235 251;
+  --st-photos: 229 140 180;
+  --st-photos-ink: 176 62 114;
+  --st-photos-soft: 251 234 241;
+  --st-vente: 111 168 255;
+  --st-vente-ink: 49 100 201;
+  --st-vente-soft: 231 240 255;
+  --st-livraison: 217 169 78;
+  --st-livraison-ink: 140 96 0;
+  --st-livraison-soft: 251 243 226;
+  --st-compta: 240 144 104;
+  --st-compta-ink: 171 75 42;
+  --st-compta-soft: 251 238 231;
+  --st-vendu: 95 211 155;
+  --st-vendu-ink: 27 67 50;
+  --st-vendu-soft: 234 243 237;
+  --st-perdu: 134 149 160;
+  --st-perdu-ink: 43 57 66;
+  --st-perdu-soft: 236 238 240;
+
+  /* Sales channels: square marker */
+  --ch-vinted: 0 144 249;
+  --ch-vinted-go: 0 71 171;
+  --ch-vc: 234 101 0;
+  --ch-lbc: 241 95 38;
+  --ch-mp: 107 114 128;
+  --ch-autre: 141 142 146;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --sh-k: 2.4;
+  --bg: 11 14 13;
+  --surface: 20 24 23;
+  --surface-2: 27 33 31;
+  --surface-3: 35 42 39;
+  --line: 36 44 41;
+  --line-strong: 99 109 105;
+  --ink: 234 241 236;
+  --ink-2: 159 174 166;
+  --ink-3: 129 147 138;
+  --accent: 199 247 81;
+  --accent-hover: 212 250 106;
+  --accent-ink: 11 14 13;
+  --accent-text: 199 247 81;
+  --accent-soft: 30 42 28;
+  --focus: 199 247 81;
+  --pos: 95 211 155;
+  --pos-soft: 22 38 29;
+  --neg: 255 138 122;
+  --neg-soft: 42 26 24;
+  --warn: 229 187 99;
+  --warn-soft: 38 32 25;
+  --danger: 255 138 122;
+  --danger-ink: 11 14 13;
+  --veil: 0 0 0;
+  --veil-a: 0.7;
+  --veil-fort-a: 0.85;
+  --shadow: 0 0 0;
+  --bar: 199 247 81;
+  --bar-ink: 11 14 13;
+  --stage: 35 42 39;
+  --chart: 199 247 81;
+  --chart-2: 99 109 105;
+
+  --st-brouillon: 154 167 159;
+  --st-brouillon-ink: 154 167 159;
+  --st-brouillon-soft: 47 53 50;
+  --st-stock: 216 178 58;
+  --st-stock-ink: 216 178 58;
+  --st-stock-soft: 59 55 30;
+  --st-lavage: 196 79 208;
+  --st-lavage-ink: 214 96 226;
+  --st-lavage-soft: 55 35 60;
+  --st-repasse: 154 143 234;
+  --st-repasse-ink: 154 143 234;
+  --st-repasse-soft: 47 48 65;
+  --st-photos: 229 140 180;
+  --st-photos-ink: 229 140 180;
+  --st-photos-soft: 62 47 54;
+  --st-vente: 111 168 255;
+  --st-vente-ink: 111 168 255;
+  --st-vente-soft: 38 53 69;
+  --st-livraison: 217 169 78;
+  --st-livraison-ink: 217 169 78;
+  --st-livraison-soft: 59 53 34;
+  --st-compta: 240 144 104;
+  --st-compta-ink: 240 144 104;
+  --st-compta-soft: 64 48 39;
+  --st-vendu: 95 211 155;
+  --st-vendu-ink: 95 211 155;
+  --st-vendu-soft: 35 61 49;
+  --st-perdu: 134 149 160;
+  --st-perdu-ink: 138 153 164;
+  --st-perdu-soft: 43 49 50;
+
+  --ch-vinted: 0 150 255;
+  --ch-vinted-go: 38 102 204;
+  --ch-vc: 249 115 22;
+  --ch-lbc: 255 107 53;
+  --ch-mp: 107 114 128;
+  --ch-autre: 229 231 235;
+}
+
+:root[data-sidebar="collapsed"] {
+  --sidebar-w: 76px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --d-fast: 0ms;
+    --d-base: 0ms;
+    --d-slow: 0ms;
+  }
+}

@@ -25,9 +25,9 @@ function lireVerif(v: unknown): Verif | null {
 }
 
 const VERDICTS: Record<string, { texte: string; cls: string; barre: string }> = {
-  ok: { texte: "OK", cls: "bg-[var(--pos-soft)] text-[var(--pos)]", barre: "bg-[var(--pos)]" },
-  a_corriger: { texte: "À corriger", cls: "bg-[var(--warn-soft)] text-[var(--ink)]", barre: "bg-[var(--warn)]" },
-  rejet: { texte: "Rejet", cls: "bg-[var(--neg-soft)] text-[var(--neg)]", barre: "bg-[var(--neg)]" },
+  ok: { texte: "OK", cls: "bg-pos-soft text-pos", barre: "bg-pos" },
+  a_corriger: { texte: "À corriger", cls: "bg-warn-soft text-ink", barre: "bg-warn" },
+  rejet: { texte: "Rejet", cls: "bg-neg-soft text-neg", barre: "bg-neg" },
 };
 
 const dateCourte = (iso: string) =>
@@ -185,19 +185,19 @@ export default function FileAJuger({
   return (
     <Module className="p-[22px]">
       <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
-        <h2 className="text-[20px] font-bold tracking-[-0.01em]">À juger</h2>
-        <span className="inline-flex h-[26px] items-center gap-1.5 rounded-full bg-[var(--warn-soft)] px-2.5 text-[13px] font-semibold text-[var(--ink)]">
-          <span className="h-[7px] w-[7px] rounded-full bg-[var(--warn)]" aria-hidden="true" />
+        <h2 className="text-lg font-bold tracking-[-0.01em]">À juger</h2>
+        <span className="inline-flex h-[26px] items-center gap-1.5 rounded-full bg-warn-soft px-2.5 text-sm font-semibold text-ink">
+          <span className="h-[7px] w-[7px] rounded-full bg-warn" aria-hidden="true" />
           {file.length} image{file.length > 1 ? "s" : ""}
         </span>
-        <span className="text-[13.5px] text-[var(--ink2)]">
+        <span className="text-base text-ink-2">
           {e.skuCible ? `Une image validée rejoint les photos de ${e.skuCible}` : "Une image validée rejoint l’annonce de son sac"} ; ta décision est la seule mesure du bilan.
         </span>
         <div className="ml-auto flex items-center gap-1.5">
           <button type="button" className={`${btn} h-10 w-10 justify-center rounded-full px-0`} aria-label="Image précédente" onClick={() => setIndex((i - 1 + file.length) % file.length)}>
             <ChevronLeft size={16} />
           </button>
-          <span className="min-w-[44px] text-center font-mono text-[12.5px] text-[var(--ink2)]">
+          <span className="min-w-11 text-center font-mono text-sm text-ink-2">
             {i + 1} / {file.length}
           </span>
           <button type="button" className={`${btn} h-10 w-10 justify-center rounded-full px-0`} aria-label="Image suivante" onClick={() => setIndex((i + 1) % file.length)}>
@@ -210,55 +210,55 @@ export default function FileAJuger({
         <div className="grid grid-cols-2 gap-3">
           <figure>
             {/* eslint-disable-next-line @next/next/no-img-element -- image privée servie par /api/studio/image */}
-            <img src={`/api/studio/image?ref=${e.referenceId}`} alt="Vraie photo" className="aspect-[3/4] w-full rounded-[16px] border border-[var(--border)] object-cover" />
-            <figcaption className="mt-1.5 text-[13px] text-[var(--ink2)]">
-              <strong className="font-semibold text-[var(--ink)]">Vraie photo</strong> · {ligne?.prise ?? "?"}
+            <img src={`/api/studio/image?ref=${e.referenceId}`} alt="Vraie photo" className="aspect-[3/4] w-full rounded-md border border-line object-cover" />
+            <figcaption className="mt-1.5 text-sm text-ink-2">
+              <strong className="font-semibold text-ink">Vraie photo</strong> · {ligne?.prise ?? "?"}
             </figcaption>
           </figure>
           <figure>
             {/* eslint-disable-next-line @next/next/no-img-element -- image privée servie par /api/studio/image */}
-            <img src={`/api/studio/image?essai=${e.id}`} alt="Image générée" className="aspect-[3/4] w-full rounded-[16px] border border-[var(--border)] object-cover" />
-            <figcaption className="mt-1.5 text-[13px] text-[var(--ink2)]">
-              <strong className="font-semibold text-[var(--ink)]">Générée</strong> · {angle?.nom ?? "angle archivé"}
+            <img src={`/api/studio/image?essai=${e.id}`} alt="Image générée" className="aspect-[3/4] w-full rounded-md border border-line object-cover" />
+            <figcaption className="mt-1.5 text-sm text-ink-2">
+              <strong className="font-semibold text-ink">Générée</strong> · {angle?.nom ?? "angle archivé"}
             </figcaption>
           </figure>
         </div>
 
         <div className="flex min-w-0 flex-col gap-4">
           <div>
-            <div className="font-mono text-[11px] tracking-[0.14em] text-[var(--ink2)]">
+            <div className="font-mono text-xs tracking-[0.14em] text-ink-2">
               PHOTO {String(ligne?.ordre ?? 0).padStart(2, "0")}
               {e.skuCible ? ` · POUR ${e.skuCible}` : ""}
             </div>
-            <div className="mt-1 text-[19px] font-bold tracking-[-0.01em]">{ligne?.prise ?? "Photo"}</div>
-            <div className="mt-0.5 text-[13.5px] text-[var(--ink2)]">
+            <div className="mt-1 text-lg font-bold tracking-[-0.01em]">{ligne?.prise ?? "Photo"}</div>
+            <div className="mt-0.5 text-base text-ink-2">
               {angle?.nom ?? "angle archivé"} · {nomDe(e.modele)} · {dateCourte(e.createdAt)} · {cout}
             </div>
-            <div className="mt-2 rounded-xl bg-[var(--surface-2)] px-3 py-2 font-mono text-[12.5px] leading-relaxed">{angle?.angle ?? "—"}</div>
+            <div className="mt-2 rounded-lg bg-surface-2 px-3 py-2 font-mono text-sm leading-relaxed">{angle?.angle ?? "—"}</div>
           </div>
 
-          <div className="rounded-[18px] border border-[var(--border)] p-3.5">
+          <div className="rounded-lg border border-line p-3.5">
             <div className="flex items-center gap-2">
-              <span className="text-[14px] font-semibold">Avis de l’IA</span>
-              {vd && <span className={`inline-flex h-6 items-center rounded-md px-2 text-[12.5px] font-bold ${vd.cls}`}>{vd.texte}</span>}
-              {score !== null && <span className="ml-auto font-mono text-[13px] font-semibold">{score}/100</span>}
+              <span className="text-base font-semibold">Avis de l’IA</span>
+              {vd && <span className={`inline-flex h-6 items-center rounded-md px-2 text-sm font-bold ${vd.cls}`}>{vd.texte}</span>}
+              {score !== null && <span className="ml-auto font-mono text-sm font-semibold">{score}/100</span>}
             </div>
             {verif && vd ? (
               <>
-                <div className="mt-2 h-[5px] overflow-hidden rounded-[3px] bg-[var(--surface-2)]" aria-hidden="true">
-                  <div className={`h-[5px] rounded-[3px] ${vd.barre}`} style={{ width: `${Math.max(0, Math.min(100, score ?? 0))}%` }} />
+                <div className="mt-2 h-[5px] overflow-hidden rounded-xs bg-surface-2" aria-hidden="true">
+                  <div className={`h-[5px] rounded-xs ${vd.barre}`} style={{ width: `${Math.max(0, Math.min(100, score ?? 0))}%` }} />
                 </div>
-                <ul className="mt-2.5 flex flex-col gap-1.5 text-[13.5px]">
+                <ul className="mt-2.5 flex flex-col gap-1.5 text-base">
                   {verif.details.map((d) => {
                     const ok = d.statut === "fidele";
                     return (
                       <li key={d.detail} className="flex items-start gap-2">
-                        <span className={`mt-0.5 flex-none ${ok ? "text-[var(--pos)]" : "text-[var(--neg)]"}`} aria-hidden="true">
+                        <span className={`mt-0.5 flex-none ${ok ? "text-pos" : "text-neg"}`} aria-hidden="true">
                           {ok ? <Check size={14} /> : <X size={14} />}
                         </span>
                         <span>
                           <span className="font-medium">{d.detail}</span>
-                          <span className="text-[var(--ink2)]"> — {ok ? "fidèle" : d.note || d.statut}</span>
+                          <span className="text-ink-2"> — {ok ? "fidèle" : d.note || d.statut}</span>
                         </span>
                       </li>
                     );
@@ -266,7 +266,7 @@ export default function FileAJuger({
                 </ul>
               </>
             ) : (
-              <div className="mt-2 flex items-center gap-3 text-[13px] text-[var(--ink2)]">
+              <div className="mt-2 flex items-center gap-3 text-sm text-ink-2">
                 {avisEnCours.has(e.id) ? (
                   "Avis en cours…"
                 ) : (
@@ -282,25 +282,25 @@ export default function FileAJuger({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <button type="button" className={`${btnAcc} h-11 rounded-full px-5 text-[14px]`} disabled={!!occupe} onClick={() => void decider("valide")}>
+            <button type="button" className={`${btnAcc} h-11 rounded-full px-5 text-base`} disabled={!!occupe} onClick={() => void decider("valide")}>
               <Check size={15} /> {e.skuCible ? `Valider pour ${e.skuCible}` : "Valider"}
-              <kbd className="ml-1 rounded border border-current px-1 font-mono text-[10.5px] opacity-70">V</kbd>
+              <kbd className="ml-1 rounded border border-current px-1 font-mono text-xs opacity-70">V</kbd>
             </button>
-            <button type="button" className={`${btn} h-11 rounded-full px-5 text-[14px]`} disabled={!!occupe} onClick={() => void decider("rejete")}>
+            <button type="button" className={`${btn} h-11 rounded-full px-5 text-base`} disabled={!!occupe} onClick={() => void decider("rejete")}>
               <X size={15} /> Rejeter
-              <kbd className="ml-1 rounded border border-current px-1 font-mono text-[10.5px] opacity-70">R</kbd>
+              <kbd className="ml-1 rounded border border-current px-1 font-mono text-xs opacity-70">R</kbd>
             </button>
-            <button type="button" className={`${btn} h-11 rounded-full px-5 text-[14px]`} disabled={!!occupe} aria-expanded={!!correction} onClick={() => setCorrection((c) => (c ? null : derivants))}>
+            <button type="button" className={`${btn} h-11 rounded-full px-5 text-base`} disabled={!!occupe} aria-expanded={!!correction} onClick={() => setCorrection((c) => (c ? null : derivants))}>
               <Wrench size={15} /> Corriger un détail
-              <kbd className="ml-1 rounded border border-current px-1 font-mono text-[10.5px] opacity-70">C</kbd>
+              <kbd className="ml-1 rounded border border-current px-1 font-mono text-xs opacity-70">C</kbd>
             </button>
           </div>
 
           {correction && (
-            <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-2)] p-3.5 text-[13.5px]">
+            <div className="rounded-lg border border-line bg-surface-2 p-3.5 text-base">
               <div className="font-semibold">Détails à corriger</div>
               {candidats.length === 0 ? (
-                <p className="mt-1 text-[var(--ink2)]">Aucun détail saisi pour ce coloris : ajoute-les dans « Détails vérifiés par l’IA ».</p>
+                <p className="mt-1 text-ink-2">Aucun détail saisi pour ce coloris : ajoute-les dans « Détails vérifiés par l’IA ».</p>
               ) : (
                 <ul className="mt-2 flex flex-col gap-1">
                   {candidats.map((d) => (
@@ -308,7 +308,7 @@ export default function FileAJuger({
                       <label className="flex cursor-pointer items-center gap-2">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 accent-[var(--acc)]"
+                          className="h-4 w-4 accent-accent"
                           checked={correction.includes(d)}
                           onChange={(ev) => setCorrection((c) => (ev.target.checked ? [...(c ?? []), d] : (c ?? []).filter((x) => x !== d)))}
                         />
@@ -331,7 +331,7 @@ export default function FileAJuger({
               ) : (
                 <div className="mt-3">
                   {confirmation && devisCorrection ? (
-                    <div role="alertdialog" aria-label="Confirmer la dépense" className="rounded-xl border border-[var(--warn)] bg-[var(--warn-soft)] p-3">
+                    <div role="alertdialog" aria-label="Confirmer la dépense" className="rounded-lg border border-warn bg-warn-soft p-3">
                       <p className="font-semibold">Cette correction est estimée à {montantDevis(devisCorrection)} : confirmer ?</p>
                       <div className="mt-2 flex gap-2">
                         <button type="button" className={btnAcc} onClick={() => void regenerer(true)}>
@@ -346,7 +346,7 @@ export default function FileAJuger({
                   ) : (
                     <button type="button" className={btnAcc} disabled={!promptCorrection || !!occupe} onClick={() => void regenerer(false)}>
                       <Sparkles size={14} /> {occupe === "correction" ? "Génération…" : `Régénérer avec ${nomDe(e.modele)}`}
-                      {devisCorrection && <span className="font-mono text-[11.5px] opacity-80">{montantDevis(devisCorrection)}</span>}
+                      {devisCorrection && <span className="font-mono text-xs opacity-80">{montantDevis(devisCorrection)}</span>}
                     </button>
                   )}
                 </div>

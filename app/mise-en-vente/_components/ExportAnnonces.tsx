@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R4 R10 R12 R13 → M3
 
 // Étape 4 : les annonces générées, prêtes à copier et à enregistrer.
 //
@@ -50,24 +51,24 @@ export default function ExportAnnonces({
   }
 
   return (
-    <div className="flex flex-col gap-4 [animation:stepIn_.3s_both]">
+    <div className="flex flex-col gap-4 motion-safe:animate-entree">
       {/* Actions groupées */}
       {generees.length > 1 && (
         <div className={`${cardCls} flex flex-wrap items-center gap-2.5 px-5 py-4`}>
-          <span className="text-[13.5px] font-semibold text-[var(--ink2)]">
+          <span className="text-base font-semibold text-ink-2">
             {generees.length} annonces — tout enregistrer en :
           </span>
           <button
             disabled={enregistrementEnCours}
             onClick={() => onEnregistrerTout("Brouillon")}
-            className="inline-flex min-h-[40px] items-center rounded-xl border border-[var(--border)] bg-surface px-4 text-[13px] font-semibold text-[var(--ink2)] transition-colors hover:border-[var(--border-strong)] disabled:opacity-50"
+            className="inline-flex min-h-10 items-center rounded-lg border border-line bg-surface px-4 text-sm font-semibold text-ink-2 transition-colors hover:border-line-strong disabled:opacity-50"
           >
             Brouillon
           </button>
           <button
             disabled={enregistrementEnCours}
             onClick={() => onEnregistrerTout("En vente")}
-            className="inline-flex min-h-[40px] items-center rounded-xl bg-[var(--acc)] px-4 text-[13px] font-bold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)] disabled:opacity-50"
+            className="inline-flex min-h-10 items-center rounded-lg bg-accent px-4 text-sm font-bold text-accent-ink transition-colors hover:bg-accent-hover disabled:opacity-50"
           >
             En vente
           </button>
@@ -79,13 +80,13 @@ export default function ExportAnnonces({
             <button
               disabled={enregistrementEnCours}
               onClick={onPublierVintedTout}
-              className="inline-flex min-h-[40px] items-center rounded-xl bg-[#09B1BA] px-4 text-[13px] font-bold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50"
+              className="inline-flex min-h-10 items-center rounded-lg bg-[#09B1BA] px-4 text-sm font-bold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50"
             >
               Tout mettre en brouillon sur Vinted
             </button>
           )}
           {enregistrementEnCours && (
-            <span className="font-mono text-[11px] text-[var(--faint)]">
+            <span className="font-mono text-xs text-ink-3">
               enregistrement en série…
             </span>
           )}
@@ -101,9 +102,9 @@ export default function ExportAnnonces({
         return (
           <div key={f.id} className={`${cardCls} p-5 md:p-6`}>
             <div className="mb-4 flex flex-wrap items-center gap-3">
-              <span className="font-grotesk text-[17px] font-bold">{sku}</span>
+              <span className="font-sans text-md font-bold">{sku}</span>
               {f.enregistre && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--pos-soft)] px-3 py-1 text-[12px] font-bold text-[var(--pos)]">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-pos-soft px-3 py-1 text-xs font-bold text-pos">
                   <Check className="h-3.5 w-3.5" strokeWidth={2.6} />
                   enregistré · {f.enregistre}
                 </span>
@@ -111,7 +112,7 @@ export default function ExportAnnonces({
               {/* L'erreur est portée par LA fiche, pas par la session : à cinq
                   articles, un bandeau global s'accrochait à la mauvaise. */}
               {f.erreurEnregistrement && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--neg-soft)] px-3 py-1 text-[12px] font-bold text-[var(--neg)]">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-neg-soft px-3 py-1 text-xs font-bold text-neg">
                   <AlertTriangle className="h-3.5 w-3.5" />
                   {f.erreurEnregistrement}
                 </span>
@@ -119,13 +120,13 @@ export default function ExportAnnonces({
               {/* Rappelé ICI et pas seulement à la saisie : c'est au moment de
                   l'enregistrement que l'écrasement se produit. */}
               {doublon && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--warn-soft)] px-3 py-1 text-[12px] font-bold text-[var(--warn)]">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-warn-soft px-3 py-1 text-xs font-bold text-warn">
                   <AlertTriangle className="h-3.5 w-3.5" />
                   SKU en double — l&apos;autre annonce sera écrasée
                 </span>
               )}
               {f.article?.titreAnnonce && !f.enregistre && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--warn-soft)] px-3 py-1 text-[12px] font-bold text-[var(--warn)]">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-warn-soft px-3 py-1 text-xs font-bold text-warn">
                   <AlertTriangle className="h-3.5 w-3.5" />
                   Annonce existante — sera remplacée
                 </span>
@@ -143,9 +144,9 @@ export default function ExportAnnonces({
                     value={f.annonce.titre}
                     onChange={(e) => onEditerAnnonce(f.id, "titre", e.target.value)}
                     rows={2}
-                    className="w-full resize-none bg-transparent font-grotesk text-[15px] font-bold text-[var(--ink)] outline-none"
+                    className="w-full resize-none bg-transparent font-sans text-md font-bold text-ink outline-none"
                   />
-                  <span className="mt-1 block text-right font-mono text-[10.5px] text-[var(--faint)]">
+                  <span className="mt-1 block text-right font-mono text-xs text-ink-3">
                     {f.annonce.titre.length} car.
                   </span>
                 </BlocCopiable>
@@ -160,13 +161,13 @@ export default function ExportAnnonces({
                       value={f.annonce.description}
                       onChange={(e) => onEditerAnnonce(f.id, "description", e.target.value)}
                       rows={7}
-                      className="w-full resize-y bg-transparent text-[13.5px] leading-[1.6] text-[var(--ink)] outline-none"
+                      className="w-full resize-y bg-transparent text-base leading-[1.6] text-ink outline-none"
                     />
                     <textarea
                       value={f.annonce.motsCles}
                       onChange={(e) => onEditerAnnonce(f.id, "motsCles", e.target.value)}
                       rows={3}
-                      className="mt-2 w-full resize-y border-t border-[var(--border)] bg-transparent pt-2 text-[12.5px] leading-[1.55] text-[var(--ink2)] outline-none"
+                      className="mt-2 w-full resize-y border-t border-line bg-transparent pt-2 text-sm leading-[1.55] text-ink-2 outline-none"
                     />
                   </BlocCopiable>
                 </div>
@@ -174,10 +175,10 @@ export default function ExportAnnonces({
 
               <div className="flex flex-col gap-3">
                 {f.photos.length > 0 && (
-                  <div className="rounded-[16px] border border-[var(--border)] bg-[var(--tint)] p-3">
+                  <div className="rounded-md border border-line bg-surface-2 p-3">
                     <div className="mb-2 flex items-center justify-between">
                       <span className={labelCls}>Photos ({f.photos.length})</span>
-                      <span className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-[var(--faint)]">
+                      <span className="font-mono text-xs uppercase tracking-[0.1em] text-ink-3">
                         clic = télécharger
                       </span>
                     </div>
@@ -186,12 +187,12 @@ export default function ExportAnnonces({
                         <button
                           key={p.id}
                           onClick={() => onTelecharger(f.id, p.id)}
-                          className="group relative aspect-square overflow-hidden rounded-[10px] border border-[var(--border)]"
+                          className="group relative aspect-square overflow-hidden rounded border border-line"
                           title={`Télécharger ${sku}_${String(i + 1).padStart(2, "0")}.jpg`}
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={p.url} alt="" className="h-full w-full object-cover" />
-                          <span className="absolute inset-0 flex items-center justify-center bg-[var(--ink)]/0 text-transparent transition-all group-hover:bg-[var(--ink)]/45 group-hover:text-white">
+                          <span className="absolute inset-0 flex items-center justify-center bg-ink/0 text-transparent transition-all group-hover:bg-ink/45 group-hover:text-white">
                             <Download className="h-4 w-4" strokeWidth={2.2} />
                           </span>
                         </button>
@@ -200,20 +201,20 @@ export default function ExportAnnonces({
                   </div>
                 )}
 
-                <div className="rounded-[16px] border border-[var(--border)] p-3">
+                <div className="rounded-md border border-line p-3">
                   <span className={labelCls}>Enregistrer</span>
                   <div className="mt-2 flex flex-col gap-2">
                     <button
                       disabled={enregistrementEnCours}
                       onClick={() => onEnregistrer(f.id, "Brouillon")}
-                      className="inline-flex min-h-[42px] items-center justify-center rounded-xl border border-[var(--border)] bg-surface text-[13px] font-semibold text-[var(--ink2)] transition-colors hover:border-[var(--border-strong)] disabled:opacity-50"
+                      className="inline-flex min-h-[42px] items-center justify-center rounded-lg border border-line bg-surface text-sm font-semibold text-ink-2 transition-colors hover:border-line-strong disabled:opacity-50"
                     >
                       Brouillon
                     </button>
                     <button
                       disabled={enregistrementEnCours}
                       onClick={() => onEnregistrer(f.id, "En vente")}
-                      className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-xl bg-[var(--acc)] text-[13px] font-bold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)] disabled:opacity-50"
+                      className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-lg bg-accent text-sm font-bold text-accent-ink transition-colors hover:bg-accent-hover disabled:opacity-50"
                     >
                       Mettre en vente
                       <ArrowRight className="h-4 w-4" strokeWidth={2.3} />
@@ -228,12 +229,12 @@ export default function ExportAnnonces({
                 <button
                   disabled={enregistrementEnCours || couleurManquante}
                   onClick={() => onPublierVinted(f.id)}
-                  className="flex w-full items-center gap-2.5 rounded-[14px] bg-[#09B1BA] px-4 py-3 transition-transform hover:-translate-y-0.5 disabled:opacity-50"
+                  className="flex w-full items-center gap-2.5 rounded-md bg-[#09B1BA] px-4 py-3 transition-transform hover:-translate-y-0.5 disabled:opacity-50"
                 >
-                  <span className="flex h-8 w-8 flex-none items-center justify-center rounded-[9px] bg-white/20 font-grotesk text-[15px] font-extrabold text-white">
+                  <span className="flex h-8 w-8 flex-none items-center justify-center rounded bg-white/20 font-sans text-md font-extrabold text-white">
                     V
                   </span>
-                  <span className="text-left text-[13.5px] font-bold leading-tight text-white">
+                  <span className="text-left text-base font-bold leading-tight text-white">
                     {couleurManquante ? "Choisis une couleur" : "Publier sur Vinted"}
                   </span>
                   <ArrowRight className="ml-auto h-4 w-4 flex-none text-white" strokeWidth={2.3} />
@@ -246,7 +247,7 @@ export default function ExportAnnonces({
                       `${f.annonce.titre}\n\n${f.annonce.description}\n\n${f.annonce.motsCles}`
                     )
                   }
-                  className="inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-surface text-[13px] font-semibold text-[var(--ink2)] transition-colors hover:border-[var(--border-strong)]"
+                  className="inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-lg border border-line bg-surface text-sm font-semibold text-ink-2 transition-colors hover:border-line-strong"
                 >
                   {copie === `${f.id}-tout` ? (
                     <Check className="h-4 w-4" />
@@ -276,12 +277,12 @@ function BlocCopiable({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[16px] border border-[var(--border)] bg-[var(--tint)] p-4">
+    <div className="rounded-md border border-line bg-surface-2 p-4">
       <div className="mb-2 flex items-center justify-between gap-2.5">
         <span className={labelCls}>{label}</span>
         <button
           onClick={onCopier}
-          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-surface px-3 py-1.5 text-[12px] font-semibold text-[var(--ink2)] transition-colors hover:bg-[var(--tint)]"
+          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink-2 transition-colors hover:bg-surface-2"
         >
           {copie ? (
             <Check className="h-3.5 w-3.5" strokeWidth={2.6} />

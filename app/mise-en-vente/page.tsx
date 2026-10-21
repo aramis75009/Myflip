@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R10 R14 → M3
 
 // Assistant de mise en vente, 1 à 5 articles par session.
 //
@@ -561,7 +562,7 @@ export default function MiseEnVentePage() {
       "aucun");
 
   return (
-    <main className="min-h-screen bg-[var(--bg)] p-[14px] pb-40 text-[var(--ink)] min-[900px]:p-[18px] min-[900px]:pb-32">
+    <main className="min-h-screen bg-bg p-3.5 pb-40 text-ink min-[900px]:p-[18px] min-[900px]:pb-32">
       <header className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <Eyebrow>SKU → FICHES → GÉNÉRATION → ANNONCES</Eyebrow>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -580,12 +581,12 @@ export default function MiseEnVentePage() {
                 type="button"
                 disabled={!fait}
                 onClick={() => fait && dispatch({ type: "etape", etape: n })}
-                className={`inline-flex min-h-[32px] items-center gap-1.5 rounded-full px-3 font-mono text-[10.5px] uppercase tracking-[0.08em] transition-colors disabled:cursor-default ${
+                className={`inline-flex min-h-8 items-center gap-1.5 rounded-full px-3 font-mono text-xs uppercase tracking-[0.08em] transition-colors disabled:cursor-default ${
                   courant
-                    ? "bg-[var(--acc)] font-bold text-[var(--acc-ink)]"
+                    ? "bg-accent font-bold text-accent-ink"
                     : fait
-                      ? "bg-[var(--surface-2)] text-[var(--ink2)] hover:text-[var(--acc)]"
-                      : "text-[var(--faint-2)]"
+                      ? "bg-surface-2 text-ink-2 hover:text-accent-text"
+                      : "text-ink-3"
                 }`}
               >
                 {n}. {label}
@@ -619,10 +620,10 @@ export default function MiseEnVentePage() {
               {/* Sous 768 px le rail est masqué : on affiche au moins de quel
                   article il s'agit, sinon l'écran ne dit plus rien. */}
               <div className="mb-3 flex items-center gap-2.5 md:hidden">
-                <span className="font-mono text-[12.5px] font-bold">
+                <span className="font-mono text-sm font-bold">
                   {fiche.sku.trim() || "—"}
                 </span>
-                <span className="text-[12px] text-[var(--faint-2)]">
+                <span className="text-xs text-ink-3">
                   fiche {etat.fiches.findIndex((f) => f.id === fiche.id) + 1} sur{" "}
                   {etat.fiches.length}
                 </span>
@@ -664,7 +665,7 @@ export default function MiseEnVentePage() {
                 />
               ) : (
                 <div className={`${cardCls} px-6 py-12 text-center`}>
-                  <p className="text-[14px] font-medium text-[var(--muted)]">
+                  <p className="text-base font-medium text-ink-3">
                     Cette fiche n&apos;a pas encore d&apos;article valide.
                   </p>
                   <button
@@ -725,12 +726,12 @@ export default function MiseEnVentePage() {
       {photoZoomee && (
         <div
           onClick={() => setZoom(null)}
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--ink)]/80 p-6"
+          className="fixed inset-0 z-modal flex items-center justify-center bg-ink/80 p-6"
         >
           <button
             onClick={() => setZoom(null)}
             aria-label="Fermer"
-            className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[var(--ink)]"
+            className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-ink"
           >
             <X className="h-5 w-5" strokeWidth={2.4} />
           </button>
@@ -738,7 +739,7 @@ export default function MiseEnVentePage() {
           <img
             src={photoZoomee.url}
             alt=""
-            className="max-h-full max-w-full rounded-[16px] object-contain"
+            className="max-h-full max-w-full rounded-md object-contain"
           />
         </div>
       )}
@@ -755,11 +756,11 @@ export default function MiseEnVentePage() {
       {/* Barre d'action collante */}
       {/* `bottom-[68px]` sous 768 px : le dock mobile occupe déjà le bas de
           l'écran, et deux barres en `bottom-0` se recouvrent. */}
-      <div className="fixed bottom-[68px] left-0 z-40 w-full border-t border-[var(--border)] bg-surface/95 px-4 py-3 backdrop-blur-md md:bottom-0 md:pl-[calc(var(--sidebar-w)+18px)] md:pr-[18px]">
+      <div className="fixed bottom-[68px] left-0 z-dock w-full border-t border-line bg-surface/95 px-4 py-3 backdrop-blur-md md:bottom-0 md:pl-[calc(var(--sidebar-w)+18px)] md:pr-[18px]">
         <div className="mx-auto flex max-w-[1100px] items-center justify-between gap-4">
           <span
-            className={`min-w-0 truncate text-[12.5px] font-medium ${
-              barre.ok ? "text-[var(--pos)]" : "text-[var(--faint-2)]"
+            className={`min-w-0 truncate text-sm font-medium ${
+              barre.ok ? "text-pos" : "text-ink-3"
             }`}
           >
             {barre.indice}
@@ -782,7 +783,7 @@ export default function MiseEnVentePage() {
             <button
               onClick={agir}
               disabled={!barre.actif}
-              className="inline-flex min-h-[46px] items-center gap-2 rounded-xl bg-[var(--acc)] px-5 text-[14px] font-bold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)] disabled:opacity-50"
+              className="inline-flex min-h-[46px] items-center gap-2 rounded-lg bg-accent px-5 text-base font-bold text-accent-ink transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
               {barre.label}
               {barre.icone === "etincelles" ? (

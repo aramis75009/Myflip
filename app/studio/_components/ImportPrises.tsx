@@ -169,11 +169,11 @@ export default function ImportPrises({
           setSurvol(null);
           void importer(Array.from(e.dataTransfer.files));
         }}
-        className={`flex flex-col gap-3.5 rounded-[18px] transition-colors ${survol === "section" ? "bg-[var(--acc-soft)]" : ""}`}
+        className={`flex flex-col gap-3.5 rounded-lg transition-colors ${survol === "section" ? "bg-accent-soft" : ""}`}
       >
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <h2 className="text-[20px] font-bold tracking-[-0.01em]">Photographie le sac</h2>
-          <span className="rounded-full bg-[var(--acc-soft)] px-2.5 py-1 font-mono text-[12px] font-semibold text-[var(--acc)]">
+          <h2 className="text-lg font-bold tracking-[-0.01em]">Photographie le sac</h2>
+          <span className="rounded-full bg-accent-soft px-2.5 py-1 font-mono text-xs font-semibold text-accent-text">
             {photos.length} / {MAX_PRISES} prises
           </span>
           <div className="flex-1" />
@@ -196,13 +196,13 @@ export default function ImportPrises({
         {/* Aide et bandeau de sélection dans la même cellule : la plus haute des
             deux fixe la hauteur, la grille ne descend pas quand on sélectionne. */}
         <div className="grid [&>*]:[grid-area:1/1]">
-          <p className={`text-[14px] leading-relaxed text-[var(--ink2)] ${choisie ? "invisible" : ""}`}>
+          <p className={`text-base leading-relaxed text-ink-2 ${choisie ? "invisible" : ""}`}>
             {photos.length === 0
               ? "14 à 15 vraies photos, toujours les mêmes prises. Dépose-les ici : elles prennent les cases dans l’ordre des noms de fichier, tu les ranges ensuite en les glissant."
               : "Glisse chaque photo sur sa prise : sur une case occupée, les deux s’échangent. Sans souris, touche une photo puis la case où la ranger."}
           </p>
           <div
-            className={`flex flex-wrap items-center gap-x-2.5 gap-y-1.5 self-start rounded-[14px] bg-[var(--warn-soft)] px-3.5 py-2 text-[14px] ${choisie ? "" : "invisible"}`}
+            className={`flex flex-wrap items-center gap-x-2.5 gap-y-1.5 self-start rounded-md bg-warn-soft px-3.5 py-2 text-base ${choisie ? "" : "invisible"}`}
             aria-live="polite"
           >
             <span>
@@ -244,19 +244,19 @@ export default function ImportPrises({
                 }}
                 // Largeur de bordure constante : la mise en avant est un anneau
                 // (box-shadow), qui ne prend pas de place et ne fait pas sauter la photo.
-                className={`flex flex-col gap-2 rounded-[16px] border p-2 transition-[background-color,border-color,box-shadow] duration-150 ${
+                className={`flex flex-col gap-2 rounded-md border p-2 transition-[background-color,border-color,box-shadow] duration-fast ${
                   dessus
-                    ? "border-[var(--acc)] bg-[var(--acc-soft)] ring-1 ring-[var(--acc)]"
+                    ? "border-accent bg-accent-soft ring-1 ring-accent"
                     : eclaire
-                      ? "border-[var(--warn)] bg-[var(--warn-soft)] ring-1 ring-[var(--warn)]"
+                      ? "border-warn bg-warn-soft ring-1 ring-warn"
                       : photo
-                        ? "border-[var(--border)] bg-[var(--surface-2)]"
-                        : "border-dashed border-[var(--border-strong)] bg-[var(--surface-2)]"
+                        ? "border-line bg-surface-2"
+                        : "border-dashed border-line-strong bg-surface-2"
                 }`}
               >
                 <div className="flex min-h-5 items-baseline gap-2 px-0.5">
-                  <span className="font-mono text-[11px] font-semibold text-[var(--ink2)]">{String(ordre).padStart(2, "0")}</span>
-                  <span className="truncate text-[13.5px] font-semibold">{nomPrise(ordre, generation)}</span>
+                  <span className="font-mono text-xs font-semibold text-ink-2">{String(ordre).padStart(2, "0")}</span>
+                  <span className="truncate text-base font-semibold">{nomPrise(ordre, generation)}</span>
                 </div>
                 {photo ? (
                   <button
@@ -276,8 +276,8 @@ export default function ImportPrises({
                     onClick={() => (choisie && choisie !== photo.id ? void ranger(choisie, ordre) : setChoisie(choisie === photo.id ? null : photo.id))}
                     aria-label={`Photo rangée sous ${nomPrise(ordre, generation)}`}
                     aria-pressed={choisie === photo.id}
-                    className={`aspect-[3/4] w-full cursor-grab overflow-hidden rounded-[12px] bg-[var(--border)] outline-offset-2 active:cursor-grabbing ${
-                      choisie === photo.id ? "outline outline-[3px] outline-[var(--warn)]" : ""
+                    className={`aspect-[3/4] w-full cursor-grab overflow-hidden rounded-md bg-line outline-offset-2 active:cursor-grabbing ${
+                      choisie === photo.id ? "outline outline-[3px] outline-warn" : ""
                     } ${glissee === photo.id ? "opacity-40" : ""}`}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element -- image privée servie par /api/studio/image */}
@@ -288,7 +288,7 @@ export default function ImportPrises({
                     type="button"
                     disabled={occupe}
                     onClick={() => (choisie ? void ranger(choisie, ordre) : choisirFichiers(ordre))}
-                    className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-1.5 rounded-[12px] text-[13px] text-[var(--ink2)] transition-colors enabled:hover:bg-surface disabled:cursor-wait"
+                    className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-1.5 rounded-md text-sm text-ink-2 transition-colors enabled:hover:bg-surface disabled:cursor-wait"
                   >
                     <Plus size={18} aria-hidden />
                     {choisie ? "Ranger ici" : "Dépose ici"}

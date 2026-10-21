@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R12 → M3
 
 // Le pop-up de choix du délai anti-ban, ouvert avant qu'un seul article ne
 // parte en file.
@@ -66,10 +67,10 @@ export default function DialogueDelaiVinted({
   }
 
   const ongletCls = (actif: boolean) =>
-    `inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border-[1.5px] px-4 text-[13.5px] font-semibold transition-all ${
+    `inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border-[1.5px] px-4 text-base font-semibold transition-all ${
       actif
-        ? "border-[var(--acc)] bg-[var(--acc)] text-[var(--acc-ink)]"
-        : "border-[var(--border)] bg-surface text-[var(--ink2)] hover:border-[var(--border-strong)]"
+        ? "border-accent bg-accent text-accent-ink"
+        : "border-line bg-surface text-ink-2 hover:border-line-strong"
     }`;
 
   return (
@@ -81,13 +82,13 @@ export default function DialogueDelaiVinted({
         <div className="flex justify-end gap-3">
           <button
             onClick={onAnnuler}
-            className="min-h-[44px] rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-4 text-[12.5px] font-medium text-[var(--ink2)] transition-colors hover:border-[var(--border-strong)]"
+            className="min-h-11 rounded-full border border-line bg-surface-2 px-4 text-sm font-medium text-ink-2 transition-colors hover:border-line-strong"
           >
             Annuler
           </button>
           <button
             onClick={confirmer}
-            className="min-h-[44px] rounded-full bg-[var(--acc)] px-5 text-[12.5px] font-semibold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)]"
+            className="min-h-11 rounded-full bg-accent px-5 text-sm font-semibold text-accent-ink transition-colors hover:bg-accent-hover"
           >
             {libelleAction}
           </button>
@@ -95,7 +96,7 @@ export default function DialogueDelaiVinted({
       }
     >
       <div className="space-y-4">
-        <p className="text-[13px] leading-relaxed text-[var(--ink2)]">
+        <p className="text-sm leading-relaxed text-ink-2">
           Le premier article part tout de suite. Ce délai s&apos;applique entre
           les annonces suivantes — c&apos;est le garde-fou anti-ban.
         </p>
@@ -171,7 +172,7 @@ export default function DialogueDelaiVinted({
         )}
 
         {erreur && (
-          <p className="font-mono text-[12px] text-[var(--neg)]">{erreur}</p>
+          <p className="font-mono text-xs text-neg">{erreur}</p>
         )}
       </div>
     </Modal>

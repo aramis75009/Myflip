@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R4 R10 R13 R14 R15 → M1
 
 import {
   forwardRef,
@@ -169,7 +170,7 @@ function compare(a: ArticleDTO, b: ArticleDTO, key: SortKey): number {
 // vérité de cette hauteur — les modifier déplace toute la barre d'un coup.
 // 44px en mobile (cible tactile Apple HIG), 40px en desktop (maquette C).
 const CTRL =
-  "h-11 md:h-10 rounded-full border border-[var(--border)] bg-[var(--tint)] text-[13px] text-[var(--ink2)] outline-none transition-colors hover:border-[var(--border-strong)] focus:border-[var(--border-strong)]";
+  "h-11 md:h-10 rounded-full border border-line bg-surface-2 text-sm text-ink-2 outline-none transition-colors hover:border-line-strong focus:border-line-strong";
 const CTRL_SELECT = `${CTRL} max-w-[220px] cursor-pointer truncate px-3.5 font-semibold`;
 const CTRL_BTN = `${CTRL} inline-flex items-center gap-2 px-4 font-semibold`;
 
@@ -177,7 +178,7 @@ const CTRL_BTN = `${CTRL} inline-flex items-center gap-2 px-4 font-semibold`;
 // KPI. C'est le marqueur typographique de la direction — jamais utilisé pour
 // du contenu, uniquement pour nommer une donnée.
 const MICRO =
-  "font-mono text-[9.5px] font-medium uppercase tracking-[0.14em] text-[var(--faint)]";
+  "font-mono text-xs font-medium uppercase tracking-[0.14em] text-ink-3";
 
 // Couleur de la marge nette. Le zéro et l'absence de valeur se lisent pareil :
 // il n'y a rien à saluer ni à alarmer.
@@ -188,8 +189,8 @@ const MICRO =
 // tableau le colorait en vert, contredisant le commentaire ci-dessus. La même
 // marge se lisait donc « neutre » sur mobile et « positive » sur desktop.
 function margeClass(marge: number | null): string {
-  if (marge == null || marge === 0) return "text-[var(--faint-2)]";
-  return marge < 0 ? "text-[var(--neg)]" : "text-[var(--pos)]";
+  if (marge == null || marge === 0) return "text-ink-3";
+  return marge < 0 ? "text-neg" : "text-pos";
 }
 
 // Détecte le breakpoint md (768px) pour ne rendre qu'une seule liste virtualisée
@@ -403,7 +404,7 @@ const ArticleRow = memo(
       sku: (
         <td
           key="sku"
-          className="py-[9px] pl-2 pr-2 font-mono text-[12.5px] font-bold text-[var(--ink)]"
+          className="py-[9px] pl-2 pr-2 font-mono text-sm font-bold text-ink"
         >
           {/* Filet vertical à la couleur du statut : c'est lui qui rend la
               colonne scannable. Le statut reste lisible en toutes lettres plus
@@ -427,7 +428,7 @@ const ArticleRow = memo(
         </td>
       ),
       marque: (
-        <td key="marque" className="px-2 py-[9px] text-[13px] font-semibold text-ink">
+        <td key="marque" className="px-2 py-[9px] text-sm font-semibold text-ink">
           <EditableCell
             value={a.marque}
             onSave={(v) => onPatch(a.id, { marque: v })}
@@ -435,7 +436,7 @@ const ArticleRow = memo(
         </td>
       ),
       categorie: (
-        <td key="categorie" className="px-2 py-[9px] text-[12.5px] text-ink-muted">
+        <td key="categorie" className="px-2 py-[9px] text-sm text-ink-2">
           <EditableCell
             value={a.categorie}
             onSave={(v) => onPatch(a.id, { categorie: v })}
@@ -443,7 +444,7 @@ const ArticleRow = memo(
         </td>
       ),
       grade: (
-        <td key="grade" className="px-2 py-[9px] text-[12.5px] text-ink-muted">
+        <td key="grade" className="px-2 py-[9px] text-sm text-ink-2">
           <EditableCell
             value={a.grade}
             onSave={(v) => onPatch(a.id, { grade: v || null })}
@@ -464,7 +465,7 @@ const ArticleRow = memo(
       prixAchat: (
         <td
           key="prixAchat"
-          className="px-2 py-[9px] font-mono text-[12.5px] tabular-nums text-ink"
+          className="px-2 py-[9px] font-mono text-sm tabular-nums text-ink"
         >
           <EditableCell
             value={a.prixAchat}
@@ -478,7 +479,7 @@ const ArticleRow = memo(
       prixVente: (
         <td
           key="prixVente"
-          className="px-2 py-[9px] font-mono text-[12.5px] tabular-nums text-ink"
+          className="px-2 py-[9px] font-mono text-sm tabular-nums text-ink"
         >
           <EditableCell
             value={a.prixVente}
@@ -493,7 +494,7 @@ const ArticleRow = memo(
       margeBrute: (
         <td
           key="margeBrute"
-          className="px-3 py-[9px] text-right font-mono text-[12.5px] tabular-nums text-ink-muted"
+          className="px-3 py-[9px] text-right font-mono text-sm tabular-nums text-ink-2"
         >
           {a.margeBrute != null ? euros(a.margeBrute) : "—"}
         </td>
@@ -501,7 +502,7 @@ const ArticleRow = memo(
       margeNette: (
         <td
           key="margeNette"
-          className={`px-3 py-[9px] text-right font-mono text-[12.5px] font-medium tabular-nums ${margeClass(
+          className={`px-3 py-[9px] text-right font-mono text-sm font-medium tabular-nums ${margeClass(
             a.margeNette,
           )}`}
         >
@@ -511,25 +512,25 @@ const ArticleRow = memo(
       coefficient: (
         <td
           key="coefficient"
-          className="px-3 py-[9px] text-right font-mono text-[12.5px] font-bold tabular-nums"
+          className="px-3 py-[9px] text-right font-mono text-sm font-bold tabular-nums"
         >
           {sousObjectif ? (
             <span
               className="inline-flex items-center gap-1"
-              style={{ color: "var(--warn)" }}
+              style={{ color: "rgb(var(--warn))" }}
               title={`Objectif : x${a.coefObjectif}`}
             >
               ⚠️ {coef(coefEffectif)}
             </span>
           ) : (
-            <span className="text-[var(--ink2)]">{coef(a.coefficient)}</span>
+            <span className="text-ink-2">{coef(a.coefficient)}</span>
           )}
         </td>
       ),
       dateMiseEnVente: (
         <td
           key="dateMiseEnVente"
-          className="px-2 py-[9px] font-mono text-[12px] tabular-nums text-ink-muted"
+          className="px-2 py-[9px] font-mono text-xs tabular-nums text-ink-2"
         >
           <EditableCell
             value={a.dateMiseEnVente ? jourParis(new Date(a.dateMiseEnVente)) : null}
@@ -546,7 +547,7 @@ const ArticleRow = memo(
       dateVente: (
         <td
           key="dateVente"
-          className="px-2 py-[9px] font-mono text-[12px] tabular-nums text-ink-muted"
+          className="px-2 py-[9px] font-mono text-xs tabular-nums text-ink-2"
         >
           <EditableCell
             value={a.dateVente ? jourParis(new Date(a.dateVente)) : null}
@@ -570,17 +571,17 @@ const ArticleRow = memo(
       joursEnVente: (
         <td
           key="joursEnVente"
-          className="px-3 py-[9px] text-right font-mono text-[12.5px] tabular-nums"
+          className="px-3 py-[9px] text-right font-mono text-sm tabular-nums"
         >
           {jours ? (
             <span
-              className={jours.vendu ? "font-bold text-[var(--ink)]" : "text-[var(--faint-2)]"}
+              className={jours.vendu ? "font-bold text-ink" : "text-ink-3"}
               title={jours.vendu ? "Vendu en " + joursTxt(jours.jours) : "En vente depuis " + joursTxt(jours.jours)}
             >
               {jours.jours} j
             </span>
           ) : (
-            <span className="text-[var(--faint-2)]">—</span>
+            <span className="text-ink-3">—</span>
           )}
         </td>
       ),
@@ -592,7 +593,7 @@ const ArticleRow = memo(
       // Compte Vinted choisi AVANT la vente : SacBase le lit pour répartir les
       // sacs par compte. Vide = « — », à attribuer.
       compteVente: (
-        <td key="compteVente" className="px-2 py-[9px] text-[12.5px] text-ink-muted">
+        <td key="compteVente" className="px-2 py-[9px] text-sm text-ink-2">
           <EditableCell
             type="select"
             value={a.compteVente}
@@ -603,7 +604,7 @@ const ArticleRow = memo(
         </td>
       ),
       transporteur: (
-        <td key="transporteur" className="px-3 py-[9px] text-[12.5px] text-ink-muted">
+        <td key="transporteur" className="px-3 py-[9px] text-sm text-ink-2">
           {a.transporteur ?? "—"}
         </td>
       ),
@@ -615,8 +616,8 @@ const ArticleRow = memo(
         // Le survol ne pose plus de filet à gauche : le filet de statut porté
         // par la colonne SKU occupe déjà ce registre, et deux filets à 40px
         // d'écart brouillaient la lecture. Un simple fond suffit.
-        className={`border-b border-[var(--border)] align-middle transition-colors duration-150 hover:bg-[var(--tint)] ${
-          isSelected ? "bg-[var(--acc-soft)]" : ""
+        className={`border-b border-line align-middle transition-colors duration-fast hover:bg-surface-2 ${
+          isSelected ? "bg-accent-soft" : ""
         }`}
       >
         {/* data-select-cell : point d'ancrage du glissement (cf. useDragSelect).
@@ -626,18 +627,18 @@ const ArticleRow = memo(
           <input
             type="checkbox"
             aria-label={`Sélectionner ${a.sku}`}
-            className="pointer-events-none h-4 w-4 accent-[var(--acc)]"
+            className="pointer-events-none h-4 w-4 accent-accent"
             checked={isSelected}
             onChange={() => onToggleSelect(a.id)}
           />
         </td>
         {shownColumns.map((c) => cells[c.key])}
         <td className="px-3 py-[9px]">
-          <div className="flex items-center justify-end gap-2.5 text-[var(--faint-2)]">
+          <div className="flex items-center justify-end gap-2.5 text-ink-3">
             <button
               onClick={() => onShowDetail(a)}
-              className={`transition-colors hover:text-[var(--acc)] ${
-                a.titreAnnonce ? "text-[var(--acc)]" : ""
+              className={`transition-colors hover:text-accent-text ${
+                a.titreAnnonce ? "text-accent-text" : ""
               }`}
               title={a.titreAnnonce ? "Voir le détail (annonce générée)" : "Voir le détail"}
             >
@@ -645,7 +646,7 @@ const ArticleRow = memo(
             </button>
             <button
               onClick={() => onDelete(a)}
-              className="transition-colors hover:text-[var(--neg)]"
+              className="transition-colors hover:text-neg"
               title="Supprimer"
             >
               <X className="h-[17px] w-[17px]" strokeWidth={2} />
@@ -678,15 +679,15 @@ const ArticleCard = memo(
     return (
       <div ref={ref} {...rest} className="pb-3">
         <div
-          className={`overflow-hidden rounded-[20px] border bg-surface p-4 ${
-            isSelected ? "border-[var(--acc)]" : "border-[var(--border)]"
+          className={`overflow-hidden rounded-lg border bg-surface p-4 ${
+            isSelected ? "border-accent" : "border-line"
           }`}
         >
           <div className="flex gap-3">
             <input
               type="checkbox"
               aria-label={`Sélectionner ${a.sku}`}
-              className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-[var(--acc)]"
+              className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-accent"
               checked={isSelected}
               onChange={() => onToggleSelect(a.id)}
             />
@@ -702,18 +703,18 @@ const ArticleCard = memo(
                   className="h-[17px] w-[3px] flex-none rounded-full"
                   style={{ backgroundColor: statutMarker(a.statut) }}
                 />
-                <span className="truncate font-mono text-[13px] font-bold text-[var(--ink)]">
+                <span className="truncate font-mono text-sm font-bold text-ink">
                   {a.sku}
                 </span>
                 {a.titreAnnonce && (
-                  <FileText className="h-4 w-4 text-[var(--acc)]" strokeWidth={2} />
+                  <FileText className="h-4 w-4 text-accent-text" strokeWidth={2} />
                 )}
               </div>
               <div className="mt-1.5 flex items-center justify-between gap-2">
-                <span className="truncate text-[13px] font-semibold text-[var(--ink2)]">
+                <span className="truncate text-sm font-semibold text-ink-2">
                   {a.marque}
                   {a.compteVente && (
-                    <span className="font-normal text-[var(--faint-2)]">
+                    <span className="font-normal text-ink-3">
                       {" · "}
                       {labelCompteVente(a.compteVente)}
                     </span>
@@ -721,19 +722,19 @@ const ArticleCard = memo(
                 </span>
                 <CanalBadge canal={a.canal} />
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[12.5px] tabular-nums">
-                <span className="text-[var(--ink2)]">{euros(a.prixAchat)}</span>
-                <span className="text-[var(--faint-2)]">→</span>
-                <span className="text-[var(--ink2)]">
+              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-sm tabular-nums">
+                <span className="text-ink-2">{euros(a.prixAchat)}</span>
+                <span className="text-ink-3">→</span>
+                <span className="text-ink-2">
                   {a.prixVente != null ? euros(a.prixVente) : "—"}
                 </span>
-                <span className="text-[var(--faint-2)]">·</span>
+                <span className="text-ink-3">·</span>
                 <span className={`font-bold ${margeClass(a.margeNette)}`}>
                   {a.margeNette != null ? euros(a.margeNette) : "—"}
                 </span>
                 {jours && (
                   <span
-                    className={jours.vendu ? "text-[var(--ink2)]" : "text-[var(--faint-2)]"}
+                    className={jours.vendu ? "text-ink-2" : "text-ink-3"}
                     title={jours.vendu ? "Vendu en " + joursTxt(jours.jours) : "En vente depuis " + joursTxt(jours.jours)}
                   >
                     · {jours.jours} j
@@ -744,7 +745,7 @@ const ArticleCard = memo(
           </div>
 
           {/* Actions (parité avec les lignes du tableau) — touch targets 44px */}
-          <div className="mt-3 flex items-center gap-2 border-t border-[var(--bg)] pt-3">
+          <div className="mt-3 flex items-center gap-2 border-t border-bg pt-3">
             <StatutPill
               value={a.statut}
               onChange={(s) => onStatutChange(a, s)}
@@ -755,8 +756,8 @@ const ArticleCard = memo(
             <button
               onClick={() => onShowDetail(a)}
               aria-label="Voir le détail"
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-[var(--border)] transition-colors active:bg-[var(--tint)] ${
-                a.titreAnnonce ? "text-[var(--acc)]" : "text-[var(--faint-2)]"
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-line transition-colors active:bg-surface-2 ${
+                a.titreAnnonce ? "text-accent-text" : "text-ink-3"
               }`}
             >
               <FileText className="h-[18px] w-[18px]" strokeWidth={2} />
@@ -764,7 +765,7 @@ const ArticleCard = memo(
             <button
               onClick={() => onDelete(a)}
               aria-label={`Supprimer ${a.sku}`}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-[var(--border)] text-[var(--faint-2)] transition-colors active:text-[var(--neg)]"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-line text-ink-3 transition-colors active:text-neg"
             >
               <X className="h-[18px] w-[18px]" strokeWidth={2} />
             </button>
@@ -793,10 +794,10 @@ function KpiCard({
 }) {
   return (
     <div
-      className={`relative overflow-hidden rounded-[20px] border px-[18px] py-[15px] transition-[transform,box-shadow,border-color] duration-[260ms] hover:-translate-y-[3px] ${
+      className={`relative overflow-hidden rounded-lg border px-[18px] py-[15px] transition-[transform,box-shadow,border-color] duration-slow hover:-translate-y-[3px] ${
         dark
-          ? "border-[var(--acc)] bg-[var(--acc)] text-[var(--acc-ink)] shadow-[0_14px_30px_-20px_rgba(20,53,40,.7)] hover:shadow-[0_24px_44px_-22px_rgba(20,53,40,.85)]"
-          : "border-[var(--border)] bg-surface hover:border-[var(--border-strong)] hover:shadow-[0_18px_34px_-24px_rgba(20,53,40,.55)]"
+          ? "border-accent bg-accent text-accent-ink shadow-pop hover:shadow-over"
+          : "border-line bg-surface hover:border-line-strong hover:shadow-pop"
       }`}
     >
       {dark && (
@@ -808,13 +809,13 @@ function KpiCard({
         </svg>
       )}
       <div
-        className={`font-mono text-[9.5px] font-medium uppercase tracking-[0.16em] ${
-          dark ? "text-[var(--acc-dim)]" : "text-[var(--faint)]"
+        className={`font-mono text-xs font-medium uppercase tracking-[0.16em] ${
+          dark ? "text-accent-ink" : "text-ink-3"
         }`}
       >
         {label}
       </div>
-      <div className="relative mt-1.5 font-grotesk text-[22px] font-bold tracking-[-0.03em] tabular-nums md:text-[27px]">
+      <div className="relative mt-1.5 font-sans text-lg font-bold tracking-[-0.03em] tabular-nums md:text-xl">
         {value}
       </div>
     </div>
@@ -836,15 +837,15 @@ function ColumnChip({
 }) {
   return (
     <label
-      className={`inline-flex items-center gap-2 rounded-full bg-[var(--tint)] px-3 py-1.5 text-[12.5px] ${
+      className={`inline-flex items-center gap-2 rounded-full bg-surface-2 px-3 py-1.5 text-sm ${
         locked
-          ? "cursor-default text-[var(--faint)]"
-          : "cursor-pointer text-[var(--ink2)]"
+          ? "cursor-default text-ink-3"
+          : "cursor-pointer text-ink-2"
       }`}
     >
       <input
         type="checkbox"
-        className="h-3.5 w-3.5 accent-[var(--acc)] disabled:cursor-default"
+        className="h-3.5 w-3.5 accent-accent disabled:cursor-default"
         checked={locked ? true : checked}
         disabled={locked}
         readOnly={locked}
@@ -1216,9 +1217,9 @@ function StockInner() {
   // Rendu deux fois — dans le module en desktop, sous les cartes en mobile —
   // d'où l'extraction plutôt qu'une duplication du balisage.
   const summary = (
-    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3 font-mono text-[11px] text-[var(--faint)]">
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3 font-mono text-xs text-ink-3">
       <span>
-        <span className="font-bold text-[var(--ink2)]">
+        <span className="font-bold text-ink-2">
           {sorted.length.toLocaleString("fr-FR")}
         </span>{" "}
         ligne{sorted.length > 1 ? "s" : ""} affichée
@@ -1233,7 +1234,7 @@ function StockInner() {
         <span>{totals.vendus.toLocaleString("fr-FR")} vendus</span>
         <span>
           marge nette{" "}
-          <span className="font-bold text-[var(--pos)]">{euros(totals.net)}</span>
+          <span className="font-bold text-pos">{euros(totals.net)}</span>
         </span>
       </span>
     </div>
@@ -1247,7 +1248,7 @@ function StockInner() {
     : null;
 
   return (
-    <main className="min-h-screen bg-[var(--bg)] px-4 py-5 text-[var(--ink)] md:px-[38px] md:py-[30px] md:pb-[46px]">
+    <main className="min-h-screen bg-bg px-4 py-5 text-ink md:px-[38px] md:py-[30px] md:pb-[46px]">
       {/* Bandeau de KPI — quatre chiffres, aucun ornement. */}
       <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
@@ -1270,13 +1271,13 @@ function StockInner() {
           séparément sur le fond de page et chacune redemandait au regard de
           se réorienter ; ici, tout ce qui agit sur la liste vit dans le même
           conteneur que la liste. */}
-      <section className="overflow-hidden rounded-[26px] border border-[var(--border)] bg-surface">
+      <section className="overflow-hidden rounded-lg border border-line bg-surface">
         <div className="flex flex-col gap-2 p-3.5 md:flex-row md:flex-wrap md:items-center">
           <label
             className={`${CTRL} flex w-full items-center gap-2.5 px-4 md:min-w-[200px] md:flex-1`}
           >
             <Search
-              className="h-4 w-4 flex-none text-[var(--faint-2)]"
+              className="h-4 w-4 flex-none text-ink-3"
               strokeWidth={2}
             />
             <input
@@ -1284,7 +1285,7 @@ function StockInner() {
               onChange={(e) => setQInput(e.target.value)}
               placeholder="Rechercher un SKU…"
               aria-label="Rechercher un SKU"
-              className="w-full bg-transparent font-mono text-[12.5px] text-[var(--ink)] outline-none placeholder:text-[var(--faint-2)]"
+              className="w-full bg-transparent font-mono text-sm text-ink outline-none placeholder:text-ink-3"
             />
           </label>
           <select
@@ -1333,7 +1334,7 @@ function StockInner() {
             onClick={() => setColsOpen((o) => !o)}
             aria-expanded={colsOpen}
             className={`${CTRL_BTN} hidden md:inline-flex ${
-              colsOpen ? "border-[var(--border-strong)] bg-[var(--surface-2)]" : ""
+              colsOpen ? "border-line-strong bg-surface-2" : ""
             }`}
           >
             <SlidersHorizontal className="h-4 w-4" strokeWidth={2} />
@@ -1348,7 +1349,7 @@ function StockInner() {
           </button>
           <button
             onClick={() => setNewCommande(true)}
-            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[var(--acc)] px-4 text-[13px] font-bold text-[var(--acc-ink)] shadow-[0_10px_22px_-12px_rgba(20,53,40,.8)] transition-colors hover:bg-[var(--acc-hover)] md:h-10 md:w-auto"
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-accent px-4 text-sm font-bold text-accent-ink shadow-pop transition-colors hover:bg-accent-hover md:h-10 md:w-auto"
           >
             <Plus className="h-4 w-4" strokeWidth={2.3} />
             Nouvelle commande
@@ -1396,10 +1397,10 @@ function StockInner() {
                 key={chip.value}
                 onClick={() => setStatut(chip.value)}
                 aria-pressed={active}
-                className={`inline-flex min-h-[44px] flex-none items-center gap-2 whitespace-nowrap rounded-full border px-3.5 text-[12.5px] transition-colors duration-200 md:min-h-[36px] ${
+                className={`inline-flex min-h-11 flex-none items-center gap-2 whitespace-nowrap rounded-full border px-3.5 text-sm transition-colors duration-base md:min-h-9 ${
                   active
-                    ? "border-[var(--acc)] bg-[var(--acc)] font-bold text-[var(--acc-ink)]"
-                    : "border-[var(--border)] bg-[var(--tint)] font-medium text-[var(--ink2)] hover:border-[var(--border-strong)]"
+                    ? "border-accent bg-accent font-bold text-accent-ink"
+                    : "border-line bg-surface-2 font-medium text-ink-2 hover:border-line-strong"
                 }`}
               >
                 <span
@@ -1408,12 +1409,12 @@ function StockInner() {
                   style={{
                     backgroundColor:
                       chip.value === ""
-                        ? "var(--faint-2)"
+                        ? "rgb(var(--ink-3))"
                         : statutMarker(chip.value),
                   }}
                 />
                 {chip.label}
-                <span className="font-mono text-[10.5px] tabular-nums opacity-70">
+                <span className="font-mono text-xs tabular-nums opacity-70">
                   {cnt}
                 </span>
               </button>
@@ -1427,14 +1428,14 @@ function StockInner() {
         <div
           ref={desktopWrapRef}
           onPointerDown={onSelectPointerDown}
-          className="hidden overflow-x-auto border-t border-[var(--border)] md:block"
+          className="hidden overflow-x-auto border-t border-line md:block"
         >
           <table
             style={{ minWidth: Math.max(640, colCount * 96) }}
             className="w-full border-collapse"
           >
             <thead>
-              <tr className={`${MICRO} border-b border-[var(--border)] bg-[var(--tint)] text-left`}>
+              <tr className={`${MICRO} border-b border-line bg-surface-2 text-left`}>
                 <th
                   className="w-10 px-[18px] py-2.5"
                   title="Astuce : glisse le long de cette colonne pour sélectionner plusieurs lignes"
@@ -1442,7 +1443,7 @@ function StockInner() {
                   <input
                     type="checkbox"
                     aria-label="Tout sélectionner"
-                    className="h-4 w-4 cursor-pointer accent-[var(--acc)]"
+                    className="h-4 w-4 cursor-pointer accent-accent"
                     checked={
                       sorted.length > 0 && sorted.every((a) => selected.has(a.id))
                     }
@@ -1459,7 +1460,7 @@ function StockInner() {
                   <th
                     key={c.key}
                     onClick={() => toggleSort(c.key)}
-                    className={`cursor-pointer select-none whitespace-nowrap px-2.5 py-2.5 transition-colors hover:text-[var(--ink)] ${
+                    className={`cursor-pointer select-none whitespace-nowrap px-2.5 py-2.5 transition-colors hover:text-ink ${
                       c.align === "right" ? "text-right" : ""
                     }`}
                   >
@@ -1480,14 +1481,14 @@ function StockInner() {
               )}
               {isError && (
                 <tr>
-                  <td colSpan={colCount} className="px-3 py-10 text-center text-error">
+                  <td colSpan={colCount} className="px-3 py-10 text-center text-neg">
                     {(error as Error).message}
                   </td>
                 </tr>
               )}
               {showEmpty && (
                 <tr>
-                  <td colSpan={colCount} className="px-3 py-10 text-center text-ink-faint">
+                  <td colSpan={colCount} className="px-3 py-10 text-center text-ink-3">
                     Aucun article.
                   </td>
                 </tr>
@@ -1536,7 +1537,7 @@ function StockInner() {
         )}
 
         {isDesktop && (
-          <div className="hidden border-t border-[var(--border)] md:block">
+          <div className="hidden border-t border-line md:block">
             {summary}
           </div>
         )}
@@ -1549,12 +1550,12 @@ function StockInner() {
           <div ref={mobileWrapRef} className="mt-3">
             {isLoading && <Loader label="Chargement du stock" />}
             {isError && (
-              <p className="rounded-[20px] border border-line bg-surface px-4 py-6 text-center text-error">
+              <p className="rounded-lg border border-line bg-surface px-4 py-6 text-center text-neg">
                 {(error as Error).message}
               </p>
             )}
             {showEmpty && (
-              <p className="rounded-[20px] border border-line bg-surface px-4 py-6 text-center text-ink-faint">
+              <p className="rounded-lg border border-line bg-surface px-4 py-6 text-center text-ink-3">
                 Aucun article.
               </p>
             )}
@@ -1586,7 +1587,7 @@ function StockInner() {
             )}
           </div>
           {showRows && (
-            <div className="rounded-[20px] border border-[var(--border)] bg-surface">
+            <div className="rounded-lg border border-line bg-surface">
               {summary}
             </div>
           )}
@@ -1600,17 +1601,17 @@ function StockInner() {
           barre ancrée en haut du module serait hors écran au moment précis où
           l'on vient de sélectionner à la souris tout en bas. */}
       {selected.size > 0 && (
-        <div className="fixed inset-x-0 bottom-16 z-30 flex justify-center px-4 md:bottom-6 md:left-[var(--sidebar-w)]">
-          <div className="flex flex-wrap items-center gap-2.5 rounded-[18px] bg-[var(--acc)] py-2 pl-5 pr-2 text-[var(--acc-ink)] shadow-[0_18px_40px_-16px_rgba(0,0,0,.6)] [animation:fadeUp_.25s_cubic-bezier(.22,1,.36,1)_both]">
-            <span className="font-mono text-[12.5px] font-bold tabular-nums">
+        <div className="fixed inset-x-0 bottom-16 z-dock flex justify-center px-4 md:bottom-6 md:left-[var(--sidebar-w)]">
+          <div className="flex flex-wrap items-center gap-2.5 rounded-lg bg-accent py-2 pl-5 pr-2 text-accent-ink shadow-over motion-safe:animate-entree">
+            <span className="font-mono text-sm font-bold tabular-nums">
               {selected.size} sélectionné{selected.size > 1 ? "s" : ""}
             </span>
             <span className="h-4 w-px bg-white/20" />
-            <span className="text-[12px] font-medium text-[var(--acc-dim)]">Statut</span>
+            <span className="text-xs font-medium text-accent-ink">Statut</span>
             <select
               value={bulkStatut}
               onChange={(e) => setBulkStatut(e.target.value)}
-              className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[13px] font-semibold text-white outline-none [color-scheme:dark] focus:border-white/30"
+              className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-sm font-semibold text-white outline-none [color-scheme:dark] focus:border-white/30"
             >
               {STATUTS.filter((s) => s !== STATUT_VENDU).map((s) => (
                 <option key={s} value={s}>
@@ -1621,14 +1622,14 @@ function StockInner() {
             <button
               onClick={applyBulk}
               disabled={bulk.isPending}
-              className="rounded-full bg-white px-4 py-1.5 text-[13px] font-bold text-[var(--acc)] transition-colors hover:bg-[var(--acc-soft)] disabled:opacity-60"
+              className="rounded-full bg-white px-4 py-1.5 text-sm font-bold text-accent-text transition-colors hover:bg-accent-soft disabled:opacity-60"
             >
               {bulk.isPending ? "…" : "Appliquer"}
             </button>
             <button
               onClick={clearSelection}
               aria-label="Annuler la sélection"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--acc-dim)] transition-colors hover:bg-white/10 hover:text-white"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-accent-ink transition-colors hover:bg-white/10 hover:text-white"
             >
               <X className="h-[17px] w-[17px]" strokeWidth={2.2} />
             </button>
@@ -1657,33 +1658,33 @@ function StockInner() {
       >
         {detail && (
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-body-md">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-base">
               <StatutBadge statut={detail.statut} />
-              <span className="text-ink-muted">
-                <span className="text-ink-faint">Marque : </span>
+              <span className="text-ink-2">
+                <span className="text-ink-3">Marque : </span>
                 {detail.marque}
               </span>
-              <span className="text-ink-muted">
-                <span className="text-ink-faint">Catégorie : </span>
+              <span className="text-ink-2">
+                <span className="text-ink-3">Catégorie : </span>
                 {detail.categorie}
               </span>
-              <span className="text-ink-muted">
-                <span className="text-ink-faint">Prix achat : </span>
+              <span className="text-ink-2">
+                <span className="text-ink-3">Prix achat : </span>
                 {euros(detail.prixAchat)}
               </span>
             </div>
 
             {detail.statut === STATUT_VENDU && (
               <div className="space-y-3 border-t border-line pt-4">
-                <h3 className="text-label-sm font-semibold uppercase tracking-wide text-ink-faint">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
                   Informations de vente
                 </h3>
-                <p className="text-label-sm text-ink-faint">
+                <p className="text-xs font-medium text-ink-3">
                   Double-clic sur une valeur pour corriger une erreur de saisie.
                 </p>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-body-md">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-base">
                   <div>
-                    <span className="mb-0.5 block text-label-sm text-ink-faint">
+                    <span className="mb-0.5 block text-xs font-medium text-ink-3">
                       Prix de vente
                     </span>
                     <EditableCell
@@ -1698,7 +1699,7 @@ function StockInner() {
                     />
                   </div>
                   <div>
-                    <span className="mb-0.5 block text-label-sm text-ink-faint">
+                    <span className="mb-0.5 block text-xs font-medium text-ink-3">
                       Date de vente
                     </span>
                     <EditableCell
@@ -1717,7 +1718,7 @@ function StockInner() {
                     />
                   </div>
                   <div>
-                    <span className="mb-0.5 block text-label-sm text-ink-faint">
+                    <span className="mb-0.5 block text-xs font-medium text-ink-3">
                       Canal
                     </span>
                     <select
@@ -1725,7 +1726,7 @@ function StockInner() {
                       onChange={(e) =>
                         handlePatch(detail.id, { canal: e.target.value })
                       }
-                      className="mt-0.5 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-body-md text-ink outline-none focus:border-primary focus:ring-2 focus:ring-[var(--acc-ring)]"
+                      className="mt-0.5 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-base text-ink outline-none focus:border-accent focus:ring-2 focus:ring-focus"
                     >
                       {detail.canal == null && <option value="">—</option>}
                       {CANAUX.map((c) => (
@@ -1736,14 +1737,14 @@ function StockInner() {
                     </select>
                   </div>
                   <div>
-                    <span className="mb-0.5 block text-label-sm text-ink-faint">
+                    <span className="mb-0.5 block text-xs font-medium text-ink-3">
                       Marge nette
                     </span>
                     <span
                       className={`mt-0.5 block px-2 py-1 font-medium ${
                         detail.margeNette != null && detail.margeNette < 0
-                          ? "text-error"
-                          : "text-primary"
+                          ? "text-neg"
+                          : "text-accent-text"
                       }`}
                     >
                       {detail.margeNette != null ? euros(detail.margeNette) : "—"}
@@ -1755,7 +1756,7 @@ function StockInner() {
 
             {detail.titreAnnonce ? (
               <div className="space-y-3 border-t border-line pt-4">
-                <h3 className="text-label-sm font-semibold uppercase tracking-wide text-ink-faint">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
                   Annonce
                 </h3>
                 <DetailCopyField label="Titre" value={detail.titreAnnonce} />
@@ -1770,9 +1771,9 @@ function StockInner() {
                 />
               </div>
             ) : (
-              <p className="border-t border-line pt-4 text-body-md text-ink-faint">
+              <p className="border-t border-line pt-4 text-base text-ink-3">
                 Aucune annonce générée.{" "}
-                <a href="/mise-en-vente" className="text-primary underline">
+                <a href="/mise-en-vente" className="text-accent-text underline">
                   Créer une annonce
                 </a>
               </p>
@@ -1795,9 +1796,9 @@ function DetailCopyField({
 }) {
   const [copied, setCopied] = useState(false);
   return (
-    <div className="rounded-md border border-line bg-surface-soft p-3">
+    <div className="rounded-md border border-line bg-surface-2 p-3">
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-label-sm font-medium uppercase tracking-wide text-ink-faint">
+        <span className="text-xs font-medium uppercase tracking-wide text-ink-3">
           {label}
         </span>
         <button
@@ -1806,12 +1807,12 @@ function DetailCopyField({
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
           }}
-          className="rounded-full border border-line bg-surface px-3 py-0.5 text-label-sm font-medium text-ink transition-colors hover:bg-surface-container"
+          className="rounded-full border border-line bg-surface px-3 py-0.5 text-xs font-medium text-ink transition-colors hover:bg-surface-2"
         >
           {copied ? "Copié ✓" : "Copier"}
         </button>
       </div>
-      <p className={`text-body-md text-ink ${multiline ? "whitespace-pre-wrap" : ""}`}>
+      <p className={`text-base text-ink ${multiline ? "whitespace-pre-wrap" : ""}`}>
         {value || "—"}
       </p>
     </div>

@@ -104,11 +104,11 @@ export function ConfirmationLancement({
     <div
       role="alertdialog"
       aria-label="Confirmer la dépense"
-      className="mt-2 rounded-xl border border-[var(--warn)] bg-[var(--warn-soft)] p-3 text-[13px] text-[var(--ink)]"
+      className="mt-2 rounded-lg border border-warn bg-warn-soft p-3 text-sm text-ink"
     >
       <p className="font-semibold">{phraseConfirmation(devis, correction)}</p>
-      {serveur && <p className="mt-1 text-[12.5px] text-[var(--ink2)]">Devis recalculé par le serveur, différent de celui affiché.</p>}
-      <ul className="mt-2 flex flex-col gap-0.5 font-mono text-[11.5px] text-[var(--ink2)]">
+      {serveur && <p className="mt-1 text-sm text-ink-2">Devis recalculé par le serveur, différent de celui affiché.</p>}
+      <ul className="mt-2 flex flex-col gap-0.5 font-mono text-xs text-ink-2">
         {devis.lignes.map((l) => (
           <li key={l.modele} className="flex justify-between gap-3">
             <span className="min-w-0 truncate" title={l.modele}>
@@ -118,7 +118,7 @@ export function ConfirmationLancement({
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-[12px] text-[var(--ink2)]">
+      <p className="mt-2 text-xs text-ink-2">
         Confirmation demandée au-delà de {SEUIL_TEXTE} ou dès qu’un tarif est inconnu
         {auJeton ? " ; au jeton, le coût réel n’est connu qu’après la génération." : "."}
       </p>
@@ -160,7 +160,7 @@ function LigneModele({
   const tropPeu = nbReferences > 0 && nbReferences < m.minReferences;
   const titre = [m.id, m.description.slice(0, 280)].filter(Boolean).join("\n");
   return (
-    <li className="flex min-h-9 items-center gap-2 rounded-lg pl-0.5 pr-2 hover:bg-[var(--surface-2)]">
+    <li className="flex min-h-9 items-center gap-2 rounded-md pl-0.5 pr-2 hover:bg-surface-2">
       <button
         type="button"
         onClick={onEtoile}
@@ -168,19 +168,19 @@ function LigneModele({
         aria-pressed={favori}
         aria-label={favori ? `Retirer ${m.nom} des favoris` : `Épingler ${m.nom} en favori`}
         title={favori ? "Retirer des favoris" : "Épingler en favori"}
-        className={`grid h-8 w-8 flex-none place-items-center rounded-md transition-colors hover:text-[var(--ink)] disabled:opacity-50 ${favori ? "text-[var(--acc)]" : "text-[var(--faint)]"}`}
+        className={`grid h-8 w-8 flex-none place-items-center rounded-md transition-colors hover:text-ink disabled:opacity-50 ${favori ? "text-accent-text" : "text-ink-3"}`}
       >
         <Star size={15} fill={favori ? "currentColor" : "none"} />
       </button>
       <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2" title={titre}>
         <input
           type="checkbox"
-          className="h-4 w-4 flex-none accent-[var(--acc)]"
+          className="h-4 w-4 flex-none accent-accent"
           checked={coche}
           disabled={(!coche && plein) || tropPeu}
           onChange={(e) => onCocher(e.target.checked)}
         />
-        <span className="min-w-0 truncate text-[13px] font-semibold text-[var(--ink)]">{m.nom}</span>
+        <span className="min-w-0 truncate text-sm font-semibold text-ink">{m.nom}</span>
       </label>
       {sansRatio && (
         <Badge
@@ -195,8 +195,8 @@ function LigneModele({
         </Badge>
       )}
       {tropPeu && <Badge ton="warn">EXIGE {m.minReferences} RÉF.</Badge>}
-      <span className="flex-none whitespace-nowrap font-mono text-[11px] text-[var(--ink2)]">{libelleTarif(m.tarif)}</span>
-      <span className="w-[104px] flex-none whitespace-nowrap text-right font-mono text-[11px] text-[var(--faint)]">jusqu’à {m.maxReferences} réf.</span>
+      <span className="flex-none whitespace-nowrap font-mono text-xs text-ink-2">{libelleTarif(m.tarif)}</span>
+      <span className="w-[104px] flex-none whitespace-nowrap text-right font-mono text-xs text-ink-3">jusqu’à {m.maxReferences} réf.</span>
     </li>
   );
 }
@@ -279,17 +279,17 @@ export default function SelecteurModeles({
         : null;
 
   return (
-    <div className="rounded-2xl border border-[var(--border)] p-3">
+    <div className="rounded-md border border-line p-3">
       <div className="mb-2 flex items-baseline justify-between gap-3">
-        <span className="font-mono text-[10.5px] tracking-[0.2em] text-[var(--faint)]">GÉNÉRER PAR API</span>
-        {aside && <span className="font-mono text-[10px] text-[var(--faint)]">{aside}</span>}
+        <span className="font-mono text-xs tracking-[0.2em] text-ink-3">GÉNÉRER PAR API</span>
+        {aside && <span className="font-mono text-xs text-ink-3">{aside}</span>}
       </div>
 
       {chargement && !catalogue ? (
         <Loader size="sm" label="Catalogue OpenRouter…" />
       ) : !catalogue || modeles.length === 0 ? (
         <div className="flex flex-wrap items-center gap-3">
-          <p className="text-[12.5px] font-semibold text-[var(--warn)]">
+          <p className="text-sm font-semibold text-warn">
             {erreur
               ? `Catalogue OpenRouter indisponible (${erreur}).`
               : "Catalogue OpenRouter injoignable : aucun modèle à proposer pour l’instant."}{" "}
@@ -302,24 +302,24 @@ export default function SelecteurModeles({
       ) : (
         <>
           {etat?.kind === "stale" && (
-            <p className="mb-2 text-[12px] text-[var(--ink2)]">OpenRouter ne répond pas : liste et tarifs du dernier relevé.</p>
+            <p className="mb-2 text-xs text-ink-2">OpenRouter ne répond pas : liste et tarifs du dernier relevé.</p>
           )}
 
-          <div className="font-mono text-[10px] tracking-[0.1em] text-[var(--faint)]">FAVORIS</div>
+          <div className="font-mono text-xs tracking-[0.1em] text-ink-3">FAVORIS</div>
           {enFavori.length === 0 && favorisAbsents.length === 0 ? (
-            <p className="py-1.5 text-[12.5px] text-[var(--ink2)]">Aucun favori : clique l’étoile d’un modèle pour l’épingler ici.</p>
+            <p className="py-1.5 text-sm text-ink-2">Aucun favori : clique l’étoile d’un modèle pour l’épingler ici.</p>
           ) : (
             <ul className="flex flex-col">
               {enFavori.map(ligne)}
               {favorisAbsents.map((id) => (
-                <li key={id} className="flex min-h-9 items-center gap-2 pl-0.5 pr-2 text-[12.5px] text-[var(--ink2)]">
+                <li key={id} className="flex min-h-9 items-center gap-2 pl-0.5 pr-2 text-sm text-ink-2">
                   <button
                     type="button"
                     onClick={() => basculerFavori(id)}
                     disabled={favorisEnCours.includes(id)}
                     aria-pressed
                     aria-label={`Retirer ${id} des favoris`}
-                    className="grid h-8 w-8 flex-none place-items-center rounded-md text-[var(--acc)] disabled:opacity-50"
+                    className="grid h-8 w-8 flex-none place-items-center rounded-md text-accent-text disabled:opacity-50"
                   >
                     <Star size={15} fill="currentColor" />
                   </button>
@@ -330,19 +330,19 @@ export default function SelecteurModeles({
             </ul>
           )}
 
-          <div className="mt-2 border-t border-[var(--border)] pt-2">
+          <div className="mt-2 border-t border-line pt-2">
             <button
               type="button"
               onClick={() => setOuvert(!deplie)}
               aria-expanded={deplie}
-              className="flex h-8 items-center gap-1 font-mono text-[10px] tracking-[0.1em] text-[var(--faint)] hover:text-[var(--ink)]"
+              className="flex h-8 items-center gap-1 font-mono text-xs tracking-[0.1em] text-ink-3 hover:text-ink"
             >
               {deplie ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               TOUS LES MODÈLES ({reste.length})
             </button>
             {deplie && (
               <div className="relative mb-1.5 mt-1">
-                <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--faint)]" aria-hidden="true" />
+                <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" aria-hidden="true" />
                 <input
                   type="search"
                   value={filtre}
@@ -357,11 +357,11 @@ export default function SelecteurModeles({
               <ul className={`flex flex-col ${deplie ? "max-h-[264px] overflow-y-auto" : ""}`}>{resteVisible.map(ligne)}</ul>
             )}
             {deplie && q && resteFiltre.length === 0 && (
-              <p className="py-1.5 text-[12.5px] text-[var(--ink2)]">Aucun modèle ne correspond à « {filtre.trim()} ».</p>
+              <p className="py-1.5 text-sm text-ink-2">Aucun modèle ne correspond à « {filtre.trim()} ».</p>
             )}
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-[var(--border)] pt-3">
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line pt-3">
             <button
               type="button"
               className={btnAcc}
@@ -371,15 +371,15 @@ export default function SelecteurModeles({
               <Sparkles size={14} /> {enCours ? "Génération en cours…" : `Générer (${choisis.length})`}
             </button>
             {choisis.length > 0 ? (
-              <span className="text-[13px] text-[var(--ink)]">
+              <span className="text-sm text-ink">
                 Devis : <strong className="font-mono">{montantDevis(devis)}</strong>
-                {devis.confirmationRequise && <span className="text-[var(--ink2)]"> · confirmation demandée</span>}
+                {devis.confirmationRequise && <span className="text-ink-2"> · confirmation demandée</span>}
               </span>
             ) : (
-              <span className="text-[12.5px] text-[var(--ink2)]">Coche un ou plusieurs modèles ({MAX_MODELES} au plus).</span>
+              <span className="text-sm text-ink-2">Coche un ou plusieurs modèles ({MAX_MODELES} au plus).</span>
             )}
-            {plein && <span className="text-[12.5px] text-[var(--ink2)]">{MAX_MODELES} modèles au plus par lancement.</span>}
-            {bloque && <span className="text-[12.5px] font-semibold text-[var(--warn)]">{bloque}</span>}
+            {plein && <span className="text-sm text-ink-2">{MAX_MODELES} modèles au plus par lancement.</span>}
+            {bloque && <span className="text-sm font-semibold text-warn">{bloque}</span>}
           </div>
           {confirmation}
         </>

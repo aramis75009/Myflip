@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R10 → L2a
 
 import { useState } from "react";
 import Link from "next/link";
@@ -15,11 +16,11 @@ import { useDismissOnOutside } from "@/lib/useDismiss";
 // `bg-[${x}]` construit à l'exécution.
 const SEV = {
   action: {
-    accent: "var(--alert)",
-    tint: "var(--alert-soft)",
+    accent: "rgb(var(--danger))",
+    tint: "rgb(var(--neg-soft))",
     Icon: AlertTriangle,
   },
-  info: { accent: "var(--notice)", tint: "var(--notice-soft)", Icon: Clock },
+  info: { accent: "rgb(var(--warn))", tint: "rgb(var(--warn-soft))", Icon: Clock },
 } as const;
 
 // Cloche + panneau de notifications, intégrée dans la barre supérieure.
@@ -38,27 +39,27 @@ export default function NotificationBell() {
         onClick={() => setOpen((v) => !v)}
         aria-label={`Notifications${count > 0 ? ` (${count})` : ""}`}
         aria-expanded={open}
-        className={`relative flex h-10 w-10 items-center justify-center rounded-[11px] transition-colors ${
-          open ? "bg-tint text-[var(--acc)]" : "text-nav hover:bg-tint hover:text-[var(--acc)]"
+        className={`relative flex h-10 w-10 items-center justify-center rounded transition-colors ${
+          open ? "bg-surface-2 text-accent-text" : "text-ink-2 hover:bg-surface-2 hover:text-accent-text"
         }`}
       >
         <Bell className="h-5 w-5" strokeWidth={2} />
         {count > 0 && (
-          <span className="absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-[9px] border-2 border-[var(--surface)] bg-[var(--alert)] px-1 font-grotesk text-[10.5px] font-bold text-white">
+          <span className="absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded border-2 border-surface bg-danger px-1 font-sans text-xs font-bold text-white">
             {count}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-[calc(100%+10px)] w-[min(384px,92vw)] overflow-hidden rounded-[18px] border border-line bg-surface shadow-[0_26px_60px_-24px_rgba(20,53,40,.5)] [animation:popIn_.16s_ease_both] [transform-origin:top_right]">
+        <div className="absolute right-0 top-[calc(100%+10px)] w-[min(384px,92vw)] overflow-hidden rounded-lg border border-line bg-surface shadow-pop motion-safe:animate-pop [transform-origin:top_right]">
           <div className="flex items-center justify-between gap-2.5 border-b border-bg px-[18px] py-[15px]">
             <div className="flex items-baseline gap-2.5">
-              <span className="font-grotesk text-[15.5px] font-bold text-ink">
+              <span className="font-sans text-md font-bold text-ink">
                 Notifications
               </span>
               {count > 0 && (
-                <span className="text-[12px] font-semibold text-faint">
+                <span className="text-xs font-semibold text-ink-3">
                   {count} à traiter
                 </span>
               )}
@@ -67,10 +68,10 @@ export default function NotificationBell() {
 
           {count === 0 ? (
             <div className="flex flex-col items-center gap-3 px-6 pb-10 pt-[38px] text-center">
-              <span className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[var(--pos-soft)] text-[var(--acc)]">
+              <span className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-pos-soft text-accent-text">
                 <Check className="h-[26px] w-[26px]" strokeWidth={2.6} />
               </span>
-              <span className="text-[14px] font-semibold text-ink-muted">
+              <span className="text-base font-semibold text-ink-2">
                 Tout est à jour — rien à faire
               </span>
             </div>
@@ -84,10 +85,10 @@ export default function NotificationBell() {
                     key={n.key}
                     href={n.href}
                     onClick={() => setOpen(false)}
-                    className="flex items-center gap-3 rounded-[13px] px-3 py-3 transition-colors hover:bg-tint"
+                    className="flex items-center gap-3 rounded-md px-3 py-3 transition-colors hover:bg-surface-2"
                   >
                     <span
-                      className="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-[10px]"
+                      className="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded"
                       style={{ background: sev.tint }}
                     >
                       <Icon
@@ -97,21 +98,21 @@ export default function NotificationBell() {
                       />
                     </span>
                     <span className="min-w-0 flex-1 leading-[1.35]">
-                      <span className="block text-[13.5px] font-bold text-ink">
+                      <span className="block text-base font-bold text-ink">
                         {n.title}
                       </span>
-                      <span className="mt-px block text-[12.5px] font-medium text-muted">
+                      <span className="mt-px block text-sm font-medium text-ink-3">
                         {n.message}
                       </span>
                     </span>
                     <span
-                      className="flex-shrink-0 rounded-[11px] px-[9px] py-1 text-center font-grotesk text-[12.5px] font-bold"
+                      className="flex-shrink-0 rounded px-[9px] py-1 text-center font-sans text-sm font-bold"
                       style={{ color: sev.accent, background: sev.tint }}
                     >
                       {n.count}
                     </span>
                     <ChevronRight
-                      className="h-[17px] w-[17px] flex-shrink-0 text-[var(--faint-2)]"
+                      className="h-[17px] w-[17px] flex-shrink-0 text-ink-3"
                       strokeWidth={2.2}
                     />
                   </Link>

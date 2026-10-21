@@ -19,22 +19,22 @@ export default function AccountMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-label={nom ? `Mon compte (${nom})` : "Mon compte"}
         aria-expanded={open}
-        className="flex h-[38px] w-[38px] items-center justify-center rounded-full bg-[var(--acc)] font-grotesk text-[15px] font-bold text-[var(--acc-dim)] transition-transform hover:scale-105"
+        className="flex h-[38px] w-[38px] items-center justify-center rounded-full bg-accent font-sans text-md font-bold text-accent-ink transition-transform hover:scale-105"
       >
         {initiale}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-[calc(100%+10px)] w-[214px] overflow-hidden rounded-[16px] border border-line bg-surface py-1.5 shadow-[0_26px_60px_-24px_rgba(20,53,40,.5)] [animation:popIn_.16s_ease_both] [transform-origin:top_right]">
+        <div className="absolute right-0 top-[calc(100%+10px)] w-[214px] overflow-hidden rounded-md border border-line bg-surface py-1.5 shadow-pop motion-safe:animate-pop [transform-origin:top_right]">
           <div className="flex items-center gap-3 border-b border-bg px-3.5 py-3">
-            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[var(--acc)] font-grotesk text-[13.5px] font-bold text-[var(--acc-dim)]">
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-accent font-sans text-base font-bold text-accent-ink">
               {initiale}
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-[13.5px] font-bold text-ink">
+              <span className="block truncate text-base font-bold text-ink">
                 {nom || "Mon compte"}
               </span>
-              <span className="block text-[11.5px] font-medium text-faint">
+              <span className="block text-xs font-medium text-ink-3">
                 Connecté
               </span>
             </span>
@@ -42,14 +42,14 @@ export default function AccountMenu() {
           <Link
             href="/compte"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2.5 px-3.5 py-2.5 text-[13.5px] font-semibold text-ink-muted transition-colors hover:bg-tint"
+            className="flex items-center gap-2.5 px-3.5 py-2.5 text-base font-semibold text-ink-2 transition-colors hover:bg-surface-2"
           >
             <UserCircle className="h-[18px] w-[18px]" strokeWidth={2} />
             Mon compte
           </Link>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
-            className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-[13.5px] font-semibold text-[var(--neg)] transition-colors hover:bg-[var(--neg-soft)]"
+            className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-base font-semibold text-neg transition-colors hover:bg-neg-soft"
           >
             <LogOut className="h-[18px] w-[18px]" strokeWidth={2} />
             Déconnexion

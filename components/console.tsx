@@ -1,3 +1,4 @@
+// design-tokens-dette: R14 → L2a
 // Primitives de mise en page « Direction C — Console tactile », partagées par
 // le Dashboard et les Statistiques : les deux écrans posaient jusqu'ici les
 // mêmes chaînes de classes, au demi-pixel près, chacun de son côté.
@@ -11,7 +12,7 @@ import type { ReactNode } from "react";
 /** Conteneur de page : colonne unique, padding et gouttière de la maquette. */
 export function Frame({ children }: { children: ReactNode }) {
   return (
-    <main className="flex min-h-screen flex-col gap-[14px] bg-[var(--bg)] p-[14px] text-[var(--ink)] [animation:stepIn_.2s_ease_both] min-[900px]:p-[18px]">
+    <main className="flex min-h-screen flex-col gap-3.5 bg-bg p-3.5 text-ink motion-safe:animate-entree min-[900px]:p-[18px]">
       {children}
     </main>
   );
@@ -33,7 +34,7 @@ export function Module({
 }) {
   return (
     <section
-      className={`rounded-[26px] border border-[var(--border)] bg-surface ${className}`}
+      className={`rounded-lg border border-line bg-surface ${className}`}
     >
       {children}
     </section>
@@ -43,7 +44,7 @@ export function Module({
 /** Micro-libellé mono : l'étiquette de section de Direction C. */
 export function Eyebrow({ children }: { children: ReactNode }) {
   return (
-    <div className="font-mono text-[10.5px] tracking-[0.2em] text-[var(--faint)]">
+    <div className="font-mono text-xs tracking-[0.2em] text-ink-3">
       {children}
     </div>
   );
@@ -58,7 +59,7 @@ export function Eyebrow({ children }: { children: ReactNode }) {
 export function CardTitle({
   children,
   aside,
-  className = "mb-[14px]",
+  className = "mb-3.5",
 }: {
   children: ReactNode;
   aside?: ReactNode;
@@ -66,11 +67,11 @@ export function CardTitle({
 }) {
   return (
     <div className={`flex items-baseline justify-between gap-3 ${className}`}>
-      <span className="text-[15px] font-semibold tracking-[-0.01em] text-[var(--ink)]">
+      <span className="text-md font-semibold tracking-[-0.01em] text-ink">
         {children}
       </span>
       {aside && (
-        <span className="flex-none font-mono text-[10px] text-[var(--faint)]">
+        <span className="flex-none font-mono text-xs text-ink-3">
           {aside}
         </span>
       )}

@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R1 R4 R10 R13 → L3
 
 import { useEffect, useState } from "react";
 import { aujourdhuiParis } from "@/lib/dateMiseEnVente";
@@ -9,7 +10,7 @@ import type { CompteVente } from "@/lib/types";
 
 // Validation d'une vente : carte centrée (même structure que l'ancien modal
 // clair) habillée aux couleurs de la barre de sélection du Stock — fond sombre
-// #16261D, contrôles bg-white/10, action verte var(--pos).
+// #16261D, contrôles bg-white/10, action verte rgb(var(--pos)).
 
 // Jour calendaire à Paris : en UTC, une vente saisie entre minuit et 2 h
 // serait pré-remplie à la veille.
@@ -17,9 +18,9 @@ function todayISO() {
   return aujourdhuiParis();
 }
 
-const LABEL = "mb-1.5 block text-[12.5px] font-semibold text-[#9FB2A7]";
+const LABEL = "mb-1.5 block text-sm font-semibold text-[#9FB2A7]";
 const FIELD =
-  "min-h-[44px] w-full rounded-xl border border-white/15 bg-white/10 px-3.5 text-[14px] font-semibold text-white outline-none transition-colors [color-scheme:dark] focus:border-white/35";
+  "min-h-11 w-full rounded-lg border border-white/15 bg-white/10 px-3.5 text-base font-semibold text-white outline-none transition-colors [color-scheme:dark] focus:border-white/35";
 
 type Props = {
   open: boolean;
@@ -84,16 +85,16 @@ export default function SellDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 backdrop-blur-sm [animation:overlayIn_.18s_ease-out_both]"
+      className="fixed inset-0 z-modal flex items-center justify-center bg-black/45 px-4 backdrop-blur-sm motion-safe:animate-fondu"
       onMouseDown={() => !pending && onClose()}
     >
       <form
         onSubmit={submit}
         onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-[24px] bg-[#16261D] p-6 text-white shadow-[0_28px_60px_-20px_rgba(0,0,0,.7)] [animation:modalIn_.22s_cubic-bezier(.22,1,.36,1)_both]"
+        className="w-full max-w-md rounded-lg bg-[#16261D] p-6 text-white shadow-over motion-safe:animate-pop"
       >
         <div className="mb-5 flex items-center justify-between gap-3">
-          <h2 className="font-grotesk text-[20px] font-bold tracking-[-0.01em]">
+          <h2 className="font-sans text-lg font-bold tracking-[-0.01em]">
             Vendre {sku ?? "l’article"}
           </h2>
           <button
@@ -179,7 +180,7 @@ export default function SellDialog({
         </div>
 
         {error && (
-          <p className="mt-4 text-[13px] font-medium text-[#F5B7A0]">{error}</p>
+          <p className="mt-4 text-sm font-medium text-[#F5B7A0]">{error}</p>
         )}
 
         <div className="mt-6 flex justify-end gap-2.5">
@@ -187,14 +188,14 @@ export default function SellDialog({
             type="button"
             onClick={onClose}
             disabled={pending}
-            className="min-h-[44px] rounded-full border border-white/15 px-5 text-[13.5px] font-semibold text-[#9FB2A7] transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50"
+            className="min-h-11 rounded-full border border-white/15 px-5 text-base font-semibold text-[#9FB2A7] transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50"
           >
             Annuler
           </button>
           <button
             type="submit"
             disabled={pending}
-            className="min-h-[44px] rounded-full bg-[var(--pos)] px-5 text-[13.5px] font-bold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)] disabled:opacity-60"
+            className="min-h-11 rounded-full bg-pos px-5 text-base font-bold text-accent-ink transition-colors hover:bg-accent-hover disabled:opacity-60"
           >
             {pending ? "Validation…" : "Confirmer la vente"}
           </button>

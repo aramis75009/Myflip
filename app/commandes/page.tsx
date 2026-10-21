@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R2 R6 R15 R16 → M4
 
 import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
@@ -25,10 +26,10 @@ function Chip({
 }) {
   return (
     <span
-      className={`rounded-full px-3.5 py-2 font-mono text-[11px] ${
+      className={`rounded-full px-3.5 py-2 font-mono text-xs ${
         accent
-          ? "bg-[var(--acc)] font-bold text-[var(--acc-ink)]"
-          : "bg-[var(--surface-2)] text-[var(--ink2)]"
+          ? "bg-accent font-bold text-accent-ink"
+          : "bg-surface-2 text-ink-2"
       }`}
     >
       {children}
@@ -51,17 +52,17 @@ function FournisseurLigne({
   return (
     <button
       onClick={onClick}
-      className="block w-full border-b border-[var(--border)] py-2.5 text-left last:border-b-0"
+      className="block w-full border-b border-line py-2.5 text-left last:border-b-0"
     >
       <span className="flex items-baseline justify-between gap-3">
-        <span className="truncate text-[13px] text-[var(--ink)]">{nom}</span>
-        <span className="flex-none font-mono text-[12.5px] [font-variant-numeric:tabular-nums]">
+        <span className="truncate text-sm text-ink">{nom}</span>
+        <span className="flex-none font-mono text-sm [font-variant-numeric:tabular-nums]">
           {euros(total)}
         </span>
       </span>
-      <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-[var(--surface-2)]">
+      <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-surface-2">
         <span
-          className="block h-full rounded-full bg-[var(--acc)]"
+          className="block h-full rounded-full bg-accent"
           style={{ width: `${Math.max(2, Math.round(part * 100))}%` }}
         />
       </span>
@@ -101,15 +102,15 @@ function Metric({
   color?: string;
 }) {
   return (
-    <div style={{ borderRadius: 11, background: "var(--tint)", padding: "10px 12px" }}>
-      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", color: "var(--faint)" }}>
+    <div style={{ borderRadius: 11, background: "rgb(var(--surface-2))", padding: "10px 12px" }}>
+      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", color: "rgb(var(--ink-3))" }}>
         {label}
       </div>
-      <div style={{ marginTop: 3, fontSize: 18, fontWeight: 700, color: color ?? "var(--ink)" }}>
+      <div style={{ marginTop: 3, fontSize: 18, fontWeight: 700, color: color ?? "rgb(var(--ink))" }}>
         {value}
       </div>
       {sub && (
-        <div style={{ marginTop: 1, fontSize: 11.5, color: "var(--faint-2)" }}>{sub}</div>
+        <div style={{ marginTop: 1, fontSize: 11.5, color: "rgb(var(--ink-3))" }}>{sub}</div>
       )}
     </div>
   );
@@ -117,16 +118,16 @@ function Metric({
 
 function getRenta(recovered: number, invested: number) {
   if (recovered >= invested)
-    return { label: "Rentabilisée", color: "var(--pos)", bg: "var(--pos-soft)", key: "rentable" as const };
+    return { label: "Rentabilisée", color: "rgb(var(--pos))", bg: "rgb(var(--pos-soft))", key: "rentable" as const };
   if (recovered < invested * 0.5)
-    return { label: "En cours", color: "var(--neg)", bg: "var(--neg-soft)", key: "encours" as const };
-  return { label: "Seuil proche", color: "var(--warn)", bg: "var(--warn-soft)", key: "proche" as const };
+    return { label: "En cours", color: "rgb(var(--neg))", bg: "rgb(var(--neg-soft))", key: "encours" as const };
+  return { label: "Seuil proche", color: "rgb(var(--warn))", bg: "rgb(var(--warn-soft))", key: "proche" as const };
 }
 
 function pctColor(pct: number) {
-  if (pct < 0.3) return "var(--neg)";
-  if (pct <= 0.6) return "var(--warn)";
-  return "var(--pos)";
+  if (pct < 0.3) return "rgb(var(--neg))";
+  if (pct <= 0.6) return "rgb(var(--warn))";
+  return "rgb(var(--pos))";
 }
 
 // ── Courbe d'investissement ───────────────────────────────────────────────
@@ -154,14 +155,14 @@ function Sparkline({ months }: { months: Mois[] }) {
         <polyline
           points={pts}
           fill="none"
-          stroke="var(--acc)"
+          stroke="rgb(var(--accent))"
           strokeWidth="2.5"
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
         />
-        <polygon points={`${pts} 420,120 0,120`} fill="var(--acc)" opacity=".1" />
+        <polygon points={`${pts} 420,120 0,120`} fill="rgb(var(--accent))" opacity=".1" />
       </svg>
-      <div className="mt-1.5 flex justify-between font-mono text-[9.5px] uppercase tracking-[0.1em] text-[var(--faint)]">
+      <div className="mt-1.5 flex justify-between font-mono text-xs uppercase tracking-[0.1em] text-ink-3">
         {months.map((m) => (
           <span key={m.key}>{m.label}</span>
         ))}
@@ -193,7 +194,7 @@ function CommandeDetailPanel({
   }
   if (!stats || stats.rows.length === 0) {
     return (
-      <p style={{ margin: 0, padding: "16px 0", fontSize: 14, color: "var(--faint-2)" }}>
+      <p style={{ margin: 0, padding: "16px 0", fontSize: 14, color: "rgb(var(--ink-3))" }}>
         Aucun article dans cette commande.
       </p>
     );
@@ -220,27 +221,27 @@ function CommandeDetailPanel({
           c'est ce qui explique deux prix d'achat différents dans un même
           achat. Masquée quand il n'y a qu'un lot : elle n'apprendrait rien. */}
       {lots.length > 1 && (
-        <div style={{ borderRadius: 14, border: "1px solid var(--border)", background: "var(--surface)", padding: "16px 18px", marginBottom: 16 }}>
-          <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>
+        <div style={{ borderRadius: 14, border: "1px solid rgb(var(--line))", background: "rgb(var(--surface))", padding: "16px 18px", marginBottom: 16 }}>
+          <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700, color: "rgb(var(--ink))" }}>
             {lots.length} lots
           </h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {lots.map((l) => (
               <div key={l.id} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, fontSize: 13.5 }}>
                 <span style={{ minWidth: 0 }}>
-                  <strong style={{ color: "var(--ink)" }}>{l.nom}</strong>
-                  <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 11.5, color: "var(--faint-2)", marginLeft: 8 }}>
+                  <strong style={{ color: "rgb(var(--ink))" }}>{l.nom}</strong>
+                  <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 11.5, color: "rgb(var(--ink-3))", marginLeft: 8 }}>
                     {l.prefixeSku} · {l.modeSaisie === "PIECE" ? "pièce par pièce" : "au lot"}
                   </span>
                 </span>
-                <span style={{ flex: "none", fontFamily: "var(--font-mono, monospace)", color: "var(--muted)" }}>
+                <span style={{ flex: "none", fontFamily: "var(--font-mono, monospace)", color: "rgb(var(--ink-3))" }}>
                   {l.quantite} × {euros(l.quantite > 0 ? l.prixTotal / l.quantite : 0)}
-                  <strong style={{ color: "var(--ink)", marginLeft: 10 }}>{euros(l.prixTotal)}</strong>
+                  <strong style={{ color: "rgb(var(--ink))", marginLeft: 10 }}>{euros(l.prixTotal)}</strong>
                 </span>
               </div>
             ))}
           </div>
-          <p style={{ margin: "10px 0 0", fontSize: 12, color: "var(--faint-2)" }}>
+          <p style={{ margin: "10px 0 0", fontSize: 12, color: "rgb(var(--ink-3))" }}>
             Prix hors livraison. Les frais de port sont répartis au prorata sur
             les pièces de tous les lots.
           </p>
@@ -248,29 +249,29 @@ function CommandeDetailPanel({
       )}
 
       {/* Rentabilité card */}
-      <div style={{ borderRadius: 14, border: "1px solid var(--border)", background: "var(--tint)", padding: "16px 18px", marginBottom: 16 }}>
+      <div style={{ borderRadius: 14, border: "1px solid rgb(var(--line))", background: "rgb(var(--surface-2))", padding: "16px 18px", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-          <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>Rentabilité</h3>
+          <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "rgb(var(--ink))" }}>Rentabilité</h3>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: statut.bg, color: statut.color }}>
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: statut.color, display: "inline-block" }} />
             {statut.label}
           </span>
         </div>
-        <div style={{ height: 11, width: "100%", borderRadius: 8, background: "var(--surface-2)", overflow: "hidden" }}>
+        <div style={{ height: 11, width: "100%", borderRadius: 8, background: "rgb(var(--surface-2))", overflow: "hidden" }}>
           <div style={{ height: "100%", borderRadius: 8, width: `${width}%`, background: statut.color, transition: "width .8s cubic-bezier(.34,1.2,.5,1)" }} />
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 26px", marginTop: 12, fontSize: 13.5, color: "var(--muted)" }}>
-          <span>Investi&nbsp;: <strong style={{ color: "var(--ink)" }}>{euros(coutTotal)}</strong></span>
-          <span>Récupéré&nbsp;: <strong style={{ color: "var(--ink)" }}>{euros(montantRecupere)}</strong></span>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 26px", marginTop: 12, fontSize: 13.5, color: "rgb(var(--ink-3))" }}>
+          <span>Investi&nbsp;: <strong style={{ color: "rgb(var(--ink))" }}>{euros(coutTotal)}</strong></span>
+          <span>Récupéré&nbsp;: <strong style={{ color: "rgb(var(--ink))" }}>{euros(montantRecupere)}</strong></span>
           <span>Reste&nbsp;: <strong style={{ color: statut.color }}>{euros(resteARecuperer)}</strong></span>
           <span>
-            Vendus&nbsp;: <strong style={{ color: "var(--ink)" }}>{r.vendus}/{r.totalArticles}</strong>
+            Vendus&nbsp;: <strong style={{ color: "rgb(var(--ink))" }}>{r.vendus}/{r.totalArticles}</strong>
             {r.perdus > 0 && (
-              <span style={{ color: "var(--neg)" }}> · {r.perdus} perdu{r.perdus > 1 ? "s" : ""}</span>
+              <span style={{ color: "rgb(var(--neg))" }}> · {r.perdus} perdu{r.perdus > 1 ? "s" : ""}</span>
             )}
           </span>
         </div>
-        <p style={{ margin: "10px 0 0", fontSize: 12, color: "var(--faint-2)" }}>
+        <p style={{ margin: "10px 0 0", fontSize: 12, color: "rgb(var(--ink-3))" }}>
           {rembourse
             ? `✓ Investissement récupéré${r.joursPointMort != null ? ` le ${dateFr(r.datePointMort)}, au ${r.joursPointMort}ᵉ jour` : ""}. Marge nette encaissée : ${euros(r.margeNetteRealisee)}.`
             : r.seuilArticles != null && r.panierMoyen != null
@@ -281,8 +282,8 @@ function CommandeDetailPanel({
 
       {/* Projection : où ce lot atterrit */}
       {r.panierMoyen != null && (
-        <div style={{ borderRadius: 14, border: "1px solid var(--border)", background: "var(--surface)", padding: "16px 18px", marginBottom: 16 }}>
-          <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>
+        <div style={{ borderRadius: 14, border: "1px solid rgb(var(--line))", background: "rgb(var(--surface))", padding: "16px 18px", marginBottom: 16 }}>
+          <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700, color: "rgb(var(--ink))" }}>
             Projection
           </h3>
 
@@ -290,7 +291,7 @@ function CommandeDetailPanel({
               ventes, elle ne vaut rien : le dire plutôt que d'afficher un
               coefficient rassurant calculé sur 7 articles. */}
           {r.vendus < PROJECTION_MIN_VENTES && (
-            <p style={{ margin: "0 0 12px", padding: "8px 11px", borderRadius: 9, background: "var(--warn-soft)", color: "var(--warn)", fontSize: 12, fontWeight: 600 }}>
+            <p style={{ margin: "0 0 12px", padding: "8px 11px", borderRadius: 9, background: "rgb(var(--warn-soft))", color: "rgb(var(--warn))", fontSize: 12, fontWeight: 600 }}>
               Projection calculée sur {r.vendus} vente{r.vendus > 1 ? "s" : ""} seulement
               {r.totalArticles > 0 && ` (${Math.round((r.vendus / r.totalArticles) * 100)} % du lot)`}
               {" "}— indicative, à confirmer avec plus de ventes.
@@ -312,7 +313,7 @@ function CommandeDetailPanel({
                   : "sans objectif"
               }
               color={
-                objectifTenu == null ? undefined : objectifTenu ? "var(--pos)" : "var(--neg)"
+                objectifTenu == null ? undefined : objectifTenu ? "rgb(var(--pos))" : "rgb(var(--neg))"
               }
             />
             <Metric
@@ -340,7 +341,7 @@ function CommandeDetailPanel({
               flexDirection: "column",
               gap: 7,
               fontSize: 12.5,
-              color: "var(--ink2)",
+              color: "rgb(var(--ink-2))",
             }}
           >
             {/* La ligne qui change une décision : faut-il remonter les prix ? */}
@@ -354,7 +355,7 @@ function CommandeDetailPanel({
             {r.dateEcoulement != null && r.restants > 0 && (
               <li>
                 À ce rythme, les {r.restants} articles restants s’écoulent vers le{" "}
-                <strong style={{ color: "var(--ink)" }}>{dateFr(r.dateEcoulement)}</strong>{" "}
+                <strong style={{ color: "rgb(var(--ink))" }}>{dateFr(r.dateEcoulement)}</strong>{" "}
                 (≈ {r.joursEcoulement} j).
               </li>
             )}
@@ -365,7 +366,7 @@ function CommandeDetailPanel({
               </li>
             )}
             {r.dormants > 0 && (
-              <li style={{ color: "var(--warn)" }}>
+              <li style={{ color: "rgb(var(--warn))" }}>
                 {r.dormants} article{r.dormants > 1 ? "s" : ""} jamais mis en vente
                 (photos non prêtes)
                 {r.caDormant != null ? ` — ≈ ${euros(r.caDormant)} de CA immobilisé` : ""}.
@@ -382,11 +383,11 @@ function CommandeDetailPanel({
           </ul>
 
           {r.canaux.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 20px", marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--bg)", fontSize: 12.5, color: "var(--muted)" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 20px", marginTop: 12, paddingTop: 12, borderTop: "1px solid rgb(var(--bg))", fontSize: 12.5, color: "rgb(var(--ink-3))" }}>
               {r.canaux.map((c) => (
                 <span key={c.canal}>
                   {c.canal} :{" "}
-                  <strong style={{ color: "var(--ink)" }}>{Math.round(c.pctCa * 100)}%</strong>{" "}
+                  <strong style={{ color: "rgb(var(--ink))" }}>{Math.round(c.pctCa * 100)}%</strong>{" "}
                   du CA (panier {euros(c.panierMoyen)}, {c.vendus} vente
                   {c.vendus > 1 ? "s" : ""})
                 </span>
@@ -399,7 +400,7 @@ function CommandeDetailPanel({
       {/* Category table (grid, no <table>) */}
       <div style={{ overflowX: "auto" }}>
         <div style={{ minWidth: 760 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.4fr .8fr .8fr .8fr .8fr 1fr 1.1fr 1fr .9fr", gap: 8, padding: "0 8px 8px", fontSize: 11, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", color: "var(--faint)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.4fr .8fr .8fr .8fr .8fr 1fr 1.1fr 1fr .9fr", gap: 8, padding: "0 8px 8px", fontSize: 11, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", color: "rgb(var(--ink-3))" }}>
             <div>Lot</div>
             <div style={{ textAlign: "right" }}>Total</div>
             <div style={{ textAlign: "right" }}>En stock</div>
@@ -413,19 +414,19 @@ function CommandeDetailPanel({
           {stats.rows.map((r) => {
             const cc =
               coefObjectif == null || r.coefMoyen === 0
-                ? "var(--ink)"
+                ? "rgb(var(--ink))"
                 : r.coefMoyen < coefObjectif
-                  ? "var(--neg)"
-                  : "var(--pos)";
+                  ? "rgb(var(--neg))"
+                  : "rgb(var(--pos))";
             return (
-              <div key={r.cle} style={{ display: "grid", gridTemplateColumns: "1.4fr .8fr .8fr .8fr .8fr 1fr 1.1fr 1fr .9fr", gap: 8, padding: "10px 8px", borderTop: "1px solid var(--bg)", fontSize: 13.5, fontVariantNumeric: "tabular-nums" as const }}>
-                <div style={{ fontWeight: 600, color: "var(--ink)" }}>{r.libelle}</div>
-                <div style={{ textAlign: "right", color: "var(--muted)" }}>{r.total}</div>
-                <div style={{ textAlign: "right", color: "var(--muted)" }}>{r.enStock}</div>
-                <div style={{ textAlign: "right", color: "var(--muted)" }}>{r.enVente}</div>
-                <div style={{ textAlign: "right", color: "var(--muted)" }}>{r.vendus}</div>
-                <div style={{ textAlign: "right", fontWeight: 600, color: "var(--ink)" }}>{euros(r.ca)}</div>
-                <div style={{ textAlign: "right", fontWeight: 600, color: "var(--pos)" }}>{euros(r.margeNette)}</div>
+              <div key={r.cle} style={{ display: "grid", gridTemplateColumns: "1.4fr .8fr .8fr .8fr .8fr 1fr 1.1fr 1fr .9fr", gap: 8, padding: "10px 8px", borderTop: "1px solid rgb(var(--bg))", fontSize: 13.5, fontVariantNumeric: "tabular-nums" as const }}>
+                <div style={{ fontWeight: 600, color: "rgb(var(--ink))" }}>{r.libelle}</div>
+                <div style={{ textAlign: "right", color: "rgb(var(--ink-3))" }}>{r.total}</div>
+                <div style={{ textAlign: "right", color: "rgb(var(--ink-3))" }}>{r.enStock}</div>
+                <div style={{ textAlign: "right", color: "rgb(var(--ink-3))" }}>{r.enVente}</div>
+                <div style={{ textAlign: "right", color: "rgb(var(--ink-3))" }}>{r.vendus}</div>
+                <div style={{ textAlign: "right", fontWeight: 600, color: "rgb(var(--ink))" }}>{euros(r.ca)}</div>
+                <div style={{ textAlign: "right", fontWeight: 600, color: "rgb(var(--pos))" }}>{euros(r.margeNette)}</div>
                 <div style={{ textAlign: "right", fontWeight: 700, color: cc }}>{r.coefMoyen > 0 ? coef(r.coefMoyen) : "—"}</div>
                 <div style={{ textAlign: "right", fontWeight: 700, color: pctColor(r.pctVendu) }}>{Math.round(r.pctVendu * 100)}%</div>
               </div>
@@ -453,7 +454,7 @@ function Th({
     align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
   return (
     <th
-      className={`px-2.5 py-2.5 font-mono text-[9.5px] font-medium uppercase tracking-[0.14em] text-[var(--faint)] ${alignCls} ${className}`}
+      className={`px-2.5 py-2.5 font-mono text-xs font-medium uppercase tracking-[0.14em] text-ink-3 ${alignCls} ${className}`}
     >
       {children}
     </th>
@@ -463,14 +464,14 @@ function Th({
 /** Pastille de rentabilité, partagée par la ligne de table et la carte mobile. */
 function RentaBadge({ statut }: { statut: ReturnType<typeof getRenta> | null }) {
   if (!statut)
-    return <span className="font-mono text-[11px] text-[var(--faint-2)]">—</span>;
+    return <span className="font-mono text-xs text-ink-3">—</span>;
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.08em]"
+      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-xs uppercase tracking-[0.08em]"
       style={{ background: statut.bg, color: statut.color }}
     >
       <span
-        className="inline-block h-[6px] w-[6px] rounded-full"
+        className="inline-block h-1.5 w-1.5 rounded-full"
         style={{ background: statut.color }}
       />
       {statut.label}
@@ -519,21 +520,21 @@ function CommandeTableRow({
     <>
       <tr
         onClick={onToggle}
-        className="cursor-pointer border-b border-[var(--border)] transition-colors hover:bg-[var(--surface-2)]"
+        className="cursor-pointer border-b border-line transition-colors hover:bg-surface-2"
       >
-        <td className="py-3 pl-5 pr-2.5 font-mono text-[12px] font-bold">
+        <td className="py-3 pl-5 pr-2.5 font-mono text-xs font-bold">
           {c.fournisseur}
         </td>
-        <td className="px-2.5 py-3 font-mono text-[12px] text-[var(--ink2)]">
+        <td className="px-2.5 py-3 font-mono text-xs text-ink-2">
           {new Date(c.date).toLocaleDateString("fr-FR")}
         </td>
-        <td className="px-2.5 py-3 text-right font-mono text-[12.5px]">
+        <td className="px-2.5 py-3 text-right font-mono text-sm">
           {c.nbArticles}
         </td>
-        <td className="px-2.5 py-3 text-right font-mono text-[12.5px] font-bold">
+        <td className="px-2.5 py-3 text-right font-mono text-sm font-bold">
           {euros(c.coutTotal)}
         </td>
-        <td className="px-2.5 py-3 text-right font-mono text-[12.5px] text-[var(--ink2)]">
+        <td className="px-2.5 py-3 text-right font-mono text-sm text-ink-2">
           {euros(c.prixUnitaire)}
         </td>
         <td className="px-2.5 py-3 text-center">
@@ -546,7 +547,7 @@ function CommandeTableRow({
           <span className="relative inline-flex items-center gap-1.5">
             <button
               onClick={onToggle}
-              className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3 text-[12px] text-[var(--ink2)] transition-colors hover:border-[var(--border-strong)]"
+              className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-line bg-surface-2 px-3 text-xs text-ink-2 transition-colors hover:border-line-strong"
             >
               {expanded ? "Masquer" : "Détail"}
               <ChevronDown
@@ -558,21 +559,21 @@ function CommandeTableRow({
             <button
               onClick={() => setMenuOpen((o) => !o)}
               aria-label="Actions"
-              className="flex h-[34px] w-[34px] items-center justify-center rounded-full text-[17px] leading-none text-[var(--faint)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--ink2)]"
+              className="flex h-[34px] w-[34px] items-center justify-center rounded-full text-md leading-none text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink-2"
             >
               ⋯
             </button>
             {menuOpen && (
               <>
                 <span
-                  className="fixed inset-0 z-40"
+                  className="fixed inset-0 z-overlay"
                   onClick={() => setMenuOpen(false)}
                 />
-                <span className="absolute right-0 top-[38px] z-50 block w-[184px] rounded-[16px] border border-[var(--border)] bg-surface p-1.5 shadow-[var(--shadow)]">
+                <span className="absolute right-0 top-[38px] z-popover block w-[184px] rounded-md border border-line bg-surface p-1.5 shadow-pop">
                   <MenuBtn
                     label="Voir les articles"
-                    color="var(--ink2)"
-                    hoverBg="var(--surface-2)"
+                    color="rgb(var(--ink-2))"
+                    hoverBg="rgb(var(--surface-2))"
                     onClick={() => {
                       router.push(`/stock?commande=${c.id}`);
                       setMenuOpen(false);
@@ -580,8 +581,8 @@ function CommandeTableRow({
                   />
                   <MenuBtn
                     label="Supprimer"
-                    color="var(--neg)"
-                    hoverBg="var(--neg-soft)"
+                    color="rgb(var(--neg))"
+                    hoverBg="rgb(var(--neg-soft))"
                     onClick={handleDelete}
                   />
                 </span>
@@ -591,7 +592,7 @@ function CommandeTableRow({
         </td>
       </tr>
       {expanded && (
-        <tr className="border-b border-[var(--border)] bg-[var(--surface-2)]">
+        <tr className="border-b border-line bg-surface-2">
           <td colSpan={7} className="px-5 py-4">
             <CommandeDetailPanel
               commandeId={c.id}
@@ -622,31 +623,31 @@ function CommandeCarte({
     montantRecupere !== null ? getRenta(montantRecupere, c.coutTotal) : null;
 
   return (
-    <div className="border-b border-[var(--border)] last:border-b-0">
+    <div className="border-b border-line last:border-b-0">
       <button
         onClick={onToggle}
-        className="flex min-h-[64px] w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        className="flex min-h-16 w-full items-center justify-between gap-3 px-4 py-3 text-left"
       >
         <span className="flex min-w-0 items-center gap-3">
-          <span className="flex h-10 w-10 flex-none items-center justify-center rounded-[12px] bg-[var(--acc)] font-mono text-[12px] font-bold text-[var(--acc-ink)]">
+          <span className="flex h-10 w-10 flex-none items-center justify-center rounded-md bg-accent font-mono text-xs font-bold text-accent-ink">
             {initials(c.fournisseur)}
           </span>
           <span className="min-w-0">
-            <span className="block truncate text-[14px] font-semibold">
+            <span className="block truncate text-base font-semibold">
               {c.fournisseur}
             </span>
-            <span className="mt-0.5 block font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--faint)]">
+            <span className="mt-0.5 block font-mono text-xs uppercase tracking-[0.1em] text-ink-3">
               {new Date(c.date).toLocaleDateString("fr-FR")} · {c.nbArticles} ART.
             </span>
           </span>
         </span>
         <span className="flex-none text-right">
-          <span className="block font-mono text-[13px] font-bold [font-variant-numeric:tabular-nums]">
+          <span className="block font-mono text-sm font-bold [font-variant-numeric:tabular-nums]">
             {euros(c.coutTotal)}
           </span>
           {statut && (
             <span
-              className="mt-0.5 block font-mono text-[10px] uppercase"
+              className="mt-0.5 block font-mono text-xs uppercase"
               style={{ color: statut.color }}
             >
               {statut.label}
@@ -755,12 +756,12 @@ export default function CommandesPage() {
     <Frame>
 
       {/* ── Grille haute : 1.4fr / 1fr, comme la maquette ─────────────── */}
-      <section className="grid grid-cols-1 gap-[14px] min-[900px]:grid-cols-[1.4fr_1fr]">
+      <section className="grid grid-cols-1 gap-3.5 min-[900px]:grid-cols-[1.4fr_1fr]">
 
         {/* Total investi — le chiffre héros de l'écran */}
-        <Module className="p-[26px] shadow-[var(--shadow)]">
+        <Module className="p-[26px] shadow-pop">
           <Eyebrow>TOTAL INVESTI</Eyebrow>
-          <div className="mt-2.5 whitespace-nowrap text-[42px] font-bold leading-none tracking-[-0.045em] [font-variant-numeric:tabular-nums] min-[900px]:text-[58px]">
+          <div className="mt-2.5 whitespace-nowrap text-2xl font-bold leading-none tracking-[-0.045em] [font-variant-numeric:tabular-nums] min-[900px]:text-3xl">
             {euros(kpis.totalInvesti)}
           </div>
           <div className="mt-4 flex flex-wrap gap-2.5">
@@ -777,26 +778,26 @@ export default function CommandesPage() {
         </Module>
 
         {/* Colonne droite : ajout de pièces, puis répartition fournisseurs */}
-        <div className="flex flex-col gap-[14px]">
+        <div className="flex flex-col gap-3.5">
           <Module className="p-[22px]">
             <CardTitle className="mb-3">Ajouter des pièces</CardTitle>
             <div className="flex flex-col gap-2.5">
               <button
                 onClick={() => setNewCommande(true)}
-                className="inline-flex min-h-[48px] items-center gap-2 rounded-[16px] bg-[var(--acc)] px-[18px] text-left text-[13.5px] font-semibold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)]"
+                className="inline-flex min-h-12 items-center gap-2 rounded-md bg-accent px-[18px] text-left text-base font-semibold text-accent-ink transition-colors hover:bg-accent-hover"
               >
                 <Plus className="h-4 w-4 flex-none" strokeWidth={2.3} />
                 Créer une commande
               </button>
               <button
                 onClick={() => toast.info("Import Excel — bientôt disponible.")}
-                className="inline-flex min-h-[48px] items-center gap-2 rounded-[16px] border border-[var(--border)] bg-[var(--surface-2)] px-[18px] text-left text-[13.5px] text-[var(--ink2)] transition-colors hover:border-[var(--border-strong)]"
+                className="inline-flex min-h-12 items-center gap-2 rounded-md border border-line bg-surface-2 px-[18px] text-left text-base text-ink-2 transition-colors hover:border-line-strong"
               >
                 <FileSpreadsheet className="h-4 w-4 flex-none" strokeWidth={2} />
                 Importer un fichier Excel
               </button>
             </div>
-            <div className="mt-3 font-mono text-[10px] uppercase leading-[1.6] tracking-[0.1em] text-[var(--faint)]">
+            <div className="mt-3 font-mono text-xs uppercase leading-[1.6] tracking-[0.1em] text-ink-3">
               {derniereCommande
                 ? `DERNIÈRE COMMANDE — ${dateFr(derniereCommande)} · ${kpis.totalArticles.toLocaleString("fr-FR")} PIÈCES AU TOTAL`
                 : "AUCUNE COMMANDE ENREGISTRÉE"}
@@ -806,7 +807,7 @@ export default function CommandesPage() {
           <Module className="flex-1 p-[22px]">
             <CardTitle className="mb-3">Par fournisseur</CardTitle>
             {suppliers.length === 0 ? (
-              <p className="font-mono text-[11px] text-[var(--faint)]">
+              <p className="font-mono text-xs text-ink-3">
                 Aucun fournisseur.
               </p>
             ) : (
@@ -832,7 +833,7 @@ export default function CommandesPage() {
       <Module className="overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 px-5 pb-3 pt-[18px]">
           <CardTitle className="">Commandes récentes</CardTitle>
-          <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--faint)]">
+          <span className="font-mono text-xs uppercase tracking-[0.1em] text-ink-3">
             {commandes.length} AU TOTAL
           </span>
         </div>
@@ -843,12 +844,12 @@ export default function CommandesPage() {
           </div>
         )}
         {isError && (
-          <p className="py-10 text-center font-mono text-[12px] text-[var(--neg)]">
+          <p className="py-10 text-center font-mono text-xs text-neg">
             {(error as Error).message}
           </p>
         )}
         {!isLoading && !isError && commandes.length === 0 && (
-          <p className="py-10 text-center font-mono text-[12px] text-[var(--faint)]">
+          <p className="py-10 text-center font-mono text-xs text-ink-3">
             Aucune commande. Crée ta première commande !
           </p>
         )}
@@ -859,7 +860,7 @@ export default function CommandesPage() {
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[760px] border-collapse [font-variant-numeric:tabular-nums]">
                 <thead>
-                  <tr className="bg-[var(--surface-2)]">
+                  <tr className="bg-surface-2">
                     <Th className="pl-5">FOURNISSEUR</Th>
                     <Th>DATE</Th>
                     <Th align="right">PIÈCES</Th>

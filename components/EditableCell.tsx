@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R13 → L3
 
 import { useEffect, useRef, useState } from "react";
 
@@ -75,7 +76,7 @@ export default function EditableCell({
             cancel();
           }
         }}
-        className={`w-full cursor-pointer rounded border border-primary bg-surface px-2 py-1 text-ink outline-none ring-2 ring-[var(--acc-ring)] ${alignCls}`}
+        className={`w-full cursor-pointer rounded border border-accent bg-surface px-2 py-1 text-ink outline-none ring-2 ring-focus ${alignCls}`}
       >
         <option value="">{placeholder}</option>
         {(options ?? []).map((o) => (
@@ -105,7 +106,7 @@ export default function EditableCell({
             cancel();
           }
         }}
-        className={`w-full rounded border border-primary bg-surface px-2 py-1 text-ink outline-none ring-2 ring-[var(--acc-ring)] ${alignCls}`}
+        className={`w-full rounded border border-accent bg-surface px-2 py-1 text-ink outline-none ring-2 ring-focus ${alignCls}`}
       />
     );
   }
@@ -120,8 +121,8 @@ export default function EditableCell({
       onDoubleClick={start}
       title={editable ? "Double-clic pour modifier" : undefined}
       className={`truncate rounded px-2 py-1 ${alignCls} ${
-        editable ? "cursor-cell hover:bg-surface-container" : "cursor-default"
-      } ${isPlaceholder ? "text-ink-faint" : ""}`}
+        editable ? "cursor-cell hover:bg-surface-2" : "cursor-default"
+      } ${isPlaceholder ? "text-ink-3" : ""}`}
     >
       {shown}
     </div>

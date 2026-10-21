@@ -1,3 +1,4 @@
+// design-tokens-dette: R4 → L3
 // Couleurs de statut en HEX (styles inline) — PAS de classes Tailwind dynamiques,
 // car le JIT de Tailwind ne les compile pas en production (Vercel).
 //

@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R4 R10 R12 → M3
 
 // Étape 2 : photos et caractéristiques d'UN article.
 //
@@ -269,29 +270,29 @@ export default function FicheArticle({
       onDragOver={auSurvol}
       onDragLeave={auDepart}
       onDrop={auDepot}
-      className="grid grid-cols-1 items-start gap-[18px] [animation:stepIn_.3s_both] lg:grid-cols-[340px_1fr]"
+      className="grid grid-cols-1 items-start gap-[18px] motion-safe:animate-entree lg:grid-cols-[340px_1fr]"
     >
       {/* ── Photos : la fiche entière accepte le dépôt, la carte le signale ── */}
       <div
         className={`${cardCls} p-5 transition-[outline-color] lg:sticky lg:top-5 ${
           survol
-            ? "outline outline-2 -outline-offset-2 outline-[var(--acc)]"
+            ? "outline outline-2 -outline-offset-2 outline-accent"
             : "outline outline-2 -outline-offset-2 outline-transparent"
         }`}
       >
         <div className="mb-1 flex items-center justify-between">
-          <h2 className="font-grotesk text-[16px] font-bold">Photos</h2>
+          <h2 className="font-sans text-md font-bold">Photos</h2>
           <span
-            className={`rounded-full px-2.5 py-1 text-[12px] font-bold ${
+            className={`rounded-full px-2.5 py-1 text-xs font-bold ${
               fiche.selected.length >= MIN_SELECT
-                ? "bg-[var(--pos-soft)] text-[var(--pos)]"
-                : "bg-[var(--tint)] text-[var(--faint)]"
+                ? "bg-pos-soft text-pos"
+                : "bg-surface-2 text-ink-3"
             }`}
           >
             {fiche.selected.length} / {MAX_SELECT}
           </span>
         </div>
-        <p className="mb-3.5 text-[12.5px] font-medium text-[var(--faint-2)]">
+        <p className="mb-3.5 text-sm font-medium text-ink-3">
           Choisis {MIN_SELECT} à {MAX_SELECT} photos pour l&apos;IA. L&apos;ordre = priorité.
         </p>
 
@@ -302,10 +303,10 @@ export default function FicheArticle({
             return (
               <div
                 key={p.id}
-                className={`relative aspect-square overflow-hidden rounded-[13px] border-[2.5px] transition-all ${
+                className={`relative aspect-square overflow-hidden rounded-md border-[2.5px] transition-all ${
                   sel
-                    ? "border-[var(--acc)] shadow-[var(--shadow)]"
-                    : "border-transparent outline outline-1 outline-[var(--border)]"
+                    ? "border-accent shadow-pop"
+                    : "border-transparent outline outline-1 outline-line"
                 }`}
               >
                 <button
@@ -318,35 +319,35 @@ export default function FicheArticle({
                   <img src={p.url} alt={fileName(i)} className="h-full w-full object-cover" />
                 </button>
                 {sel && (
-                  <span className="pointer-events-none absolute left-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--acc)] font-mono text-[11px] font-bold text-[var(--acc-ink)] [animation:popIn_.18s_ease]">
+                  <span className="pointer-events-none absolute left-2 top-2 z-raised flex h-6 w-6 items-center justify-center rounded-full bg-accent font-mono text-xs font-bold text-accent-ink motion-safe:animate-pop">
                     {order + 1}
                   </span>
                 )}
                 <button
                   onClick={() => onRetraitPhoto(p.id)}
                   aria-label={`Supprimer la photo ${i + 1}`}
-                  className="absolute right-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--ink)]/55 text-[var(--bg)] transition-colors hover:bg-[var(--ink)]/80"
+                  className="absolute right-1.5 top-1.5 z-raised flex h-7 w-7 items-center justify-center rounded-full bg-ink/55 text-bg transition-colors hover:bg-ink/80"
                 >
                   <X className="h-3.5 w-3.5" strokeWidth={2.4} />
                 </button>
                 <button
                   onClick={() => onRotation(p.id, -90)}
                   aria-label="Tourner à gauche"
-                  className="absolute bottom-1.5 left-1.5 z-10 flex h-[30px] w-[30px] items-center justify-center rounded-full bg-white/90 text-[var(--ink2)] shadow-sm transition-colors hover:text-[var(--acc)]"
+                  className="absolute bottom-1.5 left-1.5 z-raised flex h-[30px] w-[30px] items-center justify-center rounded-full bg-white/90 text-ink-2 transition-colors hover:text-accent-text"
                 >
                   <RotateCcw className="h-3.5 w-3.5" strokeWidth={2} />
                 </button>
                 <button
                   onClick={() => onRotation(p.id, 90)}
                   aria-label="Tourner à droite"
-                  className="absolute bottom-1.5 left-[42px] z-10 flex h-[30px] w-[30px] items-center justify-center rounded-full bg-white/90 text-[var(--ink2)] shadow-sm transition-colors hover:text-[var(--acc)]"
+                  className="absolute bottom-1.5 left-[42px] z-raised flex h-[30px] w-[30px] items-center justify-center rounded-full bg-white/90 text-ink-2 transition-colors hover:text-accent-text"
                 >
                   <RotateCw className="h-3.5 w-3.5" strokeWidth={2} />
                 </button>
                 <button
                   onClick={() => onZoom(p.id)}
                   aria-label={`Agrandir la photo ${i + 1}`}
-                  className="absolute bottom-1.5 right-1.5 z-10 flex h-[30px] w-[30px] items-center justify-center rounded-full bg-white/92 text-[var(--acc)] shadow-sm transition-colors hover:bg-surface"
+                  className="absolute bottom-1.5 right-1.5 z-raised flex h-[30px] w-[30px] items-center justify-center rounded-full bg-white/92 text-accent-text transition-colors hover:bg-surface"
                 >
                   <ZoomIn className="h-3.5 w-3.5" strokeWidth={2.2} />
                 </button>
@@ -357,19 +358,19 @@ export default function FicheArticle({
           {fiche.photos.length < MAX_PHOTOS && (
             <button
               onClick={() => fileRef.current?.click()}
-              className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-[13px] border-2 border-dashed border-[var(--border-strong)] text-[var(--acc)] transition-colors hover:border-[var(--acc)] hover:bg-[var(--surface-2)]"
+              className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-md border-2 border-dashed border-line-strong text-accent-text transition-colors hover:border-accent hover:bg-surface-2"
               aria-label="Ajouter des photos"
             >
               <Plus className="h-[22px] w-[22px]" strokeWidth={2} />
-              <span className="text-[11.5px] font-bold">Ajouter</span>
+              <span className="text-xs font-bold">Ajouter</span>
             </button>
           )}
         </div>
 
-        <p className="mt-3 flex items-start gap-2 text-[12px] font-medium text-[var(--faint-2)]">
-          <Upload className="mt-0.5 h-3.5 w-3.5 flex-none text-[var(--acc)]" strokeWidth={2} />
+        <p className="mt-3 flex items-start gap-2 text-xs font-medium text-ink-3">
+          <Upload className="mt-0.5 h-3.5 w-3.5 flex-none text-accent-text" strokeWidth={2} />
           <span>
-            Glisse, ou <b className="font-bold text-[var(--acc)]">colle</b> (⌘V) sur cette
+            Glisse, ou <b className="font-bold text-accent-text">colle</b> (⌘V) sur cette
             fiche. Jusqu&apos;à {MAX_PHOTOS} photos.
           </span>
         </p>
@@ -425,7 +426,7 @@ export default function FicheArticle({
                     list="marques-list"
                     placeholder="Saisis la marque"
                     autoFocus
-                    className={`${inputCls} mt-2.5 border-[1.5px] border-[var(--acc)]`}
+                    className={`${inputCls} mt-2.5 border-[1.5px] border-accent`}
                   />
                   <datalist id="marques-list">
                     {MARQUES_LIST.map((m) => (
@@ -465,7 +466,7 @@ export default function FicheArticle({
                   onChange={(e) => onQcm("categorie", e.target.value)}
                   placeholder="Saisis la catégorie"
                   autoFocus
-                  className={`${inputCls} mt-2.5 border-[1.5px] border-[var(--acc)]`}
+                  className={`${inputCls} mt-2.5 border-[1.5px] border-accent`}
                 />
               )}
             </div>
@@ -486,7 +487,7 @@ export default function FicheArticle({
                 ))}
               </ChampRequis>
 
-              <div className="my-4 h-px bg-[var(--bg)]" />
+              <div className="my-4 h-px bg-bg" />
             </>
           )}
 
@@ -501,14 +502,14 @@ export default function FicheArticle({
             ))}
           </ChampRequis>
 
-          <div className="my-4 h-px bg-[var(--bg)]" />
+          <div className="my-4 h-px bg-bg" />
 
           <div>
             <div className="flex items-center gap-2.5">
-              <label className="text-[12.5px] font-bold tracking-[0.03em] text-[var(--ink)]">
+              <label className="text-sm font-bold tracking-[0.03em] text-ink">
                 Matière
               </label>
-              <span className="text-[11px] font-semibold text-[var(--faint-2)]">
+              <span className="text-xs font-semibold text-ink-3">
                 jusqu&apos;à 2 · optionnel
               </span>
             </div>
@@ -534,14 +535,14 @@ export default function FicheArticle({
             placeholder="Ex : dernière collection, coupe slim, voir photo 4…"
             className={`${inputCls} mt-2 resize-y leading-[1.55]`}
           />
-          <div className="mt-3.5 flex flex-wrap items-center gap-2.5 rounded-xl bg-[var(--surface-2)] px-4 py-3">
-            <FileText className="h-4 w-4 flex-shrink-0 text-[var(--acc)]" strokeWidth={2} />
-            <span className="text-[13px] font-medium text-[var(--ink2)]">
-              Prompt : <b className="text-[var(--acc)]">{nomPromptDetecte}</b>
+          <div className="mt-3.5 flex flex-wrap items-center gap-2.5 rounded-lg bg-surface-2 px-4 py-3">
+            <FileText className="h-4 w-4 flex-shrink-0 text-accent-text" strokeWidth={2} />
+            <span className="text-sm font-medium text-ink-2">
+              Prompt : <b className="text-accent-text">{nomPromptDetecte}</b>
             </span>
             <button
               onClick={onBasculerChoixPrompt}
-              className="ml-auto text-[12px] font-semibold text-[var(--faint)] transition-colors hover:text-[var(--acc)]"
+              className="ml-auto text-xs font-semibold text-ink-3 transition-colors hover:text-accent-text"
             >
               {montrerChoixPrompt ? "Fermer" : "Changer"}
             </button>
@@ -606,7 +607,7 @@ export default function FicheArticle({
           <div className={`${cardCls} p-5 md:px-6`}>
             <div className="flex flex-wrap items-center gap-2.5">
               <span className={labelCls}>Vinted — pilote automatique</span>
-              <span className="rounded-full bg-[var(--pos-soft)] px-2 py-0.5 text-[11px] font-bold text-[var(--pos)]">
+              <span className="rounded-full bg-pos-soft px-2 py-0.5 text-xs font-bold text-pos">
                 armé
               </span>
             </div>
@@ -614,21 +615,21 @@ export default function FicheArticle({
             {/* Ce que l'extension enverra sans rien demander. Affiché parce
                 qu'une valeur figée invisible est une valeur qu'on découvre
                 sur l'annonce publiée. */}
-            <p className="mt-2.5 font-mono text-[12px] text-[var(--faint-2)]">
+            <p className="mt-2.5 font-mono text-xs text-ink-3">
               {mappingVinted.rechercheCategorie} · {mappingVinted.filAriane} ·{" "}
               {mappingVinted.marque} · colis Petit · unisexe
             </p>
 
             <div className="mt-4">
               <div className="flex items-center gap-2.5">
-                <label className="text-[12.5px] font-bold tracking-[0.03em] text-[var(--ink)]">
+                <label className="text-sm font-bold tracking-[0.03em] text-ink">
                   Couleur
                 </label>
                 <span
-                  className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                  className={`rounded-full px-2 py-0.5 text-xs font-bold ${
                     qcm.couleurs.length > 0
-                      ? "bg-[var(--pos-soft)] text-[var(--pos)]"
-                      : "bg-[var(--neg-soft)] text-[var(--neg)]"
+                      ? "bg-pos-soft text-pos"
+                      : "bg-neg-soft text-neg"
                   }`}
                 >
                   {qcm.couleurs.length > 0 ? `${qcm.couleurs.length} / 2` : "requis"}
@@ -643,15 +644,15 @@ export default function FicheArticle({
                       type="button"
                       onClick={() => basculerCouleur(c.id)}
                       aria-pressed={active}
-                      className={`inline-flex min-h-[44px] items-center gap-2 rounded-xl border-[1.5px] px-3 text-[13px] font-semibold transition-all ${
+                      className={`inline-flex min-h-11 items-center gap-2 rounded-lg border-[1.5px] px-3 text-sm font-semibold transition-all ${
                         active
-                          ? "border-[var(--acc)] bg-[var(--acc)] text-[var(--acc-ink)] shadow-[var(--shadow)]"
-                          : "border-[var(--border)] bg-surface text-[var(--ink2)] hover:border-[var(--border-strong)]"
+                          ? "border-accent bg-accent text-accent-ink shadow-pop"
+                          : "border-line bg-surface text-ink-2 hover:border-line-strong"
                       }`}
                     >
                       <span
                         aria-hidden
-                        className="h-3.5 w-3.5 flex-none rounded-full border border-[var(--border-strong)]"
+                        className="h-3.5 w-3.5 flex-none rounded-full border border-line-strong"
                         style={
                           c.hex
                             ? { background: c.hex }
@@ -700,12 +701,12 @@ function ChampRequis({
   return (
     <div>
       <div className="flex items-center gap-2.5">
-        <label className="text-[12.5px] font-bold tracking-[0.03em] text-[var(--ink)]">
+        <label className="text-sm font-bold tracking-[0.03em] text-ink">
           {label}
         </label>
         <span
-          className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
-            ok ? "bg-[var(--pos-soft)] text-[var(--pos)]" : "bg-[var(--neg-soft)] text-[var(--neg)]"
+          className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+            ok ? "bg-pos-soft text-pos" : "bg-neg-soft text-neg"
           }`}
         >
           {ok ? "ok" : "requis"}

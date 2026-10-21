@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R14 → L1
 
 import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
@@ -63,7 +64,7 @@ export default function Modal({
   return createPortal(
     // z-[60] : la bulle du chat est en z-50 et passait devant la modale.
     <div
-      className="fixed inset-0 z-[60] overflow-y-auto overscroll-contain bg-ink/30 backdrop-blur-sm"
+      className="fixed inset-0 z-modal overflow-y-auto overscroll-contain bg-ink/30 backdrop-blur-sm"
       onMouseDown={onClose}
     >
       <div
@@ -81,15 +82,15 @@ export default function Modal({
           // `dvh` suit la barre d'adresse rétractable des navigateurs mobiles ;
           // `vh` ne la connaît pas et laisse le pied sous l'écran. Repli en
           // `vh` pour Safari antérieur à 15.4, qui ignore `dvh`.
-          className="flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-card border border-line bg-surface shadow-card-hover supports-[height:100dvh]:max-h-[calc(100dvh-2rem)]"
+          className="flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-over supports-[height:100dvh]:max-h-[calc(100dvh-2rem)]"
         >
           <header className="flex flex-none items-center justify-between gap-3 border-b border-line px-6 py-4">
-            <h2 id={titreId} className="text-title-sm font-semibold text-ink">
+            <h2 id={titreId} className="text-lg font-semibold text-ink">
               {title}
             </h2>
             <button
               onClick={onClose}
-              className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-surface-container hover:text-ink"
+              className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink"
               aria-label="Fermer"
             >
               ✕

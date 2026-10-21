@@ -1,3 +1,4 @@
+// design-tokens-dette: R2 R4 R5 R6 R7 → L3
 import { toast } from "sonner";
 import { euros } from "./calc";
 

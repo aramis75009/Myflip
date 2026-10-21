@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R2 R3 R5 R6 R7 R12 R14 → M7
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Loader from "@/components/Loader";
@@ -72,36 +73,36 @@ function cellBackground({ hovered, inMonth, hasSale }: CellState): string {
   // Le survol doit rester lisible sur une case qui porte déjà --acc-soft
   // (jour avec ventes), d'où la teinte appuyée plutôt qu'une élévation
   // neutre : --raise n'en diffère que de trois valeurs sur 255 en clair.
-  if (hovered) return "var(--acc-soft-strong)";
+  if (hovered) return "rgb(var(--surface-3))";
   if (!inMonth) return "transparent";
-  return hasSale ? "var(--acc-soft)" : "var(--surface)";
+  return hasSale ? "rgb(var(--accent-soft))" : "rgb(var(--surface))";
 }
 
 function cellShadow({ hovered, today }: CellState): string {
   if (hovered) {
-    return "var(--shadow), inset 0 0 0 1.5px var(--acc)";
+    return "var(--shadow-pop), inset 0 0 0 1.5px rgb(var(--accent))";
   }
-  return today ? "inset 0 0 0 2px var(--acc)" : "none";
+  return today ? "inset 0 0 0 2px rgb(var(--accent))" : "none";
 }
 
 // Seules les cases vides du mois courant portent un liseré : ailleurs il
 // doublerait le fond (jour avec ventes) ou le vide (mois voisin).
 function cellBorder({ inMonth, hasSale }: CellState): string {
-  return inMonth && !hasSale ? "1px solid var(--bg)" : "1px solid transparent";
+  return inMonth && !hasSale ? "1px solid rgb(var(--bg))" : "1px solid transparent";
 }
 
 function coefPillStyle(v: number): React.CSSProperties {
-  let color = "var(--neg)",
-    background = "var(--neg-soft)";
+  let color = "rgb(var(--neg))",
+    background = "rgb(var(--neg-soft))";
   if (v >= 2.3) {
-    color = "var(--pos)";
-    background = "var(--pos-soft)";
+    color = "rgb(var(--pos))";
+    background = "rgb(var(--pos-soft))";
   } else if (v >= 2.0) {
-    color = "var(--warn)";
-    background = "var(--warn-soft)";
+    color = "rgb(var(--warn))";
+    background = "rgb(var(--warn-soft))";
   }
   return {
-    fontFamily: "var(--font-grotesk)",
+    fontFamily: "var(--font-sans)",
     fontWeight: 700,
     fontSize: 12.5,
     color,
@@ -179,7 +180,7 @@ export default function CalendrierPage() {
   const gridAnim = GRID_ANIM[dir];
 
   return (
-    <main className="min-h-screen bg-[var(--bg)] p-[14px] text-[var(--ink)] min-[900px]:p-[18px]">
+    <main className="min-h-screen bg-bg p-3.5 text-ink min-[900px]:p-[18px]">
 
       {/* ── En-tête ─────────────────────────────────────────────────────── */}
       <div
@@ -191,7 +192,7 @@ export default function CalendrierPage() {
           <button
             onClick={() => navigate(-1)}
             aria-label="Mois précédent"
-            className="flex h-10 w-10 items-center justify-center rounded-[11px] border border-[var(--border)] bg-surface text-[var(--ink2)] transition-all hover:-translate-x-0.5 hover:border-[var(--border-strong)] hover:bg-[var(--tint)]"
+            className="flex h-10 w-10 items-center justify-center rounded border border-line bg-surface text-ink-2 transition-all hover:-translate-x-0.5 hover:border-line-strong hover:bg-surface-2"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="m15 18-6-6 6-6" />
@@ -199,14 +200,14 @@ export default function CalendrierPage() {
           </button>
           <button
             onClick={goToday}
-            className="h-10 rounded-[11px] border border-[var(--border)] bg-surface px-4 text-[13.5px] font-semibold text-[var(--ink2)] transition-all hover:border-[var(--border-strong)] hover:bg-[var(--tint)]"
+            className="h-10 rounded border border-line bg-surface px-4 text-base font-semibold text-ink-2 transition-all hover:border-line-strong hover:bg-surface-2"
           >
             Aujourd&apos;hui
           </button>
           <button
             onClick={() => navigate(1)}
             aria-label="Mois suivant"
-            className="flex h-10 w-10 items-center justify-center rounded-[11px] border border-[var(--border)] bg-surface text-[var(--ink2)] transition-all hover:translate-x-0.5 hover:border-[var(--border-strong)] hover:bg-[var(--tint)]"
+            className="flex h-10 w-10 items-center justify-center rounded border border-line bg-surface text-ink-2 transition-all hover:translate-x-0.5 hover:border-line-strong hover:bg-surface-2"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="m9 18 6-6-6-6" />
@@ -217,13 +218,13 @@ export default function CalendrierPage() {
 
       {/* ── Mois + légende ──────────────────────────────────────────────── */}
       <div className="mb-4 flex items-center gap-4" style={{ animation: "fadeUp .4s .04s both" }}>
-        <h2 className="font-grotesk text-[21px] font-bold capitalize tracking-[-0.01em]">
+        <h2 className="font-sans text-lg font-bold capitalize tracking-[-0.01em]">
           {format(current, "MMMM yyyy", { locale: fr })}
         </h2>
         <div className="flex-1" />
-        <div className="hidden items-center gap-4 text-[12px] font-semibold text-[var(--faint)] md:flex">
+        <div className="hidden items-center gap-4 text-xs font-semibold text-ink-3 md:flex">
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-[13px] w-[13px] rounded-[4px] bg-[var(--acc-soft)]" />
+            <span className="h-[13px] w-[13px] rounded-xs bg-accent-soft" />
             Jour avec ventes
           </span>
           <span>👑 Meilleur jour</span>
@@ -231,7 +232,7 @@ export default function CalendrierPage() {
       </div>
 
       {isError && (
-        <p className="mb-4 rounded-[14px] border border-[var(--neg)] bg-[var(--neg-soft)] px-4 py-3 text-[13px] text-[var(--neg)]">
+        <p className="mb-4 rounded-md border border-neg bg-neg-soft px-4 py-3 text-sm text-neg">
           Erreur lors du chargement du calendrier.
         </p>
       )}
@@ -241,7 +242,7 @@ export default function CalendrierPage() {
         {isLoading && <Loader label="Chargement du calendrier" />}
 
         {!isLoading && joursTries.length === 0 && (
-          <p className="rounded-[18px] border border-[var(--border)] bg-surface px-4 py-6 text-center text-[14px] text-[var(--faint)]">
+          <p className="rounded-lg border border-line bg-surface px-4 py-6 text-center text-base text-ink-3">
             Aucune vente ce mois-ci.
           </p>
         )}
@@ -252,38 +253,38 @@ export default function CalendrierPage() {
             return (
               <div
                 key={dd.date}
-                className={`overflow-hidden rounded-[18px] border bg-surface transition-colors ${active ? "border-[var(--acc)]" : "border-[var(--border)]"}`}
+                className={`overflow-hidden rounded-lg border bg-surface transition-colors ${active ? "border-accent" : "border-line"}`}
               >
                 <button
                   onClick={() => setSelected(active ? null : dd.date)}
                   className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
                 >
                   <div className="min-w-0">
-                    <div className="font-semibold capitalize text-[var(--ink)]">
+                    <div className="font-semibold capitalize text-ink">
                       {new Date(dd.date + "T00:00:00").toLocaleDateString("fr-FR", {
                         weekday: "long",
                         day: "numeric",
                         month: "long",
                       })}
                     </div>
-                    <div className="mt-0.5 text-[12px] text-[var(--faint-2)]">
+                    <div className="mt-0.5 text-xs text-ink-3">
                       {dd.nbArticles} article{dd.nbArticles > 1 ? "s" : ""}
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <div className="font-grotesk font-bold text-[var(--ink)]">{euros(dd.ca)}</div>
-                    <div className="text-[12px] text-[var(--pos)]">NET {euros(dd.net)}</div>
+                    <div className="font-sans font-bold text-ink">{euros(dd.ca)}</div>
+                    <div className="text-xs text-pos">NET {euros(dd.net)}</div>
                   </div>
                 </button>
                 {active && (
-                  <ul className="space-y-2 border-t border-[var(--bg)] px-4 py-3">
+                  <ul className="space-y-2 border-t border-bg px-4 py-3">
                     {dd.articles.map((a) => (
-                      <li key={a.id} className="rounded-[10px] border border-[var(--border)] px-3 py-2 text-[12px]">
+                      <li key={a.id} className="rounded border border-line px-3 py-2 text-xs">
                         <div className="flex justify-between gap-2">
-                          <span className="font-grotesk font-bold text-[var(--ink)]">{a.sku}</span>
-                          <span className="font-semibold text-[var(--ink)]">{euros(a.prixVente)}</span>
+                          <span className="font-sans font-bold text-ink">{a.sku}</span>
+                          <span className="font-semibold text-ink">{euros(a.prixVente)}</span>
                         </div>
-                        <div className="mt-0.5 flex justify-between gap-2 text-[var(--faint-2)]">
+                        <div className="mt-0.5 flex justify-between gap-2 text-ink-3">
                           <span className="truncate">{a.marque}</span>
                           <span className="shrink-0">{coef(a.coefficient)} · NET {euros(a.margeNette)}</span>
                         </div>
@@ -299,7 +300,7 @@ export default function CalendrierPage() {
       {/* ── Grille desktop ───────────────────────────────────────────────── */}
       <div className="hidden md:block">
         <div
-          className="rounded-[22px] border border-[var(--border)] bg-surface shadow-[0_1px_2px_rgba(22,38,29,.03)]"
+          className="rounded-lg border border-line bg-surface"
           style={{ padding: "18px 20px", animation: "fadeUp .45s .06s both" }}
         >
           {/* En-têtes jours */}
@@ -308,8 +309,8 @@ export default function CalendrierPage() {
               <span
                 key={j}
                 style={{
-                  fontSize: 11.5, fontWeight: 700, color: "var(--warn)", textAlign: "center",
-                  letterSpacing: ".04em", background: "var(--warn-soft)", border: "1px solid var(--warn)",
+                  fontSize: 11.5, fontWeight: 700, color: "rgb(var(--warn))", textAlign: "center",
+                  letterSpacing: ".04em", background: "rgb(var(--warn-soft))", border: "1px solid rgb(var(--warn))",
                   borderRadius: 9, padding: "7px 0",
                 }}
               >
@@ -318,7 +319,7 @@ export default function CalendrierPage() {
             ))}
             <span
               style={{
-                fontSize: 11.5, fontWeight: 700, color: "var(--acc)", textAlign: "center",
+                fontSize: 11.5, fontWeight: 700, color: "rgb(var(--accent))", textAlign: "center",
                 display: "flex", alignItems: "center", justifyContent: "center",
               }}
             >
@@ -397,14 +398,14 @@ export default function CalendrierPage() {
                                 today
                                   ? {
                                       width: 24, height: 24, borderRadius: "50%",
-                                      background: "var(--acc)", color: "var(--acc-ink)",
+                                      background: "rgb(var(--accent))", color: "rgb(var(--accent-ink))",
                                       display: "flex", alignItems: "center", justifyContent: "center",
-                                      fontFamily: "var(--font-grotesk)", fontWeight: 700, fontSize: 13,
+                                      fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13,
                                     }
                                   : {
-                                      fontFamily: "var(--font-grotesk)",
+                                      fontFamily: "var(--font-sans)",
                                       fontWeight: 700, fontSize: 14,
-                                      color: inMonth ? "var(--ink)" : "var(--faint-2)",
+                                      color: inMonth ? "rgb(var(--ink))" : "rgb(var(--ink-3))",
                                     }
                               }
                             >
@@ -422,13 +423,13 @@ export default function CalendrierPage() {
                           {/* Données vente */}
                           {hasSale && dd && (
                             <div style={{ marginTop: "auto" }}>
-                              <div style={{ fontFamily: "var(--font-grotesk)", fontWeight: 700, fontSize: 14, color: "var(--ink)", letterSpacing: "-0.01em" }}>
+                              <div style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, color: "rgb(var(--ink))", letterSpacing: "-0.01em" }}>
                                 {euros(dd.ca)}
                               </div>
-                              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--ink2)", marginTop: 2 }}>
+                              <div style={{ fontSize: 11, fontWeight: 600, color: "rgb(var(--ink-2))", marginTop: 2 }}>
                                 NET {euros(dd.net)}
                               </div>
-                              <div style={{ fontSize: 10.5, fontWeight: 500, color: "var(--faint-2)", marginTop: 1 }}>
+                              <div style={{ fontSize: 10.5, fontWeight: 500, color: "rgb(var(--ink-3))", marginTop: 1 }}>
                                 {dd.nbArticles} art.
                               </div>
                             </div>
@@ -440,7 +441,7 @@ export default function CalendrierPage() {
                               style={{
                                 position: "absolute", bottom: "calc(100% + 9px)", left: "50%",
                                 transform: "translateX(-50%)", whiteSpace: "nowrap",
-                                background: "var(--ink)", color: "var(--bg)", padding: "8px 12px",
+                                background: "rgb(var(--ink))", color: "rgb(var(--bg))", padding: "8px 12px",
                                 borderRadius: 10, fontSize: 11, fontWeight: 600, letterSpacing: ".01em",
                                 boxShadow: "0 12px 28px -8px rgba(22,38,29,.55)",
                                 zIndex: 30, pointerEvents: "none",
@@ -453,7 +454,7 @@ export default function CalendrierPage() {
                                   position: "absolute", top: "100%", left: "50%",
                                   transform: "translateX(-50%)", width: 0, height: 0,
                                   borderLeft: "6px solid transparent", borderRight: "6px solid transparent",
-                                  borderTop: "6px solid var(--ink)",
+                                  borderTop: "6px solid rgb(var(--ink))",
                                 }}
                               />
                             </div>
@@ -465,8 +466,8 @@ export default function CalendrierPage() {
                     {/* Récap semaine */}
                     <div
                       style={{
-                        borderRadius: 16, background: "var(--surface)",
-                        border: "1px solid var(--border)", borderLeft: "3px solid var(--acc)",
+                        borderRadius: 16, background: "rgb(var(--surface))",
+                        border: "1px solid rgb(var(--line))", borderLeft: "3px solid rgb(var(--accent))",
                         padding: "11px 13px", display: "flex", flexDirection: "column",
                         transition: "box-shadow .18s ease, transform .18s ease",
                       }}
@@ -481,24 +482,24 @@ export default function CalendrierPage() {
                         el.style.transform = "";
                       }}
                     >
-                      <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: ".07em", color: "var(--faint)" }}>
+                      <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: ".07em", color: "rgb(var(--ink-3))" }}>
                         CA SEMAINE
                       </span>
-                      <span style={{ fontFamily: "var(--font-grotesk)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", color: "var(--ink)", marginTop: 2 }}>
+                      <span style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", color: "rgb(var(--ink))", marginTop: 2 }}>
                         {euros(wca)}
                       </span>
-                      <div style={{ height: 1, background: "var(--border)", margin: "9px 0" }} />
+                      <div style={{ height: 1, background: "rgb(var(--line))", margin: "9px 0" }} />
                       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                        <RecapRow label="Net" value={euros(wnet)} valueColor="var(--pos)" />
+                        <RecapRow label="Net" value={euros(wnet)} valueColor="rgb(var(--pos))" />
                         <RecapRow label="Articles" value={String(wnb)} />
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                          <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--faint-2)" }}>Coef</span>
+                          <span style={{ fontSize: 10.5, fontWeight: 600, color: "rgb(var(--ink-3))" }}>Coef</span>
                           <span style={coefPillStyle(wcoef)}>{coef(wcoef)}</span>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                          <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--faint-2)" }}>Panier</span>
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "var(--font-grotesk)", fontWeight: 700, fontSize: 12, color: "var(--ink)", whiteSpace: "nowrap" }}>
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--faint-2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <span style={{ fontSize: 10.5, fontWeight: 600, color: "rgb(var(--ink-3))" }}>Panier</span>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 12, color: "rgb(var(--ink))", whiteSpace: "nowrap" }}>
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--ink-3))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <circle cx="8" cy="21" r="1" /><circle cx="19" cy="21" r="1" />
                               <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
                             </svg>
@@ -516,19 +517,19 @@ export default function CalendrierPage() {
 
         {/* ── Bande totaux du mois ──────────────────────────────────────── */}
         <div
-          className="mt-[18px] flex items-center rounded-[20px] border border-[var(--border)] bg-surface px-2 py-5 shadow-[0_1px_2px_rgba(22,38,29,.03)]"
+          className="mt-[18px] flex items-center rounded-lg border border-line bg-surface px-2 py-5"
           style={{ animation: "fadeUp .45s .16s both" }}
         >
           <MetricBand label="CA TOTAL" value={<CountUp value={monthly.ca} fmt={euros} />} />
-          <div className="h-[42px] w-px bg-[var(--border)]" />
+          <div className="h-[42px] w-px bg-line" />
           <MetricBand label="ARTICLES VENDUS" value={<CountUp value={monthly.nb} fmt={(v) => String(Math.round(v))} />} />
-          <div className="h-[42px] w-px bg-[var(--border)]" />
+          <div className="h-[42px] w-px bg-line" />
           <MetricBand
             label="MARGE NETTE"
             accent
             value={<CountUp value={monthly.net} fmt={euros} />}
           />
-          <div className="h-[42px] w-px bg-[var(--border)]" />
+          <div className="h-[42px] w-px bg-line" />
           <MetricBand
             label="COEF MOYEN"
             value={
@@ -542,7 +543,7 @@ export default function CalendrierPage() {
               />
             }
           />
-          <div className="h-[42px] w-px bg-[var(--border)]" />
+          <div className="h-[42px] w-px bg-line" />
           <MetricBand label="PANIER MOYEN" value={<CountUp value={monthly.panierMoyen} fmt={euros} />} />
         </div>
       </div>
@@ -550,19 +551,19 @@ export default function CalendrierPage() {
       {/* ── Modal détail du jour ─────────────────────────────────────────── */}
       {selectedDay && (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center p-6"
+          className="fixed inset-0 z-modal flex items-center justify-center p-6"
           style={{ background: "rgba(22,38,29,.4)", animation: "overlayIn .2s ease both" }}
           onClick={() => setSelected(null)}
         >
           <div
-            className="w-full max-w-[448px] rounded-[22px] bg-surface p-[26px] shadow-[0_30px_80px_-20px_rgba(22,38,29,.55)]"
+            className="w-full max-w-[448px] rounded-lg bg-surface p-[26px] shadow-over"
             style={{ animation: "modalIn .34s cubic-bezier(.22,1,.36,1) both" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <div className="text-[12px] font-semibold text-[var(--faint)]">Détail du jour</div>
-                <div className="mt-0.5 font-grotesk text-[23px] font-bold capitalize tracking-[-0.02em]">
+                <div className="text-xs font-semibold text-ink-3">Détail du jour</div>
+                <div className="mt-0.5 font-sans text-xl font-bold capitalize tracking-[-0.02em]">
                   {new Date(selectedDay.date + "T00:00:00").toLocaleDateString("fr-FR", {
                     weekday: "long", day: "numeric", month: "long", year: "numeric",
                   })}
@@ -570,7 +571,7 @@ export default function CalendrierPage() {
               </div>
               <button
                 onClick={() => setSelected(null)}
-                className="flex h-[34px] w-[34px] items-center justify-center rounded-[11px] bg-[var(--tint)] text-[var(--faint-2)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--ink2)]"
+                className="flex h-[34px] w-[34px] items-center justify-center rounded bg-surface-2 text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink-2"
               >
                 <X className="h-4 w-4" strokeWidth={2.2} />
               </button>
@@ -578,7 +579,7 @@ export default function CalendrierPage() {
 
             {/* Carte CA avec sheen */}
             <div
-              className="relative mb-[14px] overflow-hidden rounded-[22px] bg-[var(--acc)] p-5 text-[var(--acc-ink)]"
+              className="relative mb-3.5 overflow-hidden rounded-lg bg-accent p-5 text-accent-ink"
             >
               <div
                 className="pointer-events-none absolute inset-y-0 left-0"
@@ -588,10 +589,10 @@ export default function CalendrierPage() {
                   animation: "sheen 2.4s ease-in-out .25s infinite",
                 }}
               />
-              <div className="relative text-[11px] font-bold tracking-[.07em] text-[var(--acc-ink)] opacity-70">
+              <div className="relative text-xs font-bold tracking-[.07em] text-accent-ink opacity-70">
                 CHIFFRE D&apos;AFFAIRES
               </div>
-              <div className="relative mt-1 font-grotesk text-[34px] font-bold tracking-[-0.02em]">
+              <div className="relative mt-1 font-sans text-2xl font-bold tracking-[-0.02em]">
                 <CountUp value={selectedDay.ca} duration={600} fmt={euros} />
               </div>
             </div>
@@ -618,11 +619,11 @@ export default function CalendrierPage() {
 }
 
 /* ─── Sous-composants ────────────────────────────────────────────────────── */
-function RecapRow({ label, value, valueColor = "var(--ink)" }: { label: string; value: string; valueColor?: string }) {
+function RecapRow({ label, value, valueColor = "rgb(var(--ink))" }: { label: string; value: string; valueColor?: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-      <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--faint-2)" }}>{label}</span>
-      <span style={{ fontFamily: "var(--font-grotesk)", fontWeight: 700, fontSize: 12, color: valueColor, whiteSpace: "nowrap" }}>
+      <span style={{ fontSize: 10.5, fontWeight: 600, color: "rgb(var(--ink-3))" }}>{label}</span>
+      <span style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 12, color: valueColor, whiteSpace: "nowrap" }}>
         {value}
       </span>
     </div>
@@ -631,9 +632,9 @@ function RecapRow({ label, value, valueColor = "var(--ink)" }: { label: string; 
 
 function MetricBand({ label, value, accent }: { label: string; value: React.ReactNode; accent?: boolean }) {
   return (
-    <div className="flex-1 px-[14px] text-center">
-      <div className="text-[11.5px] font-bold tracking-[.05em] text-[var(--faint)]">{label}</div>
-      <div className={`mt-[5px] font-grotesk text-[26px] font-bold tracking-[-0.02em] ${accent ? "text-[var(--pos)]" : "text-[var(--ink)]"}`}>
+    <div className="flex-1 px-3.5 text-center">
+      <div className="text-xs font-bold tracking-[.05em] text-ink-3">{label}</div>
+      <div className={`mt-[5px] font-sans text-xl font-bold tracking-[-0.02em] ${accent ? "text-pos" : "text-ink"}`}>
         {value}
       </div>
     </div>
@@ -642,9 +643,9 @@ function MetricBand({ label, value, accent }: { label: string; value: React.Reac
 
 function ModalRow({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className="flex items-center justify-between rounded-[13px] bg-[var(--tint)] px-[15px] py-[13px] transition-colors hover:bg-[var(--tint)]">
-      <span className="text-[13.5px] font-semibold text-[var(--muted)]">{label}</span>
-      <span className={`font-grotesk text-[16px] font-bold ${accent ? "text-[var(--pos)]" : "text-[var(--ink)]"}`}>
+    <div className="flex items-center justify-between rounded-md bg-surface-2 px-[15px] py-[13px] transition-colors hover:bg-surface-2">
+      <span className="text-base font-semibold text-ink-3">{label}</span>
+      <span className={`font-sans text-md font-bold ${accent ? "text-pos" : "text-ink"}`}>
         {value}
       </span>
     </div>
