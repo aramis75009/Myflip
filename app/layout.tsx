@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
-import { Toaster } from "sonner";
 import "./tokens.css";
 import "./globals.css";
 import Providers from "./providers";
 import AppShell from "@/components/AppShell";
+import { AppToaster } from "@/components/ui/toaster";
 import { SCRIPT_THEME } from "@/lib/themeMeta";
 
 // Interface font (Space Grotesk) and monospace (JetBrains Mono: SKU, amounts).
@@ -24,12 +24,18 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MyFlip — Pilotage de revente",
+  // Each segment sets its own title (« Stock » → « Stock — MyFlip »);
+  // TitreOnglet prefixes the « à comptabiliser » count.
+  title: { template: "%s — MyFlip", default: "MyFlip" },
   description: "Suis tes achats, ventes et marges sur Vinted et Vestiaire.",
-  // Suit l'hôte de la vitrine dès qu'il est configuré : les métadonnées Open
-  // Graph d'une landing doivent pointer sur la landing, pas sur l'ancienne URL.
+  // Follows the landing host once configured (Open Graph metadata of a
+  // landing must point at the landing), then Vercel's production host, then
+  // the app host.
   metadataBase: new URL(
-    `https://${process.env.NEXT_PUBLIC_LANDING_HOST?.trim().replace(/^https?:\/\//, "") || "compta-polos.vercel.app"}`,
+    `https://${
+      (process.env.NEXT_PUBLIC_LANDING_HOST || process.env.VERCEL_PROJECT_PRODUCTION_URL)?.trim().replace(/^https?:\/\//, "") ||
+      "myflip-app.vercel.app"
+    }`,
   ),
   icons: {
     icon: "/logo-atlas/myflip-favicon-32.png",
@@ -70,8 +76,9 @@ export default function RootLayout({
         {/* Theme, theme-color and sidebar state before the first paint. */}
         <script dangerouslySetInnerHTML={{ __html: SCRIPT_THEME }} />
         <Providers>
+          {/* Before the frame: subscribed before any page effect fires a toast (X15). */}
+          <AppToaster />
           <AppShell>{children}</AppShell>
-          <Toaster position="bottom-right" />
         </Providers>
       </body>
     </html>

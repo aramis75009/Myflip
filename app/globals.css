@@ -18,7 +18,9 @@
     background-color: rgb(var(--bg));
     color: rgb(var(--ink));
     font-family: var(--font-sans);
-    font-size: var(--t-base);
+    /* 16 px, as before the overhaul (Aramis, 21/10): text with no size of
+       its own reads at the browser default; components set theirs. */
+    font-size: var(--t-md);
     line-height: var(--lh-ui);
     font-variant-numeric: tabular-nums;
   }
