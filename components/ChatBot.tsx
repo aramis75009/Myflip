@@ -1,5 +1,4 @@
 "use client";
-// design-tokens-dette: R13 R14 → L2a
 
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -115,9 +114,9 @@ export default function ChatBot() {
         <button
           onClick={() => setOpen(true)}
           aria-label="Ouvrir l'assistant IA"
-          className="fixed bottom-20 right-6 z-fab flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-ink shadow-over transition-transform hover:scale-105 md:bottom-6"
+          className="fixed bottom-[calc(var(--dock-h)+env(safe-area-inset-bottom)+0.75rem+var(--fab-offset,0px))] right-4 z-fab flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-ink shadow-over transition-[bottom,transform] duration-base ease-out hover:scale-105 md:bottom-[calc(1.5rem+var(--fab-offset,0px))] md:right-6"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-6 w-6">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-6 w-6" aria-hidden="true">
             <path
               d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 0 1-.9-3.8A8.38 8.38 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5Z"
               strokeWidth="1.6"
@@ -130,12 +129,12 @@ export default function ChatBot() {
 
       {/* Panneau latéral */}
       {open && (
-        <div className="fixed right-0 top-0 z-modal flex h-screen w-full flex-col border-l border-line bg-surface shadow-over sm:w-[380px]">
+        <div className="fixed right-0 top-0 z-modal flex h-dvh w-full flex-col border-l border-line bg-surface shadow-over sm:w-[380px]">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-line px-5 py-4">
             <div className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-ink">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4" aria-hidden="true">
                   <path
                     d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 0 1-.9-3.8A8.38 8.38 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5Z"
                     strokeWidth="1.6"
@@ -156,7 +155,7 @@ export default function ChatBot() {
           </div>
 
           {/* Messages */}
-          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4">
             {messages.map((m) => (
               <div
                 key={m.id}
@@ -214,7 +213,7 @@ export default function ChatBot() {
                 }}
                 rows={1}
                 placeholder="Écris un message…"
-                className="max-h-32 flex-1 resize-none rounded-md border border-line bg-surface px-3 py-2 text-base text-ink outline-none focus:border-accent focus:ring-2 focus:ring-focus"
+                className="max-h-32 flex-1 resize-none rounded-md border border-line-strong bg-surface px-3 py-2 text-base text-ink focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
               />
               <button
                 onClick={send}
