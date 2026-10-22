@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId, notFound, unauthorized } from "@/lib/apiAuth";
 import { supprimerImage } from "@/lib/studioBlob";
-import { estDecision } from "@/lib/studioFiche";
+import { verifierChangementDecision } from "@/lib/studioDecision";
+import { estDecision, type Decision } from "@/lib/studioFiche";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,9 +11,20 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
 /**
- * PATCH /api/studio/essais/[id] — la décision d'Aramis : "valide", "rejete",
- * ou null pour revenir sur une décision. C'est elle, pas le verdict IA, qui
- * alimente le bilan (spec §6).
+ * PATCH /api/studio/essais/[id] `{ decision }` — la décision d'Aramis : "valide",
+ * "rejete", ou null pour l'ANNULER (l'essai repasse « à juger »). C'est elle, pas
+ * le verdict IA, qui alimente le bilan (spec §6).
+ *
+ * Les règles de `lib/studioDecision.ts` protègent la case (une image vivante à
+ * la fois) ; un refus est un 409 avec `code`, `error` (le POURQUOI, en français)
+ * et `autresEssaiIds` (les essais de la case en cause) :
+ *  - `image_purgee`  : un rejet dont l'image a été effacée du Blob ne se rattrape
+ *    plus (ni remise à juger, ni validation) ;
+ *  - `case_reprise`  : un essai rejeté ne redevient pas « à juger » ou validé si
+ *    une autre image non rejetée tient déjà la case (rejeter celle-là d'abord) ;
+ *  - `deja_validee`  : une case ne porte qu'une image validée (annuler l'autre d'abord) ;
+ *  - `conflit`       : l'essai a changé entre la lecture et l'écriture, recharger.
+ * Redemander la décision déjà en place répond 200 avec `inchange: true`.
  */
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   const userId = await getUserId();
@@ -22,12 +34,37 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   if (body.decision !== null && !estDecision(body.decision)) {
     return NextResponse.json({ error: "Décision inconnue." }, { status: 400 });
   }
-  const res = await prisma.studioEssai.updateMany({
+  const nouvelle: Decision | null = body.decision;
+
+  const essai = await prisma.studioEssai.findFirst({
     where: { id, coloris: { userId } },
-    data: { decision: body.decision },
+    select: { id: true, decision: true, urlImage: true, colorisId: true, angleId: true, referenceId: true },
   });
-  if (res.count === 0) return notFound("Essai");
-  return NextResponse.json({ ok: true });
+  if (!essai) return notFound("Essai");
+
+  // Les autres essais de la MÊME case. Un essai du banc de test (sans photo de ligne) n'a pas de case.
+  const autres = essai.referenceId
+    ? await prisma.studioEssai.findMany({
+        where: { colorisId: essai.colorisId, angleId: essai.angleId, referenceId: essai.referenceId, id: { not: essai.id } },
+        select: { id: true, decision: true },
+      })
+    : [];
+
+  const verdict = verifierChangementDecision({ id: essai.id, decision: essai.decision, purge: essai.urlImage === "" }, nouvelle, autres);
+  if (!verdict.ok) {
+    return NextResponse.json({ error: verdict.message, code: verdict.code, autresEssaiIds: verdict.autresEssaiIds }, { status: verdict.status });
+  }
+  if (verdict.inchange) return NextResponse.json({ ok: true, decision: nouvelle, inchange: true });
+
+  // La décision lue sert de garde : si l'essai a bougé entre-temps, on n'écrase rien.
+  const res = await prisma.studioEssai.updateMany({
+    where: { id, coloris: { userId }, decision: essai.decision },
+    data: { decision: nouvelle },
+  });
+  if (res.count === 0) {
+    return NextResponse.json({ error: "Cet essai vient de changer : recharge la fiche.", code: "conflit" }, { status: 409 });
+  }
+  return NextResponse.json({ ok: true, decision: nouvelle, inchange: false });
 }
 
 /**
