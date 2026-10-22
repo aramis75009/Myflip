@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ImageOff } from "lucide-react";
+import { ChevronDown, History, ImageOff } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/states";
 import { cn } from "@/lib/cn";
@@ -24,6 +24,7 @@ export default function Validees({
   cible,
   decisions,
   nomDe,
+  onHistorique,
   numero,
   ouverte,
   courante,
@@ -33,6 +34,8 @@ export default function Validees({
   cible: string | null;
   decisions: Decisions;
   nomDe: (id: string) => string;
+  /** Every attempt of the cell: choose another version, or undo a decision. */
+  onHistorique: (c: { referenceId: string; angleId: string }) => void;
   numero: number;
   ouverte: boolean;
   courante: boolean;
@@ -101,6 +104,7 @@ export default function Validees({
                       <p className="truncate text-xs text-ink-2">
                         {angle(e)} · {nomDe(e.modele)}
                       </p>
+                      <BoutonHistorique onClick={() => onHistorique({ referenceId: e.referenceId, angleId: e.angleId })} quoi={`${prise(e)}, ${angle(e)}`} />
                     </li>
                   ))}
                 </ul>
@@ -141,6 +145,7 @@ export default function Validees({
                     <p className="truncate text-xs text-ink-2">
                       {angle(e)} · {dateCourte(e.createdAt)}
                     </p>
+                    <BoutonHistorique onClick={() => onHistorique({ referenceId: e.referenceId, angleId: e.angleId })} quoi={`${prise(e)}, ${angle(e)}`} />
                   </li>
                 ))}
               </ul>
@@ -149,5 +154,18 @@ export default function Validees({
         </div>
       )}
     </SectionEtape>
+  );
+}
+
+function BoutonHistorique({ onClick, quoi }: { onClick: () => void; quoi: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Historique de la prise ${quoi}`}
+      className="mt-1 inline-flex min-h-8 items-center gap-1 rounded-sm text-xs font-semibold text-ink-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+    >
+      <History size={12} aria-hidden /> Historique
+    </button>
   );
 }

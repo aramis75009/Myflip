@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { Frame } from "@/components/console";
 import { useMouvementReduit } from "@/lib/useMouvementReduit";
@@ -13,6 +14,7 @@ import ApercuPrompt from "./ApercuPrompt";
 import { CarteProchaineAction, EnTete } from "./EnTeteFiche";
 import FileAJuger from "./FileAJuger";
 import Generation from "./Generation";
+import HistoriquePrise, { type CibleHistorique } from "./HistoriquePrise";
 import Planche from "./Planche";
 import { idEtape } from "./SectionEtape";
 import TableauAngles from "./TableauAngles";
@@ -31,7 +33,8 @@ export type EssaiClient = FicheClient["essais"][number];
  */
 export default function Fiche({ fiche }: { fiche: FicheClient }) {
   const reduit = useMouvementReduit();
-  const modeles = useModeles();
+  const router = useRouter();
+  const modeles = useModeles(fiche.budget);
   const { coloris } = fiche;
   const [cible, setCible] = useState<string | null>(fiche.cibles[0] ?? null);
   const cibleValide = cible && fiche.cibles.includes(cible) ? cible : fiche.cibles[0] ?? null;
@@ -39,6 +42,12 @@ export default function Fiche({ fiche }: { fiche: FicheClient }) {
   const avis = useAvisIA();
   const [courantId, setCourantId] = useState<string | null>(null);
   const [apercu, setApercu] = useState<{ ouvert: boolean; angleId: string | null }>({ ouvert: false, angleId: null });
+  const [historique, setHistorique] = useState<CibleHistorique | null>(null);
+  const ouvrirHistorique = ({ referenceId, angleId }: { referenceId: string; angleId: string }) => {
+    const prise = fiche.lignes.find((l) => l.id === referenceId)?.prise ?? "Photo";
+    const angle = fiche.angles.find((a) => a.id === angleId)?.nom ?? "angle archivé";
+    setHistorique({ referenceId, angleId, titre: `${prise} · ${angle}` });
+  };
 
   const parId = new Map((modeles.catalogue?.modeles ?? []).map((m) => [m.id, m]));
   const nomDe = (id: string) => (id === MODELE_MANUEL ? "Dépôt manuel (Gemini)" : parId.get(id)?.nom ?? id);
@@ -148,8 +157,19 @@ export default function Fiche({ fiche }: { fiche: FicheClient }) {
         catalogue={parId}
         avis={avis}
         decisions={decisions}
+        budget={modeles.budget}
+        onHistorique={ouvrirHistorique}
       />
-      <Validees {...props("validees")} fiche={fiche} cible={cibleValide} decisions={decisions} nomDe={nomDe} />
+      <Validees {...props("validees")} fiche={fiche} cible={cibleValide} decisions={decisions} nomDe={nomDe} onHistorique={ouvrirHistorique} />
+
+      <HistoriquePrise
+        cle={coloris.cle}
+        cible={historique}
+        onFermer={() => setHistorique(null)}
+        nomDe={nomDe}
+        taux={modeles.budget.tauxEurParUsd}
+        onModifie={() => router.refresh()}
+      />
 
       <ApercuPrompt
         open={apercu.ouvert}

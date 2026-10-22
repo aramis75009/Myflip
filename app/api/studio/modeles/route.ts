@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId, unauthorized } from "@/lib/apiAuth";
 import { agregatsParModele } from "@/lib/studioAgregats";
@@ -25,14 +25,19 @@ export const dynamic = "force-dynamic";
  * réponse (`etat.kind = "stale"`), sinon liste vide (`"off"`). Les favoris sont
  * rendus tels quels, même ceux qu'OpenRouter ne liste plus : l'écran les
  * ignore, et ils restent supprimables.
+ *
+ * `?rafraichir=1` (bouton « Rafraîchir » du sélecteur) relit OpenRouter sans
+ * attendre la fin du cache de 10 min ; en panne, c'est toujours la dernière
+ * bonne réponse qui revient.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   const userId = await getUserId();
   if (!userId) return unauthorized();
+  const rafraichir = req.nextUrl.searchParams.get("rafraichir") === "1";
 
   try {
     const [catalogue, favoris, essais, echecs, budget] = await Promise.all([
-      getCatalogue(),
+      getCatalogue({ refresh: rafraichir }),
       prisma.studioModeleFavori.findMany({ where: { userId }, orderBy: { createdAt: "asc" }, select: { modele: true } }),
       prisma.studioEssai.findMany({
         where: { coloris: { userId } },

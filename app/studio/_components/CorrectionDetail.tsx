@@ -4,24 +4,25 @@ import { useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import { Copy, Sparkles, Upload } from "lucide-react";
 
-import { AlertDialog } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toastErreur, toastSucces } from "@/lib/toast";
 import { compilerCorrection } from "@/lib/studioAngles";
-import type { ModeleImage } from "@/lib/studioModeles";
+import { devisDuLancement, type BudgetCompte, type DevisMultiModeles, type ModeleImage } from "@/lib/studioModeles";
 
+import { montantCourt } from "../_modeles";
+import ConfirmationDepense from "./ConfirmationDepense";
 import { ACCEPT, lireErreur, preparer } from "./envoi";
 import type { EssaiClient, FicheClient } from "./Fiche";
 import { copier, envoyerGeneration } from "./lancer";
-import { devisPour, montantDevis } from "./SelecteurModeles";
 import type { AvisIA } from "./useParcours";
 
 /**
  * « Corriger un détail » on the image being judged: tick the details that
  * drifted, then regenerate with the same model (API) or copy the correction
- * prompt and deposit the corrected image (manual). Spending asks for a
- * confirmation; the server has the last word (409 → its own words).
+ * prompt and deposit the corrected image (manual). Over the budget per bag or
+ * with an unknown price, spending asks for a confirmation with the amount; the
+ * server has the last word (409 → its own quote).
  */
 export default function CorrectionDetail({
   fiche,
@@ -35,6 +36,7 @@ export default function CorrectionDetail({
   occupe,
   onOccupe,
   avis,
+  budget,
 }: {
   fiche: FicheClient;
   essai: EssaiClient;
@@ -47,14 +49,15 @@ export default function CorrectionDetail({
   occupe: string | null;
   onOccupe: (o: string | null) => void;
   avis: AvisIA;
+  budget: BudgetCompte;
 }) {
   const router = useRouter();
-  const [confirmation, setConfirmation] = useState(false);
-  /** The server's words when it asked for a confirmation (409). */
-  const [motifServeur, setMotifServeur] = useState<string | null>(null);
+  /** The confirmation window: the quote shown, the server's when it asked (409). */
+  const [confirmation, setConfirmation] = useState<{ devis: DevisMultiModeles; serveur: boolean; message: string | null } | null>(null);
   const depot = useRef<HTMLInputElement>(null);
   const promptCorrection = compilerCorrection(choix);
-  const devisCorrection = modele ? devisPour([modele], 1, true) : null;
+  // The same quote as the server's: one cell, the failed image added as an input.
+  const devisCorrection = modele ? devisDuLancement({ modeles: [modele], nbCases: 1, avecImageRatee: true, budget }) : null;
 
   async function regenerer(confirme: boolean) {
     if (occupe) return;
@@ -74,11 +77,12 @@ export default function CorrectionDetail({
     });
     onOccupe(null);
     if (r.kind === "confirmation") {
-      setMotifServeur(r.message);
-      setConfirmation(true);
+      const quoi = r.devis ?? devisCorrection;
+      if (quoi) setConfirmation({ devis: quoi, serveur: r.devis !== null, message: r.message });
+      else toastErreur(r.message ?? "Le serveur demande une confirmation : ce modèle n’est plus au catalogue.");
       return;
     }
-    setConfirmation(false);
+    setConfirmation(null);
     if (r.kind === "erreur") {
       toastErreur(`Correction : ${r.message}`);
       return;
@@ -180,33 +184,23 @@ export default function CorrectionDetail({
               disabled={!promptCorrection || (!!occupe && occupe !== "correction")}
               pending={occupe === "correction"}
               pendingLabel="Génération…"
-              onClick={() => (devisCorrection?.confirmationRequise === false ? void regenerer(false) : setConfirmation(true))}
+              onClick={() =>
+                devisCorrection?.confirmationRequise ? setConfirmation({ devis: devisCorrection, serveur: false, message: null }) : void regenerer(false)
+              }
             >
               <Sparkles size={14} aria-hidden /> Régénérer avec {nomDe(essai.modele)}
-              <span className="font-mono text-xs">{devisCorrection ? montantDevis(devisCorrection) : "coût inconnu"}</span>
+              <span className="font-mono text-xs">{devisCorrection ? montantCourt(devisCorrection) : "coût inconnu"}</span>
             </Button>
           </div>
         )}
       </div>
-      <AlertDialog
-        open={confirmation}
-        onOpenChange={(o) => {
-          setConfirmation(o);
-          if (!o) setMotifServeur(null);
-        }}
-        tone="neutre"
-        title="Confirmer la dépense"
-        description={
-          motifServeur
-            ? `${motifServeur} Ta clé OpenRouter paie.`
-            : devisCorrection
-              ? `Cette correction est estimée à ${montantDevis(devisCorrection)}. Ta clé OpenRouter paie.`
-              : "Coût inconnu : ce modèle n’est plus au catalogue. Confirmer quand même ? Ta clé OpenRouter paie."
-        }
-        confirmLabel={devisCorrection && devisCorrection.inconnus === 0 ? `Confirmer ${montantDevis(devisCorrection)}` : "Confirmer quand même"}
+      <ConfirmationDepense
+        devis={confirmation?.devis ?? null}
+        serveur={confirmation?.serveur ?? false}
+        message={confirmation?.message ?? null}
         pending={occupe === "correction"}
-        pendingLabel="Génération…"
-        onConfirm={() => void regenerer(true)}
+        onFermer={() => setConfirmation(null)}
+        onConfirmer={() => void regenerer(true)}
       />
     </>
   );

@@ -193,7 +193,22 @@ export function useDecisions(fiche: FicheClient, onRetour: (essaiId: string) => 
     });
   }
 
-  return { masquees: decisions.masquees(), decider, decisionDe: (id: string) => decisions.decisionDe(id) };
+  /**
+   * Several decisions at once (a comparison: keep one, reject the others), one
+   * toast: « Annuler » takes them all back. Each still leaves after the delay.
+   */
+  function deciderPlusieurs(liste: readonly { essai: EssaiClient; decision: Decision }[], message: string) {
+    if (liste.length === 0) return;
+    for (const { essai, decision } of liste) decisions.decider(essai.id, decision);
+    toastAnnulable(message, {
+      onAnnuler: () => {
+        const resultats = liste.map(({ essai }) => decisions.annuler(essai.id));
+        if (resultats.includes("rien_envoye")) retour.current(liste[0].essai.id);
+      },
+    });
+  }
+
+  return { masquees: decisions.masquees(), decider, deciderPlusieurs, decisionDe: (id: string) => decisions.decisionDe(id) };
 }
 
 export type Decisions = ReturnType<typeof useDecisions>;

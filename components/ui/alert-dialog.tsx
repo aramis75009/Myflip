@@ -26,6 +26,7 @@ export function AlertDialog({
   pending = false,
   pendingLabel,
   tone = "danger",
+  children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -37,6 +38,8 @@ export function AlertDialog({
   pending?: boolean;
   pendingLabel?: string;
   tone?: "danger" | "neutre";
+  /** Details under the description (a quote, a list): block content, which a description paragraph cannot hold. */
+  children?: ReactNode;
 }) {
   return (
     <AD.Root
@@ -56,6 +59,7 @@ export function AlertDialog({
           >
             <AD.Title className="text-lg font-semibold text-ink">{title}</AD.Title>
             <AD.Description className="mt-2 text-base text-ink-2">{description}</AD.Description>
+            {children ? <div className="mt-4">{children}</div> : null}
             <div className="mt-6 flex flex-col-reverse gap-2 max-md:[&>button]:w-full md:flex-row md:justify-end">
               <AD.Cancel asChild>
                 <Button variant="secondary" aria-disabled={pending || undefined}>

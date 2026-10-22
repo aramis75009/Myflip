@@ -9,6 +9,7 @@ import Loader from "@/components/Loader";
 import { Module } from "@/components/console";
 import { promptVariante } from "@/lib/studioCases";
 import { LONGUEUR_MAX_ANGLE, LONGUEUR_MAX_MAITRE, LONGUEUR_MAX_NOM } from "@/lib/studioPrompts";
+import BudgetStudio from "./BudgetStudio";
 
 // Onglet « Studio » de /parametres : le prompt maître (envoyé une fois par
 // conversation Gemini, en tête de chaque génération par API) et les prompts
@@ -19,6 +20,9 @@ import { LONGUEUR_MAX_ANGLE, LONGUEUR_MAX_MAITRE, LONGUEUR_MAX_NOM } from "@/lib
 export type PromptsStudioDTO = {
   promptMaitre: string;
   modifieLe: string | null;
+  /** Budget d'un sac complet (€) et taux (€ pour 1 $) : GET /api/studio/reglages. */
+  budgetParSacEur: number;
+  tauxEurParUsd: number;
   angles: { id: string; nom: string; angle: string; ordre: number; cases: number; skus: string[] }[];
 };
 
@@ -113,6 +117,8 @@ export default function PromptsStudio() {
           <Plus size={16} strokeWidth={2.3} /> Nouveau prompt d’angle
         </button>
       </div>
+
+      <BudgetStudio budget={{ budgetParSacEur: data.budgetParSacEur, tauxEurParUsd: data.tauxEurParUsd }} />
 
       <Module className="p-[22px_24px]">
         <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2.5">

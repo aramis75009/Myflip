@@ -39,15 +39,6 @@ export const BUDGET_EUR_MAX = 1000;
 export const TAUX_EUR_PAR_USD_MIN = 0.5;
 export const TAUX_EUR_PAR_USD_MAX = 2;
 
-/**
- * @deprecated Le seuil fixe de 0,10 $ n'existe plus : une confirmation compare
- * l'estimation au budget du COMPTE (`BudgetCompte`, `devisLancement`). Ce n'est
- * plus que le budget PAR DÉFAUT converti en dollars, laissé pour que l'ancien
- * `app/studio/_components/SelecteurModeles.tsx` (code mort, en cours de
- * réécriture) compile encore. Ne rien décider avec. À SUPPRIMER avec ce fichier.
- */
-export const SEUIL_CONFIRMATION_USD = Math.round((BUDGET_PAR_SAC_EUR_DEFAUT / TAUX_EUR_PAR_USD_DEFAUT) * 1e4) / 1e4;
-
 /** Les deux réglages de coût d'un compte (`StudioReglages`). */
 export type BudgetCompte = { budgetParSacEur: number; tauxEurParUsd: number };
 

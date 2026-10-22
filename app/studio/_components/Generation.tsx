@@ -2,22 +2,26 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, Download, Sparkles, Upload } from "lucide-react";
+import { Copy, Download, GitCompareArrows, Settings2, Sparkles, Upload } from "lucide-react";
 
-import { AlertDialog } from "@/components/ui/alert-dialog";
+import { ReglageBudget } from "@/components/parametres/BudgetStudio";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/cn";
 import { pluriel } from "@/lib/format";
 import { toastErreur, toastSucces } from "@/lib/toast";
 import { triggerDownload } from "@/lib/imageProcessing";
-import type { ModeleImage } from "@/lib/studioModeles";
+import { devisDuLancement, formatEur, type DevisMultiModeles, type ModeleImage } from "@/lib/studioModeles";
 
-import ChoixModele from "./ChoixModele";
+import { construireLignes, depassement, montantCourt, partDuBudget, selectionInitiale } from "../_modeles";
+import ConfirmationDepense from "./ConfirmationDepense";
 import { fichiersImages, lireErreur, preparer, ACCEPT } from "./envoi";
 import type { FicheClient } from "./Fiche";
 import { CODES_COMPTE, copier, envoyerGeneration, parNom, parPaquets } from "./lancer";
-import { devisPour, montantDevis, type ContexteModeles } from "./SelecteurModeles";
+import SelecteurModeles from "./SelecteurModeles";
 import { SectionEtape } from "./SectionEtape";
+import type { ContexteModeles } from "./useModeles";
 import type { Choix, ChoixCases } from "./useParcours";
 
 /** Generations in flight at once: fast enough, without flooding the key. */
@@ -25,15 +29,49 @@ const EN_PARALLELE = 3;
 
 type Mode = "api" | "manuel";
 type Progression = { total: number; faits: number; erreurs: string[] };
+/** The confirmation window: the quote shown, whose it is, and the server's own words when it asked (409). */
+type Confirmation = { devis: DevisMultiModeles; serveur: boolean; message: string | null };
+
+const CLE_SELECTION = "myflip-studio-modeles-choisis";
+
+/**
+ * The models picked for the next launch, remembered in this browser. Restored
+ * once the catalogue arrives, cleaned against it (a model OpenRouter dropped
+ * goes away); nothing remembered → the first favourite.
+ */
+function useSelectionModeles(contexte: ContexteModeles): [string[], (ids: string[]) => void] {
+  const [selection, setSelection] = useState<string[] | null>(null);
+  const { catalogue, favoris, budget } = contexte;
+  useEffect(() => {
+    if (selection !== null || !catalogue || catalogue.modeles.length === 0) return;
+    let memoire: unknown = null;
+    try {
+      memoire = JSON.parse(window.localStorage.getItem(CLE_SELECTION) ?? "null");
+    } catch {
+      memoire = null;
+    }
+    setSelection(selectionInitiale(memoire, construireLignes(catalogue.modeles, [], favoris, budget)));
+  }, [catalogue, favoris, budget, selection]);
+  return [
+    selection ?? [],
+    (ids) => {
+      setSelection(ids);
+      try {
+        window.localStorage.setItem(CLE_SELECTION, JSON.stringify(ids));
+      } catch {
+        // Not remembered: still used for this visit.
+      }
+    },
+  ];
+}
 
 /**
  * Step 3, generation: the cells picked in step 2, by API (one request per
- * cell, three at a time) or by hand in Gemini. The quote is the screen's; the
- * server computes its own before paying and refuses an unconfirmed launch.
- *
- * The model area (`data-emplacement="selecteur-modeles"`) is where the
- * « Studio, modèles » lot plugs its picker, its budget per bag and its
- * multi-model launch; the launch column on the right stays.
+ * cell AND per model, three at a time) or by hand in Gemini. 1 model, or 2 to
+ * 3 to compare them on the same cells (one launch, judged side by side). The
+ * quote is in euros against the account budget per bag; the server computes
+ * the same quote before paying and refuses an unconfirmed launch (409, whose
+ * quote then fills the same confirmation).
  */
 export default function Generation({
   fiche,
@@ -62,17 +100,19 @@ export default function Generation({
   const router = useRouter();
   const { choisies } = choix;
   const [mode, setMode] = useState<Mode>("api");
-  const [modeleId, setModeleId] = useState<string | null>(null);
-  /** Confirmation window: `message` = the server's words when it asked (409), else the screen's quote. */
-  const [confirmation, setConfirmation] = useState<{ message: string | null } | null>(null);
+  const [selection, setSelection] = useSelectionModeles(modeles);
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [progression, setProgression] = useState<Progression | null>(null);
+  const [budgetOuvert, setBudgetOuvert] = useState(false);
   const depot = useRef<HTMLInputElement>(null);
 
   const catalogue = modeles.catalogue?.modeles ?? [];
   const parId = new Map(catalogue.map((m) => [m.id, m]));
-  const favoris = modeles.favoris.map((id) => parId.get(id)).filter((m): m is ModeleImage => !!m);
-  const modele = (modeleId && parId.get(modeleId)) || favoris[0] || catalogue[0] || null;
-  const devis = modele && choisies.length > 0 ? devisPour(Array.from({ length: choisies.length }, () => modele), 1) : null;
+  const choisis = selection.map((id) => parId.get(id)).filter((m): m is ModeleImage => !!m);
+  const { budget } = modeles;
+  const devis =
+    choisis.length > 0 && choisies.length > 0 ? devisDuLancement({ modeles: choisis, nbCases: choisies.length, budget }) : null;
+  const nbImages = choisies.length * Math.max(choisis.length, 1);
   const enCours = progression !== null && progression.faits < progression.total;
 
   // A paid launch is running: leaving the page would lose its follow-up.
@@ -94,28 +134,36 @@ export default function Generation({
         ? "Aucun prompt d’angle : ajoute-les dans les Réglages du Studio."
         : choisies.length === 0
           ? "Aucune case choisie : choisis-en dans l’étape Angles."
-          : mode === "api" && !modele
-            ? modeles.chargement
+          : mode === "api" && choisis.length === 0
+            ? modeles.chargement && catalogue.length === 0
               ? "Chargement des modèles…"
-              : "Aucun modèle disponible : catalogue OpenRouter indisponible."
+              : catalogue.length === 0
+                ? "Aucun modèle disponible : catalogue OpenRouter indisponible."
+                : "Choisis au moins un modèle."
             : null;
 
   /**
    * `confirme` is true only after the confirmation window. The FIRST request
    * goes alone: if the server (which knows the account budget) asks for a
-   * confirmation, nothing else is sent and the window opens with its words.
+   * confirmation, nothing else is sent and the window opens with its quote.
+   * Every request of the launch carries the same `lancementId`, `nbCases` and
+   * models: the server's quote is the same for all of them.
    */
   async function generer(confirme: boolean) {
-    if (!modele || !cible || enCours || choisies.length === 0) return;
+    if (choisis.length === 0 || !cible || enCours || choisies.length === 0) return;
+    const devisEcran = devis;
     setConfirmation(null);
     const lancementId = crypto.randomUUID();
     const lot = [...choisies];
-    const prog: Progression = { total: lot.length, faits: 0, erreurs: [] };
+    const mods = [...choisis];
+    const ids = mods.map((m) => m.id);
+    const travaux = lot.flatMap((c) => mods.map((m) => ({ c, m })));
+    const prog: Progression = { total: travaux.length, faits: 0, erreurs: [] };
     setProgression({ ...prog });
     const nouveaux: string[] = [];
     let compte = false;
-    let refus: string | null | undefined;
-    const tache = (c: Choix) => async () => {
+    let refus: { devis: DevisMultiModeles | null; message: string | null } | undefined;
+    const tache = ({ c, m }: { c: Choix; m: ModeleImage }) => async () => {
       if (refus !== undefined) return;
       const r = await envoyerGeneration({
         cle: fiche.coloris.cle,
@@ -123,29 +171,32 @@ export default function Generation({
         referenceId: c.referenceId,
         skuCible: cible,
         nbCases: lot.length,
-        modele: modele.id,
-        modeles: [modele.id],
+        modele: m.id,
+        modeles: ids,
         lancementId,
         confirme,
       });
       if (r.kind === "confirmation") {
-        refus = r.message;
+        refus = { devis: r.devis, message: r.message };
         return;
       }
       prog.faits++;
       if (r.kind === "ok") nouveaux.push(r.essaiId);
       else {
-        prog.erreurs.push(`Photo ${String(c.ordre).padStart(2, "0")} : ${r.message}`);
+        prog.erreurs.push(`Photo ${String(c.ordre).padStart(2, "0")}${mods.length > 1 ? ` · ${m.nom}` : ""} : ${r.message}`);
         if (CODES_COMPTE.has(r.code ?? "")) compte = true;
       }
       setProgression({ ...prog, erreurs: [...prog.erreurs] });
     };
-    await tache(lot[0])();
-    if (refus === undefined) await parPaquets(lot.slice(1).map(tache), EN_PARALLELE);
-    if (refus !== undefined && nouveaux.length === 0) {
-      // Nothing was generated: the server wants Aramis's go first.
+    await tache(travaux[0])();
+    if (refus === undefined) await parPaquets(travaux.slice(1).map(tache), EN_PARALLELE);
+    const refuse = refus as { devis: DevisMultiModeles | null; message: string | null } | undefined;
+    if (refuse !== undefined && nouveaux.length === 0) {
+      // Nothing was generated: the server wants Aramis's go first, with ITS quote.
       setProgression(null);
-      setConfirmation({ message: refus });
+      const quoi = refuse.devis ?? devisEcran;
+      if (quoi) setConfirmation({ devis: quoi, serveur: refuse.devis !== null, message: refuse.message });
+      else toastErreur(refuse.message ?? "Le serveur demande une confirmation : relance la génération.");
       return;
     }
     choix.automatique();
@@ -156,7 +207,11 @@ export default function Generation({
       );
     }
     if (nouveaux.length > 0) {
-      toastSucces(`${pluriel(nouveaux.length, "image générée", "images générées")} : elles rejoignent la file « À juger ».`);
+      toastSucces(
+        mods.length > 1
+          ? `${pluriel(nouveaux.length, "image générée", "images générées")} : compare-les côte à côte dans « À juger ».`
+          : `${pluriel(nouveaux.length, "image générée", "images générées")} : elles rejoignent la file « À juger ».`,
+      );
       onNouveaux(nouveaux);
     }
   }
@@ -223,7 +278,7 @@ export default function Generation({
       ? "aucun sac à préparer"
       : mode === "manuel"
         ? `${pluriel(choisies.length, "image", "images")} · à la main, dans Gemini`
-        : `${pluriel(choisies.length, "image", "images")}${modele ? ` · ${modele.nom}` : ""}${devis ? ` · devis ${montantDevis(devis)}` : ""}`;
+        : `${pluriel(nbImages, "image", "images")}${choisis.length > 0 ? ` · ${choisis.map((m) => m.nom).join(" + ")}` : ""}${devis ? ` · devis ${montantCourt(devis)}` : ""}`;
 
   return (
     <SectionEtape etape="generation" numero={numero} titre="Génération" resume={resume} ouverte={ouverte} courante={courante} onBasculer={onBasculer}>
@@ -236,24 +291,48 @@ export default function Generation({
         <TabsContent value="api">
           <div className="grid gap-5 min-[1100px]:grid-cols-[minmax(0,1fr)_340px]">
             <div data-emplacement="selecteur-modeles" className="flex min-w-0 flex-col gap-3">
-              <div className="font-mono text-xs tracking-[0.14em] text-ink-2">MODÈLE</div>
-              <ChoixModele modeles={modeles} choisi={modele} onChoisir={setModeleId} />
+              <span className="block font-mono text-xs tracking-[0.14em] text-ink-2">MODÈLE</span>
+              <SelecteurModeles contexte={modeles} selection={selection} onSelection={setSelection} />
             </div>
 
-            <div className="flex flex-col gap-3 rounded-md bg-surface-2 p-4">
+            <div role="group" aria-label="Devis du lancement" className="flex h-fit flex-col gap-3 rounded-md bg-surface-2 p-4 min-[1100px]:sticky min-[1100px]:top-4">
               <div className="flex items-baseline justify-between gap-3">
-                <span className="text-sm text-ink-2">
-                  {cible ? `${pluriel(choisies.length, "image", "images")} pour ${cible}` : "Rien à générer"}
-                </span>
-                <span className="font-mono text-lg font-bold text-ink">{devis ? montantDevis(devis) : "—"}</span>
+                <span className="text-sm font-semibold text-ink">Devis du lancement</span>
+                <span className="font-mono text-lg font-bold tabular-nums text-ink">{devis ? montantCourt(devis) : "—"}</span>
               </div>
               <p className="text-sm text-ink-2">
-                {devis
-                  ? devis.confirmationRequise
-                    ? "Au-delà de ton budget par sac, ou tarif inconnu : une confirmation te sera demandée."
-                    : "Dans le budget : part sans confirmation, sauf si le serveur en décide autrement. Ta clé OpenRouter paie."
-                  : "Le devis s’affiche dès qu’une case est choisie."}
+                {!cible
+                  ? "Rien à générer"
+                  : choisis.length > 1
+                    ? `${pluriel(choisies.length, "prise", "prises")} × ${choisis.length} modèles = ${pluriel(nbImages, "image", "images")} pour ${cible}`
+                    : `${pluriel(choisies.length, "image", "images")} pour ${cible}`}
               </p>
+              {devis && <JaugeDevis devis={devis} />}
+              {devis && choisis.length > 1 && (
+                <ul aria-label="Coût par modèle" className="flex flex-col gap-1 border-t border-line pt-2 text-sm">
+                  {devis.parModele.map((l) => (
+                    <li key={l.modele} className="flex items-baseline justify-between gap-3">
+                      <span className="min-w-0 truncate text-ink-2">{l.nom}</span>
+                      <span className="flex-none font-mono tabular-nums text-ink">{l.eur === null ? "prix inconnu" : formatEur(l.eur)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className={cn("text-sm", devis?.confirmationRequise ? "font-semibold text-ink" : "text-ink-2")}>
+                {!devis
+                  ? "Le devis s’affiche dès qu’un modèle et une case sont choisis."
+                  : devis.raisonConfirmation === "budget"
+                    ? "Au-delà de ton budget par sac : tu confirmeras le montant avant de lancer."
+                    : devis.raisonConfirmation
+                      ? "Un prix n’est pas publié : tu confirmeras avant de lancer."
+                      : "Dans ton budget : part sans confirmation. Ta clé OpenRouter paie."}
+              </p>
+              {choisis.length > 1 && (
+                <p className="flex items-start gap-2 text-sm text-ink-2">
+                  <GitCompareArrows size={16} aria-hidden className="mt-0.5 flex-none" />
+                  Chaque prise part sur les {choisis.length} modèles : tu les compares côte à côte dans « À juger », et tu en retiens une.
+                </p>
+              )}
               {bloque && (
                 <p role="status" className="text-sm font-semibold text-ink">
                   {bloque}
@@ -264,11 +343,33 @@ export default function Generation({
                 disabled={!!bloque}
                 pending={enCours}
                 pendingLabel={enCours ? `Génération ${progression!.faits} / ${progression!.total}…` : undefined}
-                onClick={() => (devis?.confirmationRequise ? setConfirmation({ message: null }) : void generer(false))}
+                onClick={() => (devis?.confirmationRequise ? setConfirmation({ devis, serveur: false, message: null }) : void generer(false))}
               >
                 <Sparkles size={16} aria-hidden />
-                {choisies.length ? `Générer ${pluriel(choisies.length, "image", "images")}` : "Générer"}
+                {choisies.length && choisis.length ? `Générer ${pluriel(nbImages, "image", "images")}` : "Générer"}
               </Button>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-sm text-ink-2">
+                <span>
+                  Budget <strong className="font-mono font-semibold tabular-nums text-ink">{formatEur(budget.budgetParSacEur)}</strong> par sac
+                </span>
+                <Popover open={budgetOuvert} onOpenChange={setBudgetOuvert}>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <Settings2 size={14} aria-hidden /> Modifier le budget
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" aria-label="Budget du Studio" className="w-[min(22rem,calc(100vw-2rem))] p-4">
+                    <ReglageBudget
+                      initial={budget}
+                      empile
+                      onEnregistre={(b) => {
+                        modeles.majBudget(b);
+                        setBudgetOuvert(false);
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
               <Button variant="ghost" size="sm" onClick={onVoirAngles}>
                 Revoir les angles choisis
               </Button>
@@ -341,22 +442,12 @@ export default function Generation({
         </div>
       )}
 
-      <AlertDialog
-        open={confirmation !== null && !!modele}
-        onOpenChange={(o) => !o && setConfirmation(null)}
-        tone="neutre"
-        title="Confirmer la dépense"
-        description={
-          confirmation?.message
-            ? `${confirmation.message} Ta clé OpenRouter paie.`
-            : devis && modele
-              ? `${pluriel(choisies.length, "image", "images")} avec ${modele.nom} : ${
-                  devis.inconnus > 0 && devis.totalConnuUsd === 0 ? "coût inconnu (tarif non publié)" : `estimé à ${montantDevis(devis)}`
-                }. Confirmation demandée au-delà de ton budget par sac ou dès qu’un tarif est inconnu. Ta clé OpenRouter paie.`
-              : ""
-        }
-        confirmLabel={devis && devis.inconnus === 0 ? `Confirmer ${montantDevis(devis)}` : "Confirmer quand même"}
-        onConfirm={() => void generer(true)}
+      <ConfirmationDepense
+        devis={confirmation?.devis ?? null}
+        serveur={confirmation?.serveur ?? false}
+        message={confirmation?.message ?? null}
+        onFermer={() => setConfirmation(null)}
+        onConfirmer={() => void generer(true)}
       />
     </SectionEtape>
   );
@@ -371,5 +462,24 @@ function Etape({ n, titre, children }: { n: number; titre: string; children: Rea
       </div>
       {children}
     </li>
+  );
+}
+
+/** The launch against the budget per bag: the bar fills up to the budget, an overrun is said in words. */
+function JaugeDevis({ devis }: { devis: DevisMultiModeles }) {
+  const part = partDuBudget(devis.totalConnuEur, devis.budgetEur) ?? 0;
+  const hors = devis.depasseBudget;
+  const trop = depassement(devis.totalConnuEur, devis.budgetEur);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span aria-hidden className="relative h-2 overflow-hidden rounded-full bg-surface-3">
+        <span className={cn("absolute inset-y-0 left-0 rounded-full", hors ? "bg-warn" : "bg-chart")} style={{ width: `${Math.min(part, 1) * 100}%` }} />
+      </span>
+      <span className="text-xs text-ink-2">
+        <span className="font-mono tabular-nums text-ink">{formatEur(devis.montantConfirmationEur)}</span>
+        {devis.inconnus > 0 ? " + prix inconnu" : ""} sur <span className="font-mono tabular-nums">{formatEur(devis.budgetEur)}</span> de budget par sac
+        {trop ? ` · ${trop}` : ""}
+      </span>
+    </div>
   );
 }
