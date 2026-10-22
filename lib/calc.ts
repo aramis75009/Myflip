@@ -17,6 +17,7 @@ export const STATUTS = [
   "En livraison",
   "À comptabiliser",
   "Vendu",
+  "Retour",
   "En lavage",
   "Repassé",
   "Perdu",
@@ -27,6 +28,16 @@ export const STATUT_A_COMPTABILISER = "À comptabiliser";
 
 /** Statut « photos prêtes » : article photographié, prêt pour la mise en vente. */
 export const STATUT_PHOTOS_PRETES = "Photos prêtes";
+
+/**
+ * Statut « Retour » (décision d'Aramis, 22/10/2026) : vente annulée par le
+ * client (colis non récupéré / ne lui plaît pas) et article en chemin vers
+ * Paris. Cycle complet : Vendu → Retour (annonce du retour) → En stock
+ * (réception physique) → Photos prêtes → En vente → Vendu, etc. Comme tout
+ * statut hors « Vendu », quitter « Vendu » remet prix/date/marges à null —
+ * la date de mise en vente survit, elle, pour l'historique.
+ */
+export const STATUT_RETOUR = "Retour";
 
 export type Statut = (typeof STATUTS)[number];
 

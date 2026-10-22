@@ -29,6 +29,11 @@ export const STATUT_COLORS: Record<string, StatutColor> = {
   // Littéraux et non var(--acc*) : cette table doit rester une paire pastel
   // stable, indépendante de l'accent (qui vire au lime en thème sombre).
   Vendu:             { color: "#5FD39B", bg: "#EAF3ED", ink: "#1B4332" },
+  // Retour = vente annulée par le client, article en chemin vers Paris.
+  // Rouge terracotta : dit « problème en cours » sans l'alarme de l'erreur.
+  // Assez éloigné du vert « Vendu » (statut qu'il remplace) et du orange
+  // « À comptabiliser » pour ne jamais se confondre, pastel du badge compris.
+  Retour:            { color: "#E0766B", bg: "#FAEBE9", ink: "#B04238" },
   // En lavage = magenta. C'était un cyan (#4FC8D4) : à la taille d'une pastille
   // de 8px (légende du donut, chips du Stock), il ne se distinguait plus du
   // vert de « Vendu » — 36° de teinte d'écart mais la même clarté. Le magenta
