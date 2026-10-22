@@ -17,7 +17,7 @@ export default function LandingNav() {
   const [ouvert, setOuvert] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-line bg-[var(--bg)]/85 backdrop-blur-md">
+    <header className="sticky top-0 z-sticky border-b border-line bg-bg/85 backdrop-blur-md">
       <nav
         aria-label="Navigation principale"
         className="mx-auto flex h-[72px] max-w-[1200px] items-center justify-between px-5 sm:px-6"
@@ -28,10 +28,10 @@ export default function LandingNav() {
           className="flex h-11 items-center gap-2.5"
           aria-label="MyFlip, accueil"
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[var(--acc)] font-grotesk text-[17px] font-bold text-[var(--acc-ink)]">
+          <span className="flex h-9 w-9 items-center justify-center rounded bg-accent font-sans text-md font-bold text-accent-ink">
             M
           </span>
-          <span className="font-grotesk text-[19px] font-bold tracking-[-0.02em] text-[var(--ink)]">
+          <span className="font-sans text-lg font-bold tracking-[-0.02em] text-ink">
             MyFlip
           </span>
         </Link>
@@ -41,7 +41,7 @@ export default function LandingNav() {
             <li key={l.href}>
               <a
                 href={l.href}
-                className="text-[14px] font-medium text-[var(--ink2)] transition-colors hover:text-[var(--ink)]"
+                className="text-base font-medium text-ink-2 transition-colors hover:text-ink"
               >
                 {l.label}
               </a>
@@ -52,13 +52,13 @@ export default function LandingNav() {
         <div className="hidden items-center gap-3 lg:flex">
           <Link
             href={lienApp("/login")}
-            className="px-3 py-2 text-[14px] font-semibold text-[var(--ink2)] transition-colors hover:text-[var(--ink)]"
+            className="px-3 py-2 text-base font-semibold text-ink-2 transition-colors hover:text-ink"
           >
             Connexion
           </Link>
           <Link
             href={lienApp("/signup")}
-            className="rounded-full bg-[var(--acc)] px-5 py-2.5 text-[14px] font-bold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)]"
+            className="rounded-full bg-accent px-5 py-2.5 text-base font-bold text-accent-ink transition-colors hover:bg-accent-hover"
           >
             Créer mon compte
           </Link>
@@ -70,7 +70,7 @@ export default function LandingNav() {
           aria-expanded={ouvert}
           aria-controls="menu-mobile"
           aria-label={ouvert ? "Fermer le menu" : "Ouvrir le menu"}
-          className="flex h-11 w-11 items-center justify-center rounded-xl text-[var(--ink)] transition-colors hover:bg-[var(--tint)] lg:hidden"
+          className="flex h-11 w-11 items-center justify-center rounded-lg text-ink transition-colors hover:bg-surface-2 lg:hidden"
         >
           {ouvert ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
@@ -79,7 +79,7 @@ export default function LandingNav() {
       {ouvert && (
         <div
           id="menu-mobile"
-          className="border-t border-line bg-[var(--surface)] px-5 py-6 lg:hidden"
+          className="border-t border-line bg-surface px-5 py-6 lg:hidden"
         >
           <ul className="flex flex-col gap-1">
             {LIENS.map((l) => (
@@ -87,7 +87,7 @@ export default function LandingNav() {
                 <a
                   href={l.href}
                   onClick={() => setOuvert(false)}
-                  className="flex min-h-[44px] items-center font-grotesk text-[17px] font-semibold text-[var(--ink)]"
+                  className="flex min-h-11 items-center font-sans text-md font-semibold text-ink"
                 >
                   {l.label}
                 </a>
@@ -98,14 +98,14 @@ export default function LandingNav() {
             <Link
               href={lienApp("/login")}
               onClick={() => setOuvert(false)}
-              className="flex min-h-[44px] items-center justify-center rounded-xl border border-line text-[14px] font-semibold text-[var(--ink)]"
+              className="flex min-h-11 items-center justify-center rounded-lg border border-line text-base font-semibold text-ink"
             >
               Connexion
             </Link>
             <Link
               href={lienApp("/signup")}
               onClick={() => setOuvert(false)}
-              className="flex min-h-[44px] items-center justify-center rounded-xl bg-[var(--acc)] text-[14px] font-bold text-[var(--acc-ink)]"
+              className="flex min-h-11 items-center justify-center rounded-lg bg-accent text-base font-bold text-accent-ink"
             >
               Créer mon compte
             </Link>

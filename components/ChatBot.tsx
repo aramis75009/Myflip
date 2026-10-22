@@ -114,9 +114,9 @@ export default function ChatBot() {
         <button
           onClick={() => setOpen(true)}
           aria-label="Ouvrir l'assistant IA"
-          className="fixed bottom-20 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-on-primary shadow-card-hover transition-transform hover:scale-105 md:bottom-6"
+          className="fixed bottom-[calc(var(--dock-h)+env(safe-area-inset-bottom)+0.75rem+var(--fab-offset,0px))] right-4 z-fab flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-ink shadow-over transition-[bottom,transform] duration-base ease-out hover:scale-105 md:bottom-[calc(1.5rem+var(--fab-offset,0px))] md:right-6"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-6 w-6">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-6 w-6" aria-hidden="true">
             <path
               d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 0 1-.9-3.8A8.38 8.38 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5Z"
               strokeWidth="1.6"
@@ -129,12 +129,12 @@ export default function ChatBot() {
 
       {/* Panneau latéral */}
       {open && (
-        <div className="fixed right-0 top-0 z-50 flex h-screen w-full flex-col border-l border-line bg-surface shadow-card-hover sm:w-[380px]">
+        <div className="fixed right-0 top-0 z-modal flex h-dvh w-full flex-col border-l border-line bg-surface shadow-over sm:w-[380px]">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-line px-5 py-4">
             <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-on-primary">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-ink">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4" aria-hidden="true">
                   <path
                     d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 0 1-.9-3.8A8.38 8.38 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5Z"
                     strokeWidth="1.6"
@@ -143,29 +143,29 @@ export default function ChatBot() {
                   />
                 </svg>
               </span>
-              <h2 className="text-title-sm font-semibold text-ink">Assistant IA</h2>
+              <h2 className="text-lg font-semibold text-ink">Assistant IA</h2>
             </div>
             <button
               onClick={() => setOpen(false)}
               aria-label="Fermer"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-surface-container hover:text-ink"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink"
             >
               ✕
             </button>
           </div>
 
           {/* Messages */}
-          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4">
             {messages.map((m) => (
               <div
                 key={m.id}
                 className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[85%] rounded-card px-3.5 py-2.5 text-body-md ${
+                  className={`max-w-[85%] rounded-lg px-3.5 py-2.5 text-base ${
                     m.role === "user"
-                      ? "bg-primary text-on-primary"
-                      : "bg-surface-container text-ink"
+                      ? "bg-accent text-accent-ink"
+                      : "bg-surface-2 text-ink"
                   }`}
                 >
                   <p className="whitespace-pre-wrap">{m.text}</p>
@@ -174,14 +174,14 @@ export default function ChatBot() {
                       <button
                         onClick={() => confirm(m)}
                         disabled={loading}
-                        className="rounded-full bg-primary px-3.5 py-1.5 text-label-sm font-medium text-on-primary transition-colors hover:bg-primary-dark disabled:opacity-60"
+                        className="rounded-full bg-accent px-3.5 py-1.5 text-xs font-medium text-accent-ink transition-colors hover:bg-accent-hover disabled:opacity-60"
                       >
                         ✓ Confirmer
                       </button>
                       <button
                         onClick={() => cancel(m)}
                         disabled={loading}
-                        className="rounded-full border border-line bg-surface px-3.5 py-1.5 text-label-sm font-medium text-ink-muted transition-colors hover:bg-surface-container disabled:opacity-60"
+                        className="rounded-full border border-line bg-surface px-3.5 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-surface-2 disabled:opacity-60"
                       >
                         ✗ Annuler
                       </button>
@@ -192,7 +192,7 @@ export default function ChatBot() {
             ))}
             {loading && (
               <div className="flex justify-start">
-                <div className="rounded-card bg-surface-container px-3.5 py-2.5 text-body-md text-ink-faint">
+                <div className="rounded-lg bg-surface-2 px-3.5 py-2.5 text-base text-ink-3">
                   …
                 </div>
               </div>
@@ -213,12 +213,12 @@ export default function ChatBot() {
                 }}
                 rows={1}
                 placeholder="Écris un message…"
-                className="max-h-32 flex-1 resize-none rounded-md border border-line bg-surface px-3 py-2 text-body-md text-ink outline-none focus:border-primary focus:ring-2 focus:ring-[var(--acc-ring)]"
+                className="max-h-32 flex-1 resize-none rounded-md border border-line-strong bg-surface px-3 py-2 text-base text-ink focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
               />
               <button
                 onClick={send}
                 disabled={loading || !input.trim()}
-                className="rounded-full bg-primary px-4 py-2 text-body-md font-medium text-on-primary transition-colors hover:bg-primary-dark disabled:opacity-60"
+                className="rounded-full bg-accent px-4 py-2 text-base font-medium text-accent-ink transition-colors hover:bg-accent-hover disabled:opacity-60"
               >
                 Envoyer
               </button>

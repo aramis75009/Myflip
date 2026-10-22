@@ -1,0 +1,679 @@
+{
+  "captures": [
+    {
+      "id": "etat.shell.sidebar-desktop",
+      "etude": [
+        "shell.sidebar-desktop",
+        "shell.chatbot-fab"
+      ],
+      "vue": "desktop",
+      "compte": "demo",
+      "chemin": "/dashboard"
+    },
+    {
+      "id": "etat.shell.sidebar-collapsed",
+      "etude": [
+        "shell.sidebar-collapsed"
+      ],
+      "vue": "desktop",
+      "compte": "demo",
+      "chemin": "/dashboard"
+    },
+    {
+      "id": "etat.shell.topbar",
+      "etude": [
+        "shell.topbar"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/stock"
+    },
+    {
+      "id": "etat.shell.dock-mobile",
+      "etude": [
+        "shell.dock-mobile"
+      ],
+      "vue": "mobile",
+      "compte": "demo",
+      "chemin": "/dashboard"
+    },
+    {
+      "id": "etat.shell.theme-toggle",
+      "etude": [
+        "shell.theme-toggle"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/dashboard"
+    },
+    {
+      "id": "etat.shell.notifications-panel",
+      "etude": [
+        "shell.notifications-panel"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/dashboard"
+    },
+    {
+      "id": "etat.shell.notifications-panel.vide",
+      "etude": [
+        "shell.notifications-panel"
+      ],
+      "vue": "both",
+      "compte": "neuf",
+      "chemin": "/dashboard"
+    },
+    {
+      "id": "etat.shell.account-menu",
+      "etude": [
+        "shell.account-menu"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/dashboard"
+    },
+    {
+      "id": "etat.shell.chatbot-panel",
+      "etude": [
+        "shell.chatbot-panel",
+        "shell.chatbot-fab"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/dashboard"
+    },
+    {
+      "id": "etat.shell.session-expired",
+      "etude": [
+        "shell.session-expired",
+        "shell.toaster"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/dashboard"
+    },
+    {
+      "id": "etat.dashboard.demarrage-card",
+      "etude": [
+        "dashboard.demarrage-card",
+        "dashboard.objectif"
+      ],
+      "vue": "both",
+      "compte": "neuf",
+      "chemin": "/dashboard"
+    },
+    {
+      "id": "etat.dashboard.periode",
+      "etude": [
+        "dashboard.periode"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/dashboard"
+    },
+    {
+      "id": "etat.dashboard.loader",
+      "etude": [
+        "dashboard.loader"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/dashboard"
+    },
+    {
+      "id": "etat.dashboard.erreur",
+      "etude": [
+        "dashboard.loader"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/dashboard"
+    },
+    {
+      "id": "etat.stock.chips-statut",
+      "etude": [
+        "stock.chips-statut"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/stock"
+    },
+    {
+      "id": "etat.stock.colonnes",
+      "etude": [
+        "stock.colonnes"
+      ],
+      "vue": "desktop",
+      "compte": "demo",
+      "chemin": "/stock"
+    },
+    {
+      "id": "etat.stock.selection-bar",
+      "etude": [
+        "stock.selection-bar"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/stock"
+    },
+    {
+      "id": "etat.stock.detail-modal",
+      "etude": [
+        "stock.detail-modal"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/stock"
+    },
+    {
+      "id": "etat.stock.sell-modal",
+      "etude": [
+        "stock.sell-modal"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/stock"
+    },
+    {
+      "id": "etat.stock.new-commande-modal",
+      "etude": [
+        "stock.new-commande-modal"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/stock"
+    },
+    {
+      "id": "etat.stock.cell-edit",
+      "etude": [
+        "stock.cell-edit"
+      ],
+      "vue": "desktop",
+      "compte": "demo",
+      "chemin": "/stock"
+    },
+    {
+      "id": "etat.stock.vide-chargement-erreur",
+      "etude": [
+        "stock.empty-error-loader"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/stock"
+    },
+    {
+      "id": "etat.commandes.row-expanded",
+      "etude": [
+        "commandes.row-expanded"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/commandes"
+    },
+    {
+      "id": "etat.commandes.row-menu",
+      "etude": [
+        "commandes.row-menu"
+      ],
+      "vue": "desktop",
+      "compte": "demo",
+      "chemin": "/commandes"
+    },
+    {
+      "id": "etat.commandes.toast-import",
+      "etude": [
+        "commandes.toast-import",
+        "shell.toaster"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/commandes"
+    },
+    {
+      "id": "etat.commandes.nouvelle-commande",
+      "etude": [
+        "stock.new-commande-modal"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/commandes"
+    },
+    {
+      "id": "etat.mev.etape-sku",
+      "etude": [
+        "mev.etape-sku",
+        "mev.action-bar"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/mise-en-vente"
+    },
+    {
+      "id": "etat.mev.etape-fiches",
+      "etude": [
+        "mev.etape-fiches",
+        "mev.action-bar",
+        "mev.photo-zoom"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/mise-en-vente"
+    },
+    {
+      "id": "etat.mev.etape-generation",
+      "etude": [
+        "mev.etape-generation",
+        "mev.etape-annonces",
+        "mev.action-bar"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/mise-en-vente"
+    },
+    {
+      "id": "etat.mev.session-restauree",
+      "etude": [
+        "mev.session-restored",
+        "mev.etape-annonces",
+        "mev.action-bar"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/mise-en-vente"
+    },
+    {
+      "id": "etat.mev.delai-modal",
+      "etude": [
+        "mev.delai-modal"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/mise-en-vente"
+    },
+    {
+      "id": "etat.compta.sell-dialog",
+      "etude": [
+        "compta.sell-dialog"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/a-comptabiliser"
+    },
+    {
+      "id": "etat.compta.delete-modal",
+      "etude": [
+        "compta.delete-modal"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/a-comptabiliser"
+    },
+    {
+      "id": "etat.compta.remettre-en-stock",
+      "etude": [
+        "compta.remettre-en-stock"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/a-comptabiliser"
+    },
+    {
+      "id": "etat.cal.day-detail",
+      "etude": [
+        "cal.day-detail"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/calendrier"
+    },
+    {
+      "id": "etat.cal.month-nav",
+      "etude": [
+        "cal.month-nav"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/calendrier"
+    },
+    {
+      "id": "etat.stats.scope-listbox",
+      "etude": [
+        "stats.scope-listbox"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/statistiques"
+    },
+    {
+      "id": "etat.params.tabs",
+      "etude": [
+        "params.tabs"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/parametres"
+    },
+    {
+      "id": "etat.params.prompt-modal",
+      "etude": [
+        "params.prompt-modal"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/parametres"
+    },
+    {
+      "id": "etat.params.metaprompt-modal",
+      "etude": [
+        "params.metaprompt-modal"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/parametres"
+    },
+    {
+      "id": "etat.params.studio-editors",
+      "etude": [
+        "params.studio-editors"
+      ],
+      "vue": "desktop",
+      "compte": "demo",
+      "chemin": "/parametres?onglet=studio"
+    },
+    {
+      "id": "etat.compte.trello-toast-url",
+      "etude": [
+        "compte.trello-toast-url",
+        "shell.toaster"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/compte?trello=ok"
+    },
+    {
+      "id": "etat.compte.integrations-forms",
+      "etude": [
+        "compte.integrations-forms"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/compte"
+    },
+    {
+      "id": "etat.compte.trello-connecte",
+      "etude": [],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/compte"
+    },
+    {
+      "id": "etat.compte.chiffrement-indisponible",
+      "etude": [
+        "compte.integrations-forms"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/compte"
+    },
+    {
+      "id": "etat.compte.test-cle",
+      "etude": [
+        "compte.test-cle"
+      ],
+      "vue": "both",
+      "compte": "demo",
+      "chemin": "/compte"
+    },
+    {
+      "id": "etat.demarrage.steps",
+      "etude": [
+        "demarrage.steps"
+      ],
+      "vue": "both",
+      "compte": "neuf",
+      "chemin": "/demarrage"
+    },
+    {
+      "id": "etat.studio.layout-banner",
+      "etude": [
+        "studio.layout-banner"
+      ],
+      "vue": "desktop",
+      "compte": "demo",
+      "chemin": "/studio"
+    },
+    {
+      "id": "etat.studio.accueil-filtres",
+      "etude": [
+        "studio.accueil-filtres"
+      ],
+      "vue": "desktop",
+      "compte": "demo",
+      "chemin": "/studio"
+    },
+    {
+      "id": "etat.studio.fiche-details-ia",
+      "etude": [
+        "studio.fiche-details-ia"
+      ],
+      "vue": "desktop",
+      "compte": "demo",
+      "chemin": "/studio/5039-black-pink"
+    },
+    {
+      "id": "etat.studio.fiche-sku-cible",
+      "etude": [
+        "studio.fiche-sku-cible"
+      ],
+      "vue": "desktop",
+      "compte": "demo",
+      "chemin": "/studio/5039-black-pink"
+    },
+    {
+      "id": "etat.studio.planche-selection",
+      "etude": [
+        "studio.planche-selection"
+      ],
+      "vue": "desktop",
+      "compte": "demo",
+      "chemin": "/studio/5039-black-pink"
+    },
+    {
+      "id": "etat.studio.file-a-juger",
+      "etude": [
+        "studio.file-a-juger"
+      ],
+      "vue": "desktop",
+      "compte": "demo",
+      "chemin": "/studio/5039-black-pink"
+    },
+    {
+      "id": "etat.studio.correction-panel",
+      "etude": [
+        "studio.correction-panel"
+      ],
+      "vue": "desktop",
+      "compte": "demo",
+      "chemin": "/studio/5039-black-pink"
+    },
+    {
+      "id": "etat.studio.confirmation-depense",
+      "etude": [
+        "studio.confirmation-depense"
+      ],
+      "vue": "desktop",
+      "compte": "demo",
+      "chemin": "/studio/5039-black-pink"
+    },
+    {
+      "id": "etat.studio.mode-generation",
+      "etude": [
+        "studio.mode-generation"
+      ],
+      "vue": "desktop",
+      "compte": "demo",
+      "chemin": "/studio/5039-black-pink"
+    },
+    {
+      "id": "etat.studio.cases-choix",
+      "etude": [
+        "studio.cases-choix"
+      ],
+      "vue": "desktop",
+      "compte": "demo",
+      "chemin": "/studio/5039-black-pink"
+    },
+    {
+      "id": "etat.studio.modeles-catalogue",
+      "etude": [
+        "studio.modeles-catalogue"
+      ],
+      "vue": "desktop",
+      "compte": "demo",
+      "chemin": "/studio/5039-black-pink"
+    },
+    {
+      "id": "etat.studio.modeles-selection",
+      "etude": [
+        "studio.modeles-catalogue"
+      ],
+      "vue": "desktop",
+      "compte": "demo",
+      "chemin": "/studio/5039-black-pink"
+    },
+    {
+      "id": "etat.landing.menu-mobile",
+      "etude": [
+        "landing.menu-mobile"
+      ],
+      "vue": "mobile",
+      "compte": "aucun",
+      "chemin": "/"
+    },
+    {
+      "id": "etat.landing.header-sticky",
+      "etude": [
+        "landing.header-sticky"
+      ],
+      "vue": "both",
+      "compte": "aucun",
+      "chemin": "/"
+    },
+    {
+      "id": "etat.landing.faq-details",
+      "etude": [
+        "landing.faq-details"
+      ],
+      "vue": "both",
+      "compte": "aucun",
+      "chemin": "/"
+    },
+    {
+      "id": "etat.login.forgot-mode",
+      "etude": [
+        "login.forgot-mode"
+      ],
+      "vue": "both",
+      "compte": "aucun",
+      "chemin": "/login"
+    },
+    {
+      "id": "etat.login.erreur",
+      "etude": [],
+      "vue": "both",
+      "compte": "aucun",
+      "chemin": "/login"
+    },
+    {
+      "id": "etat.login.chargement",
+      "etude": [],
+      "vue": "both",
+      "compte": "aucun",
+      "chemin": "/login"
+    },
+    {
+      "id": "etat.signup.erreurs",
+      "etude": [],
+      "vue": "both",
+      "compte": "aucun",
+      "chemin": "/signup"
+    },
+    {
+      "id": "etat.signup.chargement",
+      "etude": [],
+      "vue": "both",
+      "compte": "aucun",
+      "chemin": "/signup"
+    },
+    {
+      "id": "etat.reset.invalid-token",
+      "etude": [
+        "reset.invalid-token"
+      ],
+      "vue": "both",
+      "compte": "aucun",
+      "chemin": "/reset-password"
+    },
+    {
+      "id": "etat.reset.erreurs",
+      "etude": [],
+      "vue": "both",
+      "compte": "aucun",
+      "chemin": "/reset-password?token=e2e-jeton-factice"
+    },
+    {
+      "id": "etat.reset.succes",
+      "etude": [],
+      "vue": "both",
+      "compte": "aucun",
+      "chemin": "/reset-password?token=e2e-jeton-factice"
+    }
+  ],
+  "nonCaptures": [
+    {
+      "id": "shell.logout",
+      "raison": "signOut détruit la session du contexte ; jamais déclenché."
+    },
+    {
+      "id": "shell.welcome-modal",
+      "raison": "N'existe plus dans le code (remplacée par la carte de démarrage, capturée : etat.dashboard.demarrage-card)."
+    },
+    {
+      "id": "stock.delete-confirm",
+      "raison": "window.confirm natif, invisible sur une capture ; son texte est vérifié par le test « boîtes natives » (refusé, aucune requête)."
+    },
+    {
+      "id": "stock.export-csv",
+      "raison": "Téléchargement local d'un fichier, sans rendu à l'écran."
+    },
+    {
+      "id": "params.delete-prompt",
+      "raison": "window.confirm natif ; texte vérifié par le test « boîtes natives »."
+    },
+    {
+      "id": "mev.beforeunload",
+      "raison": "Boîte native « Quitter le site ? », jamais rendue dans une capture."
+    },
+    {
+      "id": "compte.trello-connect",
+      "raison": "Lien vers trello.com (OAuth) : sortie vers un site externe, interdite."
+    },
+    {
+      "id": "compte.trello-disconnect",
+      "raison": "Appel Trello réel (webhook, révocation) précédé d'un confirm natif ; l'écran « connecté » qui porte le bouton est capturé par etat.compte.trello-connecte (réglages simulés)."
+    },
+    {
+      "id": "studio.bandeau-sacbase",
+      "raison": "Variantes « injoignable / non configuré / catalogue de HH:MM » : le cache SacBase de 60 s vit dans le processus Next, partagé par tous les tests ; il faudrait une panne du faux SacBase pendant plus de 60 s ou un 2e serveur. L'état nominal (aucun bandeau) est vérifié par etat.studio.layout-banner."
+    }
+  ],
+  "rendusSursParSimulation": [
+    "shell.session-expired",
+    "mev.etape-generation",
+    "compta.remettre-en-stock",
+    "compte.test-cle",
+    "studio.file-a-juger",
+    "studio.confirmation-depense"
+  ]
+}

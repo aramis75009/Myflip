@@ -30,20 +30,20 @@ export default function DemarrageCard() {
     <Module className="p-[22px]">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--faint)]">
+          <div className="font-mono text-xs uppercase tracking-[0.14em] text-ink-3">
             Configuration · étape {etape} sur {ETAPES.length}
           </div>
-          <h2 className="mt-1.5 text-[17px] font-bold tracking-[-0.01em] text-[var(--ink)]">
+          <h2 className="mt-1.5 text-md font-bold tracking-[-0.01em] text-ink">
             {ETAPES[etape - 1]}
           </h2>
-          <p className="mt-1.5 max-w-prose text-[13px] leading-relaxed text-[var(--muted)]">
+          <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-ink-3">
             Tant que Trello n&apos;est pas branché, la page « À comptabiliser »
             reste vide : rien ne remonte de tes cartes.
           </p>
         </div>
         <Link
           href="/demarrage"
-          className="inline-flex min-h-[46px] flex-none items-center gap-2 rounded-[16px] bg-[var(--acc)] px-5 text-[13.5px] font-semibold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)]"
+          className="inline-flex min-h-[46px] flex-none items-center gap-2 rounded-md bg-accent px-5 text-base font-semibold text-accent-ink transition-colors hover:bg-accent-hover"
         >
           Reprendre
           <ArrowRight className="h-4 w-4" />
@@ -56,18 +56,18 @@ export default function DemarrageCard() {
           return (
             <li
               key={e}
-              className={`flex items-center gap-1.5 text-[12px] ${
+              className={`flex items-center gap-1.5 text-xs ${
                 faite
-                  ? "text-[var(--pos)]"
+                  ? "text-pos"
                   : i + 1 === etape
-                    ? "text-[var(--ink)]"
-                    : "text-[var(--faint-2)]"
+                    ? "text-ink"
+                    : "text-ink-3"
               }`}
             >
               {faite ? (
                 <Check className="h-3.5 w-3.5" />
               ) : (
-                <span className="font-mono text-[10px]">{i + 1}</span>
+                <span className="font-mono text-xs">{i + 1}</span>
               )}
               {e}
             </li>

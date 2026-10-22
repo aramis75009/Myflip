@@ -13,10 +13,13 @@
 // modale de l'application. React ne se teste pas sur ce projet (cf.
 // vitest.config.ts) : tout ce qui est décidable doit rester en dehors.
 
-import { useEffect, useState } from "react";
-import Modal from "@/components/Modal";
+import { useEffect, useState, type FormEvent } from "react";
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
 import { delaiDepuisSaisie, type DelaiVinted, type ModeDelai } from "../_delaiVinted";
-import { inputCls, labelCls } from "../_ui";
 
 export default function DialogueDelaiVinted({
   open,
@@ -56,7 +59,8 @@ export default function DialogueDelaiVinted({
     setErreur(null);
   }, [open, initial]);
 
-  function confirmer() {
+  function confirmer(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     const r = delaiDepuisSaisie(mode, min, max);
     if (!r.ok) {
       setErreur(r.erreur);
@@ -65,115 +69,84 @@ export default function DialogueDelaiVinted({
     onConfirmer(r.delai);
   }
 
-  const ongletCls = (actif: boolean) =>
-    `inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border-[1.5px] px-4 text-[13.5px] font-semibold transition-all ${
-      actif
-        ? "border-[var(--acc)] bg-[var(--acc)] text-[var(--acc-ink)]"
-        : "border-[var(--border)] bg-surface text-[var(--ink2)] hover:border-[var(--border-strong)]"
-    }`;
-
   return (
-    <Modal
+    <Dialog
       open={open}
-      onClose={onAnnuler}
+      onOpenChange={(ouvert) => {
+        if (!ouvert) onAnnuler();
+      }}
       title="Délai entre deux brouillons"
+      size="sm"
+      as="form"
+      onSubmit={confirmer}
       footer={
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={onAnnuler}
-            className="min-h-[44px] rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-4 text-[12.5px] font-medium text-[var(--ink2)] transition-colors hover:border-[var(--border-strong)]"
-          >
+        <>
+          <Button variant="secondary" onClick={onAnnuler}>
             Annuler
-          </button>
-          <button
-            onClick={confirmer}
-            className="min-h-[44px] rounded-full bg-[var(--acc)] px-5 text-[12.5px] font-semibold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)]"
-          >
-            {libelleAction}
-          </button>
-        </div>
+          </Button>
+          <Button type="submit">{libelleAction}</Button>
+        </>
       }
     >
       <div className="space-y-4">
-        <p className="text-[13px] leading-relaxed text-[var(--ink2)]">
+        <p className="text-sm leading-relaxed text-ink-2">
           Le premier article part tout de suite. Ce délai s&apos;applique entre
           les annonces suivantes — c&apos;est le garde-fou anti-ban.
         </p>
 
-        <div className="flex gap-2.5">
-          <button
-            type="button"
-            aria-pressed={mode === "fixe"}
-            onClick={() => setMode("fixe")}
-            className={ongletCls(mode === "fixe")}
-          >
-            Délai fixe
-          </button>
-          <button
-            type="button"
-            aria-pressed={mode === "fourchette"}
-            onClick={() => setMode("fourchette")}
-            className={ongletCls(mode === "fourchette")}
-          >
-            Fourchette aléatoire
-          </button>
-        </div>
+        <Segmented
+          label="Type de délai"
+          value={mode}
+          onValueChange={setMode}
+          options={[
+            { valeur: "fixe", libelle: "Délai fixe" },
+            { valeur: "fourchette", libelle: "Fourchette aléatoire" },
+          ]}
+          className="flex w-full [&>*]:flex-1"
+        />
 
         {mode === "fixe" ? (
-          <div>
-            <label className={labelCls} htmlFor="delai-fixe">
-              Minutes
-            </label>
-            <input
-              id="delai-fixe"
+          <Field label="Minutes">
+            <Input
               type="number"
               inputMode="numeric"
               min={0}
               step={1}
               value={min}
               onChange={(e) => setMin(e.target.value)}
-              className={inputCls}
             />
-          </div>
+          </Field>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls} htmlFor="delai-min">
-                Minimum (min)
-              </label>
-              <input
-                id="delai-min"
+            <Field label="Minimum (min)">
+              <Input
                 type="number"
                 inputMode="numeric"
                 min={0}
                 step={1}
                 value={min}
                 onChange={(e) => setMin(e.target.value)}
-                className={inputCls}
               />
-            </div>
-            <div>
-              <label className={labelCls} htmlFor="delai-max">
-                Maximum (min)
-              </label>
-              <input
-                id="delai-max"
+            </Field>
+            <Field label="Maximum (min)">
+              <Input
                 type="number"
                 inputMode="numeric"
                 min={0}
                 step={1}
                 value={max}
                 onChange={(e) => setMax(e.target.value)}
-                className={inputCls}
               />
-            </div>
+            </Field>
           </div>
         )}
 
         {erreur && (
-          <p className="font-mono text-[12px] text-[var(--neg)]">{erreur}</p>
+          <p role="alert" className="font-mono text-xs text-neg">
+            {erreur}
+          </p>
         )}
       </div>
-    </Modal>
+    </Dialog>
   );
 }

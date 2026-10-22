@@ -4,6 +4,8 @@
 // Aucune génération n'est déclenchée — vérifier une clé ne doit rien coûter à
 // l'utilisateur ni consommer son quota.
 
+import { urlOpenRouter } from "@/lib/openrouterBase";
+
 export type Fournisseur = "openrouter";
 
 export type ResultatTest = { ok: boolean; message: string };
@@ -23,7 +25,7 @@ export async function testerCle(
   try {
     switch (fournisseur) {
       case "openrouter": {
-        const res = await fetch("https://openrouter.ai/api/v1/key", {
+        const res = await fetch(urlOpenRouter("/key"), {
           headers: { Authorization: `Bearer ${cle}` },
           cache: "no-store",
         });

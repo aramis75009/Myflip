@@ -72,12 +72,12 @@ export default function SkuLifecycle() {
   const vendu = etape.statut === "Vendu";
 
   return (
-    <div className="rounded-card border border-line bg-surface p-6 shadow-card sm:p-7">
+    <div className="rounded-lg border border-line bg-surface p-6 sm:p-7">
       <div className="flex items-center justify-between gap-4">
-        <span className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-[var(--faint)]">
+        <span className="font-mono text-xs uppercase tracking-[0.16em] text-ink-3">
           Suivi pièce
         </span>
-        <span className="font-mono text-[12.5px] font-medium tracking-[0.08em] text-[var(--ink2)]">
+        <span className="font-mono text-sm font-medium tracking-[0.08em] text-ink-2">
           {SKU}
         </span>
       </div>
@@ -92,7 +92,7 @@ export default function SkuLifecycle() {
         />
         <span
           key={etape.statut}
-          className="rounded-full px-3 py-1 text-[13px] font-semibold [animation:popIn_.2s_ease_both]"
+          className="rounded-full px-3 py-1 text-sm font-semibold motion-safe:animate-pop"
           style={{ backgroundColor: c.bg, color: c.ink }}
         >
           {etape.statut}
@@ -120,10 +120,10 @@ export default function SkuLifecycle() {
           <li
             key={e.statut}
             aria-current={idx === i ? "step" : undefined}
-            className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--raise)]"
+            className="h-1 flex-1 overflow-hidden rounded-full bg-surface-3"
           >
             <span
-              className="block h-full rounded-full transition-[width] duration-500 ease-out"
+              className="block h-full rounded-full transition-[width] duration-slow ease-out"
               style={{
                 width: idx <= i ? "100%" : "0%",
                 backgroundColor: statutColor(e.statut).color,
@@ -135,13 +135,13 @@ export default function SkuLifecycle() {
 
       <p
         key={etape.note}
-        className="mt-4 min-h-[2.6em] text-[13.5px] leading-relaxed text-[var(--ink2)] [animation:fadeUp_.3s_ease_both]"
+        className="mt-4 min-h-[2.6em] text-base leading-relaxed text-ink-2 motion-safe:animate-entree"
       >
         {etape.note}
       </p>
 
       {!anime && (
-        <p className="mt-2 font-mono text-[10.5px] uppercase tracking-[0.14em] text-[var(--faint)]">
+        <p className="mt-2 font-mono text-xs uppercase tracking-[0.14em] text-ink-3">
           Animation désactivée
         </p>
       )}
@@ -162,16 +162,16 @@ function Metric({
 }) {
   return (
     <div>
-      <dt className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--faint)]">
+      <dt className="font-mono text-xs uppercase tracking-[0.14em] text-ink-3">
         {label}
       </dt>
       <dd
-        className={`mt-1.5 font-mono text-[17px] font-bold tabular-nums transition-colors sm:text-[19px] ${
+        className={`mt-1.5 font-mono text-md font-bold tabular-nums transition-colors sm:text-lg ${
           estompe
-            ? "text-[var(--faint)]"
+            ? "text-ink-3"
             : accent
-              ? "text-[var(--acc)]"
-              : "text-[var(--ink)]"
+              ? "text-accent-text"
+              : "text-ink"
         }`}
       >
         {value}

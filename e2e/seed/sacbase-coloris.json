@@ -1,0 +1,117 @@
+{
+  "genere": "2026-10-20T08:00:00.000Z",
+  "coloris": [
+    {
+      "cle": "5039-black-pink",
+      "modele": "Nike Elite 5039",
+      "coloris": "Black Pink",
+      "image": "/img/coloris/5039-black-pink.jpg",
+      "generation": "V1",
+      "chezMoi": 2,
+      "sacs": [
+        {
+          "sku": "SDN1",
+          "statut": "Vendu",
+          "vendu": true
+        },
+        {
+          "sku": "SDN2",
+          "statut": "En vente",
+          "vendu": false
+        },
+        {
+          "sku": "SDN3",
+          "statut": "Photos prêtes",
+          "vendu": false
+        },
+        {
+          "sku": "SDN4",
+          "statut": "En stock",
+          "vendu": false
+        }
+      ]
+    },
+    {
+      "cle": "5039-white-volt",
+      "modele": "Nike Elite 5039",
+      "coloris": "White Volt",
+      "image": "/img/coloris/5039-white-volt.jpg",
+      "generation": "V1",
+      "chezMoi": 2,
+      "sacs": [
+        {
+          "sku": "SDN5",
+          "statut": "En stock",
+          "vendu": false
+        },
+        {
+          "sku": "SDN6",
+          "statut": "En stock",
+          "vendu": false
+        }
+      ]
+    },
+    {
+      "cle": "5040-navy-orange",
+      "modele": "Nike Elite 5040",
+      "coloris": "Navy Orange",
+      "image": "/img/coloris/5040-navy-orange.jpg",
+      "generation": "V2",
+      "chezMoi": 1,
+      "sacs": [
+        {
+          "sku": "SDN7",
+          "statut": "Photos prêtes",
+          "vendu": false
+        }
+      ]
+    },
+    {
+      "cle": "5041-grey-red",
+      "modele": "Nike Elite 5041",
+      "coloris": "Grey Red",
+      "image": "/img/coloris/5041-grey-red.jpg",
+      "generation": "V2",
+      "chezMoi": 0,
+      "sacs": [
+        {
+          "sku": "SDN10",
+          "statut": "À comptabiliser",
+          "vendu": true
+        }
+      ]
+    },
+    {
+      "cle": "5042-pure-platinum",
+      "modele": "Nike Elite 5042",
+      "coloris": "Pure Platinum",
+      "image": "",
+      "generation": "V3",
+      "chezMoi": 0,
+      "sacs": []
+    },
+    {
+      "cle": "elite-v3-black-gold",
+      "modele": "Nike Elite V3",
+      "coloris": "Black Gold",
+      "image": "/img/coloris/elite-v3-black-gold.jpg",
+      "generation": "V3",
+      "chezMoi": 1,
+      "sacs": [
+        {
+          "sku": "SDN8",
+          "statut": "En stock",
+          "vendu": false
+        },
+        {
+          "sku": "SDN9",
+          "statut": "Vendu",
+          "vendu": true
+        }
+      ]
+    }
+  ],
+  "ecartes": [
+    "Nike Elite 5038 (export sans clé)"
+  ]
+}

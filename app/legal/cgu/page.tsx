@@ -1,12 +1,13 @@
+// design-tokens-dette: R14 → M11
 export default function CguPage() {
   return (
-    <main className="min-h-screen bg-[var(--bg)] px-6 py-10">
+    <main className="min-h-screen bg-bg px-6 py-10">
       <div className="mx-auto max-w-2xl">
-        <h1 className="mb-6 font-grotesk text-[26px] font-bold text-[var(--ink)]">
+        <h1 className="mb-6 font-sans text-xl font-bold text-ink">
           Conditions générales d&apos;utilisation
         </h1>
-        <div className="rounded-[22px] border border-[var(--border)] bg-surface p-8">
-          <ul className="space-y-3 text-[14px] leading-relaxed text-[var(--muted)]">
+        <div className="rounded-lg border border-line bg-surface p-8">
+          <ul className="space-y-3 text-base leading-relaxed text-ink-3">
             <li>
               MyFlip est un outil personnel de pilotage de revente de vêtements.
             </li>

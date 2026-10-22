@@ -7,8 +7,12 @@
 // avec la même ref : ici chaque fiche a son propre input, monté une seule fois,
 // et les fichiers ne peuvent pas atterrir dans la mauvaise.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { FileText, Plus, RotateCcw, RotateCw, Upload, X, ZoomIn } from "lucide-react";
+import { Button, IconButton } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { ETATS, MATIERES_SUGGESTIONS, TAILLES } from "@/lib/listingOptions";
 import { pickPrompt } from "@/lib/promptSelect";
 import type { PromptTemplateDTO } from "@/lib/types";
@@ -22,7 +26,7 @@ import {
   type ArticleEnCours,
   type Qcm,
 } from "../_reducer";
-import { Chip, cardCls, inputCls, labelCls } from "../_ui";
+import { Chip, cardCls, labelCls } from "../_ui";
 import { COMPTES_VENTE, isCompteVente } from "@/lib/comptesVente";
 import { jourParis } from "@/lib/dateMiseEnVente";
 import type { CompteVente } from "@/lib/types";
@@ -99,6 +103,14 @@ export default function FicheArticle({
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const { qcm } = fiche;
+  // Ids des libellés de cette fiche : un champ ou un groupe de chips s'y réfère
+  // pour avoir un nom accessible (QU-70).
+  const base = useId();
+  const idMarque = `${base}-marque`;
+  const idCategorie = `${base}-categorie`;
+  const idDetails = `${base}-details`;
+  const idPrix = `${base}-prix`;
+  const idCouleur = `${base}-couleur`;
 
   const dateEnregistree = fiche.article?.dateMiseEnVente
     ? (jourParis(new Date(fiche.article.dateMiseEnVente)) ?? "")
@@ -269,29 +281,29 @@ export default function FicheArticle({
       onDragOver={auSurvol}
       onDragLeave={auDepart}
       onDrop={auDepot}
-      className="grid grid-cols-1 items-start gap-[18px] [animation:stepIn_.3s_both] lg:grid-cols-[340px_1fr]"
+      className="grid grid-cols-1 items-start gap-[18px] motion-safe:animate-entree lg:grid-cols-[340px_1fr]"
     >
       {/* ── Photos : la fiche entière accepte le dépôt, la carte le signale ── */}
       <div
-        className={`${cardCls} p-5 transition-[outline-color] lg:sticky lg:top-5 ${
+        className={`${cardCls} p-5 transition-[outline-color] lg:sticky lg:top-[calc(var(--topbar-h)+1.25rem)] lg:z-base ${
           survol
-            ? "outline outline-2 -outline-offset-2 outline-[var(--acc)]"
+            ? "outline outline-2 -outline-offset-2 outline-accent"
             : "outline outline-2 -outline-offset-2 outline-transparent"
         }`}
       >
         <div className="mb-1 flex items-center justify-between">
-          <h2 className="font-grotesk text-[16px] font-bold">Photos</h2>
+          <h2 className="font-sans text-md font-bold">Photos</h2>
           <span
-            className={`rounded-full px-2.5 py-1 text-[12px] font-bold ${
+            className={`rounded-full px-2.5 py-1 text-xs font-bold ${
               fiche.selected.length >= MIN_SELECT
-                ? "bg-[var(--pos-soft)] text-[var(--pos)]"
-                : "bg-[var(--tint)] text-[var(--faint)]"
+                ? "bg-pos-soft text-pos"
+                : "bg-surface-2 text-ink-3"
             }`}
           >
             {fiche.selected.length} / {MAX_SELECT}
           </span>
         </div>
-        <p className="mb-3.5 text-[12.5px] font-medium text-[var(--faint-2)]">
+        <p className="mb-3.5 text-sm font-medium text-ink-3">
           Choisis {MIN_SELECT} à {MAX_SELECT} photos pour l&apos;IA. L&apos;ordre = priorité.
         </p>
 
@@ -302,54 +314,62 @@ export default function FicheArticle({
             return (
               <div
                 key={p.id}
-                className={`relative aspect-square overflow-hidden rounded-[13px] border-[2.5px] transition-all ${
+                className={`relative aspect-square overflow-hidden rounded-md border-[2.5px] transition-colors duration-fast ${
                   sel
-                    ? "border-[var(--acc)] shadow-[var(--shadow)]"
-                    : "border-transparent outline outline-1 outline-[var(--border)]"
+                    ? "border-accent shadow-pop"
+                    : "border-transparent outline outline-1 outline-line"
                 }`}
               >
                 <button
                   onClick={() => onSelection(p.id)}
                   aria-pressed={sel}
                   aria-label={`Sélectionner la photo ${i + 1}`}
-                  className="block h-full w-full"
+                  className="block h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={p.url} alt={fileName(i)} className="h-full w-full object-cover" />
                 </button>
                 {sel && (
-                  <span className="pointer-events-none absolute left-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--acc)] font-mono text-[11px] font-bold text-[var(--acc-ink)] [animation:popIn_.18s_ease]">
+                  <span className="pointer-events-none absolute left-2 top-2 z-raised flex h-6 w-6 items-center justify-center rounded-full bg-accent font-mono text-xs font-bold text-accent-ink motion-safe:animate-pop">
                     {order + 1}
                   </span>
                 )}
-                <button
+                {/* Boutons sur la photo : fond OPAQUE (O3). Un fond translucide
+                    disparaît sur une photo claire ou chargée. */}
+                <IconButton
+                  label={`Supprimer la photo ${i + 1}`}
+                  variant="secondary"
                   onClick={() => onRetraitPhoto(p.id)}
-                  aria-label={`Supprimer la photo ${i + 1}`}
-                  className="absolute right-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--ink)]/55 text-[var(--bg)] transition-colors hover:bg-[var(--ink)]/80"
+                  className="absolute right-1.5 top-1.5 z-raised shadow-pop"
                 >
-                  <X className="h-3.5 w-3.5" strokeWidth={2.4} />
-                </button>
-                <button
-                  onClick={() => onRotation(p.id, -90)}
-                  aria-label="Tourner à gauche"
-                  className="absolute bottom-1.5 left-1.5 z-10 flex h-[30px] w-[30px] items-center justify-center rounded-full bg-white/90 text-[var(--ink2)] shadow-sm transition-colors hover:text-[var(--acc)]"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" strokeWidth={2} />
-                </button>
-                <button
-                  onClick={() => onRotation(p.id, 90)}
-                  aria-label="Tourner à droite"
-                  className="absolute bottom-1.5 left-[42px] z-10 flex h-[30px] w-[30px] items-center justify-center rounded-full bg-white/90 text-[var(--ink2)] shadow-sm transition-colors hover:text-[var(--acc)]"
-                >
-                  <RotateCw className="h-3.5 w-3.5" strokeWidth={2} />
-                </button>
-                <button
+                  <X className="h-4 w-4" strokeWidth={2.4} />
+                </IconButton>
+                <div className="absolute bottom-1.5 left-1.5 z-raised flex gap-1">
+                  <IconButton
+                    label="Tourner à gauche"
+                    variant="secondary"
+                    onClick={() => onRotation(p.id, -90)}
+                    className="shadow-pop"
+                  >
+                    <RotateCcw className="h-4 w-4" strokeWidth={2} />
+                  </IconButton>
+                  <IconButton
+                    label="Tourner à droite"
+                    variant="secondary"
+                    onClick={() => onRotation(p.id, 90)}
+                    className="shadow-pop"
+                  >
+                    <RotateCw className="h-4 w-4" strokeWidth={2} />
+                  </IconButton>
+                </div>
+                <IconButton
+                  label={`Agrandir la photo ${i + 1}`}
+                  variant="secondary"
                   onClick={() => onZoom(p.id)}
-                  aria-label={`Agrandir la photo ${i + 1}`}
-                  className="absolute bottom-1.5 right-1.5 z-10 flex h-[30px] w-[30px] items-center justify-center rounded-full bg-white/92 text-[var(--acc)] shadow-sm transition-colors hover:bg-surface"
+                  className="absolute bottom-1.5 right-1.5 z-raised shadow-pop"
                 >
-                  <ZoomIn className="h-3.5 w-3.5" strokeWidth={2.2} />
-                </button>
+                  <ZoomIn className="h-4 w-4" strokeWidth={2.2} />
+                </IconButton>
               </div>
             );
           })}
@@ -357,19 +377,19 @@ export default function FicheArticle({
           {fiche.photos.length < MAX_PHOTOS && (
             <button
               onClick={() => fileRef.current?.click()}
-              className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-[13px] border-2 border-dashed border-[var(--border-strong)] text-[var(--acc)] transition-colors hover:border-[var(--acc)] hover:bg-[var(--surface-2)]"
+              className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-md border-2 border-dashed border-line-strong text-accent-text transition-colors duration-fast hover:border-accent hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
               aria-label="Ajouter des photos"
             >
               <Plus className="h-[22px] w-[22px]" strokeWidth={2} />
-              <span className="text-[11.5px] font-bold">Ajouter</span>
+              <span className="text-xs font-bold">Ajouter</span>
             </button>
           )}
         </div>
 
-        <p className="mt-3 flex items-start gap-2 text-[12px] font-medium text-[var(--faint-2)]">
-          <Upload className="mt-0.5 h-3.5 w-3.5 flex-none text-[var(--acc)]" strokeWidth={2} />
+        <p className="mt-3 flex items-start gap-2 text-xs font-medium text-ink-3">
+          <Upload className="mt-0.5 h-3.5 w-3.5 flex-none text-accent-text" strokeWidth={2} />
           <span>
-            Glisse, ou <b className="font-bold text-[var(--acc)]">colle</b> (⌘V) sur cette
+            Glisse, ou <b className="font-bold text-accent-text">colle</b> (⌘V) sur cette
             fiche. Jusqu&apos;à {MAX_PHOTOS} photos.
           </span>
         </p>
@@ -395,8 +415,10 @@ export default function FicheArticle({
           <span className={labelCls}>Détecté depuis le lot — modifiable</span>
           <div className="mt-3.5 grid grid-cols-1 gap-5 sm:grid-cols-2">
             <div>
-              <label className={labelCls}>Marque</label>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <span id={idMarque} className={labelCls}>
+                Marque
+              </span>
+              <div role="group" aria-labelledby={idMarque} className="mt-2 flex flex-wrap gap-2">
                 {marqueChips.map((m) => (
                   <Chip
                     key={m}
@@ -419,13 +441,14 @@ export default function FicheArticle({
               </div>
               {qcm.marqueCustom && (
                 <>
-                  <input
+                  <Input
                     value={qcm.marque}
                     onChange={(e) => onQcm("marque", e.target.value)}
                     list="marques-list"
                     placeholder="Saisis la marque"
+                    aria-labelledby={idMarque}
                     autoFocus
-                    className={`${inputCls} mt-2.5 border-[1.5px] border-[var(--acc)]`}
+                    className="mt-2.5"
                   />
                   <datalist id="marques-list">
                     {MARQUES_LIST.map((m) => (
@@ -437,8 +460,10 @@ export default function FicheArticle({
             </div>
 
             <div>
-              <label className={labelCls}>Catégorie</label>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <span id={idCategorie} className={labelCls}>
+                Catégorie
+              </span>
+              <div role="group" aria-labelledby={idCategorie} className="mt-2 flex flex-wrap gap-2">
                 {categorieChips.map((c) => (
                   <Chip
                     key={c}
@@ -460,12 +485,13 @@ export default function FicheArticle({
                 />
               </div>
               {qcm.categorieCustom && (
-                <input
+                <Input
                   value={qcm.categorie}
                   onChange={(e) => onQcm("categorie", e.target.value)}
                   placeholder="Saisis la catégorie"
+                  aria-labelledby={idCategorie}
                   autoFocus
-                  className={`${inputCls} mt-2.5 border-[1.5px] border-[var(--acc)]`}
+                  className="mt-2.5"
                 />
               )}
             </div>
@@ -486,7 +512,7 @@ export default function FicheArticle({
                 ))}
               </ChampRequis>
 
-              <div className="my-4 h-px bg-[var(--bg)]" />
+              <div className="my-4 h-px bg-bg" />
             </>
           )}
 
@@ -501,18 +527,22 @@ export default function FicheArticle({
             ))}
           </ChampRequis>
 
-          <div className="my-4 h-px bg-[var(--bg)]" />
+          <div className="my-4 h-px bg-bg" />
 
           <div>
             <div className="flex items-center gap-2.5">
-              <label className="text-[12.5px] font-bold tracking-[0.03em] text-[var(--ink)]">
+              <span id={`${base}-matiere`} className="text-sm font-bold tracking-[0.03em] text-ink">
                 Matière
-              </label>
-              <span className="text-[11px] font-semibold text-[var(--faint-2)]">
+              </span>
+              <span className="text-xs font-semibold text-ink-3">
                 jusqu&apos;à 2 · optionnel
               </span>
             </div>
-            <div className="mt-2.5 flex flex-wrap gap-2.5">
+            <div
+              role="group"
+              aria-labelledby={`${base}-matiere`}
+              className="mt-2.5 flex flex-wrap gap-2.5"
+            >
               {MATIERES_SUGGESTIONS.map((m) => (
                 <Chip
                   key={m}
@@ -526,31 +556,38 @@ export default function FicheArticle({
         </div>
 
         <div className={`${cardCls} p-5 md:px-6`}>
-          <label className={labelCls}>Infos supplémentaires</label>
-          <textarea
+          <label className={labelCls} htmlFor={idDetails}>
+            Infos supplémentaires
+          </label>
+          <Textarea
+            id={idDetails}
             value={qcm.details}
             onChange={(e) => onQcm("details", e.target.value)}
             rows={2}
             placeholder="Ex : dernière collection, coupe slim, voir photo 4…"
-            className={`${inputCls} mt-2 resize-y leading-[1.55]`}
+            className="mt-2 resize-y"
           />
-          <div className="mt-3.5 flex flex-wrap items-center gap-2.5 rounded-xl bg-[var(--surface-2)] px-4 py-3">
-            <FileText className="h-4 w-4 flex-shrink-0 text-[var(--acc)]" strokeWidth={2} />
-            <span className="text-[13px] font-medium text-[var(--ink2)]">
-              Prompt : <b className="text-[var(--acc)]">{nomPromptDetecte}</b>
+          <div className="mt-3.5 flex flex-wrap items-center gap-2.5 rounded-lg bg-surface-2 px-4 py-3">
+            <FileText className="h-4 w-4 flex-shrink-0 text-accent-text" strokeWidth={2} />
+            <span className="text-sm font-medium text-ink-2">
+              Prompt : <b className="text-accent-text">{nomPromptDetecte}</b>
             </span>
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onBasculerChoixPrompt}
-              className="ml-auto text-[12px] font-semibold text-[var(--faint)] transition-colors hover:text-[var(--acc)]"
+              aria-expanded={montrerChoixPrompt}
+              className="ml-auto"
             >
               {montrerChoixPrompt ? "Fermer" : "Changer"}
-            </button>
+            </Button>
           </div>
           {montrerChoixPrompt && (
-            <select
+            <Select
               value={fiche.promptId ?? ""}
               onChange={(e) => onPrompt(e.target.value || null)}
-              className={`${inputCls} mt-2.5`}
+              aria-label="Prompt utilisé pour l'annonce"
+              className="mt-2.5"
             >
               <option value="">— Sélection automatique —</option>
               {prompts.map((p) => (
@@ -558,7 +595,7 @@ export default function FicheArticle({
                   {p.nom}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
         </div>
 
@@ -566,13 +603,13 @@ export default function FicheArticle({
           <label className={labelCls} htmlFor={`compte-${fiche.id}`}>
             Compte Vinted
           </label>
-          <select
+          <Select
             id={`compte-${fiche.id}`}
             value={fiche.article?.compteVente ?? ""}
             onChange={(e) =>
               onPatchArticle({ compteVente: isCompteVente(e.target.value) ? e.target.value : null })
             }
-            className={`${inputCls} mt-2.5 cursor-pointer`}
+            className="mt-2.5"
           >
             <option value="">—</option>
             {COMPTES_VENTE.map((c) => (
@@ -580,7 +617,7 @@ export default function FicheArticle({
                 {c.label}
               </option>
             ))}
-          </select>
+          </Select>
 
           {/* Posée seule au premier passage en « En vente » ; à saisir ici pour
               un article mis en ligne avant cette fonctionnalité. */}
@@ -590,7 +627,7 @@ export default function FicheArticle({
           {/* Brouillon local, enregistré à la sortie du champ : un input date
               tapé au clavier émet « 0002-09-29 » en cours de saisie, et un
               PATCH par frappe ferait gagner la dernière réponse arrivée. */}
-          <input
+          <Input
             id={`mev-${fiche.id}`}
             type="date"
             value={dateDraft}
@@ -598,7 +635,7 @@ export default function FicheArticle({
             onBlur={() => {
               if (dateDraft !== dateEnregistree) onPatchArticle({ dateMiseEnVente: dateDraft || null });
             }}
-            className={`${inputCls} mt-2.5`}
+            className="mt-2.5"
           />
         </div>
 
@@ -606,7 +643,7 @@ export default function FicheArticle({
           <div className={`${cardCls} p-5 md:px-6`}>
             <div className="flex flex-wrap items-center gap-2.5">
               <span className={labelCls}>Vinted — pilote automatique</span>
-              <span className="rounded-full bg-[var(--pos-soft)] px-2 py-0.5 text-[11px] font-bold text-[var(--pos)]">
+              <span className="rounded-full bg-pos-soft px-2 py-0.5 text-xs font-bold text-pos">
                 armé
               </span>
             </div>
@@ -614,27 +651,27 @@ export default function FicheArticle({
             {/* Ce que l'extension enverra sans rien demander. Affiché parce
                 qu'une valeur figée invisible est une valeur qu'on découvre
                 sur l'annonce publiée. */}
-            <p className="mt-2.5 font-mono text-[12px] text-[var(--faint-2)]">
+            <p className="mt-2.5 font-mono text-xs text-ink-3">
               {mappingVinted.rechercheCategorie} · {mappingVinted.filAriane} ·{" "}
               {mappingVinted.marque} · colis Petit · unisexe
             </p>
 
             <div className="mt-4">
               <div className="flex items-center gap-2.5">
-                <label className="text-[12.5px] font-bold tracking-[0.03em] text-[var(--ink)]">
+                <span id={idCouleur} className="text-sm font-bold tracking-[0.03em] text-ink">
                   Couleur
-                </label>
+                </span>
                 <span
-                  className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                  className={`rounded-full px-2 py-0.5 text-xs font-bold ${
                     qcm.couleurs.length > 0
-                      ? "bg-[var(--pos-soft)] text-[var(--pos)]"
-                      : "bg-[var(--neg-soft)] text-[var(--neg)]"
+                      ? "bg-pos-soft text-pos"
+                      : "bg-neg-soft text-neg"
                   }`}
                 >
                   {qcm.couleurs.length > 0 ? `${qcm.couleurs.length} / 2` : "requis"}
                 </span>
               </div>
-              <div className="mt-2.5 flex flex-wrap gap-2">
+              <div role="group" aria-labelledby={idCouleur} className="mt-2.5 flex flex-wrap gap-2">
                 {COULEURS_VINTED.map((c) => {
                   const active = qcm.couleurs.includes(c.id);
                   return (
@@ -643,20 +680,21 @@ export default function FicheArticle({
                       type="button"
                       onClick={() => basculerCouleur(c.id)}
                       aria-pressed={active}
-                      className={`inline-flex min-h-[44px] items-center gap-2 rounded-xl border-[1.5px] px-3 text-[13px] font-semibold transition-all ${
+                      className={`inline-flex min-h-11 items-center gap-2 rounded-lg border-[1.5px] px-3 text-sm font-semibold transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
                         active
-                          ? "border-[var(--acc)] bg-[var(--acc)] text-[var(--acc-ink)] shadow-[var(--shadow)]"
-                          : "border-[var(--border)] bg-surface text-[var(--ink2)] hover:border-[var(--border-strong)]"
+                          ? "border-accent bg-accent text-accent-ink shadow-pop"
+                          : "border-line bg-surface text-ink-2 hover:border-line-strong"
                       }`}
                     >
                       <span
                         aria-hidden
-                        className="h-3.5 w-3.5 flex-none rounded-full border border-[var(--border-strong)]"
+                        className="h-3.5 w-3.5 flex-none rounded-full border border-line-strong"
                         style={
                           c.hex
                             ? { background: c.hex }
                             : {
                                 background:
+                                  // design-tokens-exception: pastille multicolore d'un nuancier Vinted, donnée
                                   "conic-gradient(#e11,#fb0,#2b2,#09c,#71d,#e11)",
                               }
                         }
@@ -671,8 +709,11 @@ export default function FicheArticle({
         )}
 
         <div className={`${cardCls} p-5 md:px-6`}>
-          <label className={labelCls}>Prix suggéré</label>
-          <input
+          <label className={labelCls} htmlFor={idPrix}>
+            Prix suggéré
+          </label>
+          <Input
+            id={idPrix}
             type="number"
             min={0}
             step={0.5}
@@ -680,7 +721,7 @@ export default function FicheArticle({
             value={qcm.prix}
             onChange={(e) => onQcm("prix", e.target.value)}
             placeholder="0,00"
-            className={`${inputCls} mt-2 font-mono`}
+            className="mt-2 font-mono"
           />
         </div>
       </div>
@@ -697,21 +738,24 @@ function ChampRequis({
   ok: boolean;
   children: React.ReactNode;
 }) {
+  const idLibelle = useId();
   return (
     <div>
       <div className="flex items-center gap-2.5">
-        <label className="text-[12.5px] font-bold tracking-[0.03em] text-[var(--ink)]">
+        <span id={idLibelle} className="text-sm font-bold tracking-[0.03em] text-ink">
           {label}
-        </label>
+        </span>
         <span
-          className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
-            ok ? "bg-[var(--pos-soft)] text-[var(--pos)]" : "bg-[var(--neg-soft)] text-[var(--neg)]"
+          className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+            ok ? "bg-pos-soft text-pos" : "bg-neg-soft text-neg"
           }`}
         >
           {ok ? "ok" : "requis"}
         </span>
       </div>
-      <div className="mt-2.5 flex flex-wrap gap-2.5">{children}</div>
+      <div role="group" aria-labelledby={idLibelle} className="mt-2.5 flex flex-wrap gap-2.5">
+        {children}
+      </div>
     </div>
   );
 }

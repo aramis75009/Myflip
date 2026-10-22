@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R13 → M9
 
 // Générateur de méta-prompt.
 //
@@ -18,13 +19,13 @@ import { useCreatePrompt } from "@/lib/hooks";
 import { metaPrompt } from "@/lib/metaPrompt";
 
 const inputCls =
-  "min-h-[46px] w-full rounded-[16px] border border-[var(--border)] bg-[var(--surface-2)] px-4 text-[14px] text-[var(--ink)] outline-none transition-colors placeholder:text-[var(--faint-2)] focus:border-[var(--acc)]";
+  "min-h-[46px] w-full rounded-md border border-line bg-surface-2 px-4 text-base text-ink outline-none transition-colors placeholder:text-ink-3 focus:border-accent";
 const labelCls =
-  "mb-1.5 block font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--faint)]";
+  "mb-1.5 block font-mono text-xs uppercase tracking-[0.14em] text-ink-3";
 const boutonCls =
-  "inline-flex min-h-[46px] items-center justify-center gap-2 rounded-[16px] bg-[var(--acc)] px-5 text-[13.5px] font-semibold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)] disabled:opacity-60";
+  "inline-flex min-h-[46px] items-center justify-center gap-2 rounded-md bg-accent px-5 text-base font-semibold text-accent-ink transition-colors hover:bg-accent-hover disabled:opacity-60";
 const boutonSecondaireCls =
-  "inline-flex min-h-[46px] items-center justify-center gap-2 rounded-[16px] border border-[var(--border)] bg-[var(--surface-2)] px-5 text-[13.5px] text-[var(--ink2)] transition-colors hover:border-[var(--border-strong)] disabled:opacity-60";
+  "inline-flex min-h-[46px] items-center justify-center gap-2 rounded-md border border-line bg-surface-2 px-5 text-base text-ink-2 transition-colors hover:border-line-strong disabled:opacity-60";
 
 export default function MetaPrompt() {
   const create = useCreatePrompt();
@@ -77,12 +78,12 @@ export default function MetaPrompt() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 flex-none items-center justify-center rounded-[12px] bg-[var(--surface-2)] text-[var(--acc)]">
+              <span className="flex h-9 w-9 flex-none items-center justify-center rounded-md bg-surface-2 text-accent-text">
                 <Wand2 className="h-[19px] w-[19px]" strokeWidth={2} />
               </span>
               <CardTitle>Faire écrire un modèle par une IA</CardTitle>
             </div>
-            <p className="mt-2 max-w-prose text-[13px] leading-relaxed text-[var(--muted)]">
+            <p className="mt-2 max-w-prose text-sm leading-relaxed text-ink-3">
               Récupère un texte à coller dans ChatGPT ou Claude. Il leur
               explique ce que MyFlip attend — variables, photos jointes, format
               de sortie — et te renvoie un modèle prêt à enregistrer.
@@ -149,7 +150,7 @@ export default function MetaPrompt() {
               />
             </div>
           </div>
-          <p className="-mt-1 text-[12px] leading-snug text-[var(--faint)]">
+          <p className="-mt-1 text-xs leading-snug text-ink-3">
             Laisse vide pour un modèle polyvalent, qui servira de repli quand
             aucun modèle plus précis ne correspond.
           </p>
@@ -160,7 +161,7 @@ export default function MetaPrompt() {
               <button
                 type="button"
                 onClick={copier}
-                className={`${boutonSecondaireCls} min-h-[38px] px-3 text-[12.5px]`}
+                className={`${boutonSecondaireCls} min-h-[38px] px-3 text-sm`}
               >
                 {copie ? (
                   <>
@@ -180,7 +181,7 @@ export default function MetaPrompt() {
               value={texte}
               rows={9}
               onFocus={(e) => e.currentTarget.select()}
-              className={`${inputCls} resize-y py-3 font-mono text-[11.5px] leading-relaxed`}
+              className={`${inputCls} resize-y py-3 font-mono text-xs leading-relaxed`}
             />
           </div>
 
@@ -194,9 +195,9 @@ export default function MetaPrompt() {
               onChange={(e) => setResultat(e.target.value)}
               rows={7}
               placeholder="Le modèle de prompt renvoyé par ChatGPT ou Claude…"
-              className={`${inputCls} resize-y py-3 text-[13px] leading-relaxed`}
+              className={`${inputCls} resize-y py-3 text-sm leading-relaxed`}
             />
-            <p className="mt-1.5 text-[12px] leading-snug text-[var(--faint)]">
+            <p className="mt-1.5 text-xs leading-snug text-ink-3">
               Relis-le avant d&apos;enregistrer : il doit contenir les variables
               entre accolades et demander une réponse en JSON.
             </p>

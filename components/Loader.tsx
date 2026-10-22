@@ -1,54 +1,49 @@
 "use client";
+// design-tokens-dette: R12 → LZ
+
+import { cn } from "@/lib/cn";
 
 type Props = {
   label?: string;
   size?: "sm" | "md";
 };
 
-// Deux gabarits complets plutôt que cinq ternaires parallèles : une taille se
-// lit ici d'un bloc, et en ajouter une ne se fait qu'à un seul endroit.
+// Two complete templates rather than parallel ternaries: a size reads here
+// in one block, and adding one happens in one place.
 const GABARITS = {
-  sm: { svg: 48, pad: 10, radius: 18, py: "py-8", fontSize: 13 },
-  md: { svg: 72, pad: 14, radius: 24, py: "py-16", fontSize: 14 },
+  sm: { svg: 48, tuile: "p-2.5", py: "py-8", texte: "text-sm" },
+  md: { svg: 72, tuile: "p-3.5", py: "py-16", texte: "text-base" },
 } as const;
 
+const TRACE = "M27 69 V31 L48 54 L69 31 V69";
+
+/**
+ * TRACE loader: the monoline M drawing itself on an accent tile, then the
+ * label and three dots. Announced politely to screen readers.
+ *
+ * e2e contract (F1): the label is the FIRST text node of its div.
+ * The two TRACE animations (atlas-draw, atlas-dots, keyframes in
+ * globals.css) are identity, deferred: they stay inline until lot LZ.
+ */
 export default function Loader({ label = "Chargement", size = "md" }: Props) {
   const g = GABARITS[size];
 
   return (
-    <div className={`flex flex-col items-center justify-center ${g.py} gap-4`}>
-      <div
-        style={{
-          display: "inline-flex",
-          padding: g.pad,
-          borderRadius: g.radius,
-          // La tuile porte son propre fond sombre : le M mint et sa lueur ne
-          // sont lisibles que là-dessus. Elle ne doit donc PAS suivre le thème.
-          //
-          // Le dégradé finissait sur var(--ink), qui vaut #0e1412 en clair mais
-          // #eaf1ec en sombre : la tuile virait au blanc dès qu'on basculait le
-          // thème, et le logo mint disparaissait dessus. Fin de dégradé en dur.
-          background:
-            "radial-gradient(120% 120% at 50% 0%, #214f3b 0%, #0e1412 100%)",
-        }}
-      >
-        <svg width={g.svg} height={g.svg} viewBox="0 0 96 96" fill="none">
-          {/* Rail du tracé, sous le M animé. Littéral pour la même raison que
-              la tuile : var(--pos) ne se voyait qu'en thème sombre (#5fd39b) et
-              disparaissait en clair (#0f5132 posé sur #0e1412). */}
+    <div role="status" aria-live="polite" className={cn("flex flex-col items-center justify-center gap-4", g.py)}>
+      <div className={cn("inline-flex rounded-lg bg-accent", g.tuile)}>
+        <svg aria-hidden="true" width={g.svg} height={g.svg} viewBox="0 0 96 96" fill="none">
           <path
-            d="M27 69 V31 L48 54 L69 31 V69"
+            d={TRACE}
             fill="none"
-            stroke="#5fd39b"
+            className="stroke-accent-ink/30"
             strokeWidth="8.5"
             strokeLinecap="round"
             strokeLinejoin="round"
-            opacity="0.28"
           />
           <path
-            d="M27 69 V31 L48 54 L69 31 V69"
+            d={TRACE}
             fill="none"
-            stroke="#A8D5B5"
+            className="stroke-accent-ink"
             strokeWidth="8.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -56,37 +51,18 @@ export default function Loader({ label = "Chargement", size = "md" }: Props) {
             style={{
               strokeDasharray: 100,
               animation: "atlas-draw 2.1s cubic-bezier(.65,.05,.36,1) infinite",
-              filter: "drop-shadow(0 0 5px rgba(168,213,181,.45))",
             }}
           />
         </svg>
       </div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "baseline",
-          gap: 3,
-          fontFamily: "'Space Grotesk', sans-serif",
-          fontWeight: 600,
-          fontSize: g.fontSize,
-          color: "var(--ink)",
-          letterSpacing: "-0.01em",
-        }}
-      >
+      <div className={cn("flex items-baseline gap-[3px] font-semibold tracking-[-0.01em] text-ink", g.texte)}>
         {label}
-        <span style={{ display: "inline-flex", gap: 3, marginLeft: 1 }}>
+        <span aria-hidden="true" className="ml-px inline-flex gap-[3px]">
           {([0, 0.2, 0.4] as const).map((delay, i) => (
             <span
               key={i}
-              style={{
-                display: "inline-block",
-                width: 3,
-                height: 3,
-                borderRadius: "50%",
-                background: "var(--pos)",
-                animation: "atlas-dots 1.4s infinite",
-                animationDelay: `${delay}s`,
-              }}
+              className="inline-block h-[3px] w-[3px] rounded-full bg-pos"
+              style={{ animation: "atlas-dots 1.4s infinite", animationDelay: `${delay}s` }}
             />
           ))}
         </span>

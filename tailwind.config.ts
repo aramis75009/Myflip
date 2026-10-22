@@ -1,94 +1,172 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
+
+/**
+ * Tailwind wiring of the design tokens (app/tokens.css).
+ *
+ * Every value is a `var(--…)`: this file holds no colour, size or duration of
+ * its own. Colours are channels, exposed as `rgb(var(--x) / <alpha-value>)`
+ * so that `bg-surface/90` works. The colour, font-size, radius, shadow,
+ * z-index and duration scales REPLACE Tailwind's defaults (keys directly
+ * under `theme`, not under `extend`): a default class such as `text-2xl` or
+ * `z-50` only exists if it is listed here.
+ */
+
+const c = (n: string) => `rgb(var(--${n}) / <alpha-value>)`;
+
+const STATUTS = [
+  "brouillon",
+  "stock",
+  "lavage",
+  "repasse",
+  "photos",
+  "vente",
+  "livraison",
+  "compta",
+  "vendu",
+  "retour",
+  "perdu",
+] as const;
+
+const CANAUX = ["vinted", "vinted-go", "vc", "lbc", "mp", "autre"] as const;
 
 const config: Config = {
-  content: [
-    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./app/**/*.{js,ts,jsx,tsx,mdx}",
-  ],
+  content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./lib/**/*.{ts,tsx}"],
+  future: { hoverOnlyWhenSupported: true },
   theme: {
+    colors: {
+      transparent: "transparent",
+      current: "currentColor",
+      inherit: "inherit",
+      bg: c("bg"),
+      surface: { DEFAULT: c("surface"), 2: c("surface-2"), 3: c("surface-3") },
+      line: { DEFAULT: c("line"), strong: c("line-strong") },
+      ink: { DEFAULT: c("ink"), 2: c("ink-2"), 3: c("ink-3") },
+      accent: {
+        DEFAULT: c("accent"),
+        hover: c("accent-hover"),
+        ink: c("accent-ink"),
+        text: c("accent-text"),
+        soft: c("accent-soft"),
+      },
+      focus: c("focus"),
+      pos: { DEFAULT: c("pos"), soft: c("pos-soft") },
+      neg: { DEFAULT: c("neg"), soft: c("neg-soft") },
+      warn: { DEFAULT: c("warn"), soft: c("warn-soft") },
+      danger: { DEFAULT: c("danger"), ink: c("danger-ink") },
+      bar: { DEFAULT: c("bar"), ink: c("bar-ink") },
+      chart: { DEFAULT: c("chart"), 2: c("chart-2") },
+      stage: c("stage"),
+      st: Object.fromEntries(
+        STATUTS.map((k) => [k, { DEFAULT: c(`st-${k}`), ink: c(`st-${k}-ink`), soft: c(`st-${k}-soft`) }]),
+      ),
+      ch: Object.fromEntries(CANAUX.map((k) => [k, c(`ch-${k}`)])),
+      // The veil opacity follows the theme: no <alpha-value> here.
+      veil: "rgb(var(--veil) / var(--veil-a))",
+      "veil-fort": "rgb(var(--veil) / var(--veil-fort-a))",
+      // TEMPORARY, to remove in lot LZ: a few screens still paint on photos
+      // with white / black (guard rule R10, marked as debt).
+      white: "rgb(255 255 255 / <alpha-value>)",
+      black: "rgb(0 0 0 / <alpha-value>)",
+    },
+    fontSize: {
+      xs: ["var(--t-xs)", { lineHeight: "var(--lh-ui)" }],
+      sm: ["var(--t-sm)", { lineHeight: "var(--lh-ui)" }],
+      base: ["var(--t-base)", { lineHeight: "var(--lh-ui)" }],
+      md: ["var(--t-md)", { lineHeight: "var(--lh-prose)" }],
+      lg: ["var(--t-lg)", { lineHeight: "var(--lh-snug)" }],
+      xl: ["var(--t-xl)", { lineHeight: "var(--lh-snug)" }],
+      "2xl": ["var(--t-2xl)", { lineHeight: "var(--lh-tight)" }],
+      "3xl": ["var(--t-3xl)", { lineHeight: "var(--lh-tight)" }],
+    },
+    fontFamily: {
+      sans: ["var(--font-sans)"],
+      mono: ["var(--font-mono)"],
+    },
+    borderRadius: {
+      none: "0",
+      xs: "var(--r-xs)",
+      sm: "var(--r-sm)",
+      DEFAULT: "var(--r-sm)",
+      md: "var(--r-md)",
+      lg: "var(--r-lg)",
+      full: "var(--r-full)",
+    },
+    boxShadow: {
+      none: "none",
+      pop: "var(--shadow-pop)",
+      over: "var(--shadow-over)",
+    },
+    zIndex: {
+      auto: "auto",
+      base: "var(--z-base)",
+      raised: "var(--z-raised)",
+      sticky: "var(--z-sticky)",
+      dock: "var(--z-dock)",
+      fab: "var(--z-fab)",
+      overlay: "var(--z-overlay)",
+      modal: "var(--z-modal)",
+      popover: "var(--z-popover)",
+      toast: "var(--z-toast)",
+      tooltip: "var(--z-tooltip)",
+      skip: "var(--z-skip)",
+    },
+    transitionDuration: {
+      0: "0ms",
+      DEFAULT: "var(--d-base)",
+      fast: "var(--d-fast)",
+      base: "var(--d-base)",
+      slow: "var(--d-slow)",
+    },
+    transitionTimingFunction: {
+      DEFAULT: "var(--ease-out)",
+      linear: "linear",
+      out: "var(--ease-out)",
+      in: "var(--ease-in)",
+      "in-out": "var(--ease-in-out)",
+    },
     extend: {
-      // TOUT alias de couleur pointe sur une variable CSS de globals.css, sans
-      // exception. Une valeur en dur ici ne suit pas le thème sombre : elle
-      // passe la revue visuelle en clair et disparaît sur le graphite.
-      colors: {
-        // Neutres
-        bg: "var(--bg)",
-        surface: "var(--surface)", // fond principal du contenu
-        "surface-soft": "var(--surface-2)", // sidebar, cartes teintées
-        "surface-container": "var(--tint)",
-        tint: "var(--tint)",
-        // Texte
-        ink: "var(--ink)", // encre principale
-        "ink-muted": "var(--ink2)", // encre secondaire
-        "ink-faint": "var(--faint)", // encre tertiaire
-        muted: "var(--muted)",
-        faint: "var(--faint)",
-        nav: "var(--nav)",
-        // Bordures
-        line: "var(--border)",
-        // Accent. `primary` est l'ancien nom de `--acc` : vert forêt en clair,
-        // lime en sombre. Les deux noms coexistent le temps que les usages
-        // migrent ; ils désignent la même chose.
-        primary: "var(--acc)",
-        "primary-dark": "var(--acc-hover)",
-        "on-primary": "var(--acc-ink)",
-        // États
-        error: "var(--neg)",
+      // Preflight paints every border with this colour; Tailwind's default
+      // (gray-200) is gone with the replaced palette and would fall back to
+      // currentColor.
+      borderColor: { DEFAULT: c("line") },
+      height: { hit: "var(--hit)" },
+      minHeight: { hit: "var(--hit)" },
+      minWidth: { hit: "var(--hit)" },
+      // Always written `motion-safe:animate-*`. `backwards` fill: no
+      // transform is left on the element once the animation is over (a
+      // residual transform turns an ancestor into the containing block of
+      // every `position: fixed` descendant).
+      keyframes: {
+        entree: {
+          from: { opacity: "0", transform: "translateY(4px)" },
+          to: { opacity: "1", transform: "none" },
+        },
+        fondu: {
+          from: { opacity: "0" },
+          to: { opacity: "1" },
+        },
+        apparition: {
+          from: { opacity: "0", transform: "scale(0.96)" },
+          to: { opacity: "1", transform: "none" },
+        },
+        shimmer: {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.55" },
+        },
       },
-      fontFamily: {
-        // Direction C n'a qu'une police d'interface : Space Grotesk, des
-        // libellés aux chiffres héros.
-        sans: [
-          "var(--font-grotesk)",
-          "Space Grotesk",
-          "system-ui",
-          "sans-serif",
-        ],
-        // Police d'affichage du redesign (chiffres / titres / KPI).
-        grotesk: [
-          "var(--font-grotesk)",
-          "Space Grotesk",
-          "system-ui",
-          "sans-serif",
-        ],
-        // Chasse fixe du Stock : SKU, montants, coefficients, micro-labels.
-        mono: [
-          "var(--font-mono)",
-          "JetBrains Mono",
-          "ui-monospace",
-          "monospace",
-        ],
+      animation: {
+        entree: "entree var(--d-slow) var(--ease-out) backwards",
+        fondu: "fondu var(--d-base) var(--ease-out) backwards",
+        pop: "apparition var(--d-base) var(--ease-out) backwards",
+        shimmer: "shimmer 1.6s var(--ease-in-out) infinite",
       },
-      // Direction C travaille au demi-pixel (12,5 / 13,5 / 10,5 px), que
-      // l'échelle Tailwind ne sait pas nommer : le produit pose donc des
-      // valeurs arbitraires (`text-[13.5px]`) et c'est assumé. Les trois
-      // alias ci-dessous sont les seuls encore utilisés ; l'échelle complète
-      // est documentée dans docs/design-system.md.
-      fontSize: {
-        "label-sm": ["12px", { lineHeight: "1.2", fontWeight: "500" }],
-        "body-md": ["14px", { lineHeight: "1.5", fontWeight: "400" }],
-        "title-sm": ["18px", { lineHeight: "1.4", fontWeight: "600" }],
-      },
-      borderRadius: {
-        sm: "0.25rem",
-        DEFAULT: "0.5rem",
-        md: "0.75rem",
-        lg: "1rem",
-        xl: "1.5rem",
-        card: "1.25rem", // 20px — rayon standard des cards
-        full: "9999px",
-      },
-      boxShadow: {
-        // Ombre douce et large (blur 20px, opacité 4%) — cards qui "flottent"
-        card: "0 4px 20px rgba(0,0,0,0.04)",
-        "card-hover": "0 8px 28px rgba(0,0,0,0.08)",
-      },
-      // Pas d'alias de largeur de sidebar ici : elle se replie, donc sa valeur
-      // est dynamique. Elle vit dans --sidebar-w (globals.css), lue en
-      // md:pl-[var(--sidebar-w)] par AppShell.
     },
   },
-  plugins: [],
+  plugins: [
+    // `replie:hidden` etc.: styles of the collapsed desktop sidebar (rail).
+    plugin(({ addVariant }) => addVariant("replie", ':root[data-sidebar="collapsed"] &')),
+  ],
 };
+
 export default config;

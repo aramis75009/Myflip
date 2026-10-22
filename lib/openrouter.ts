@@ -13,6 +13,7 @@
 // réseau — c'est la convention de `vitest.config.ts`, qui ne couvre que le pur.
 
 import { MODELE_PAR_DEFAUT } from "@/lib/modelesIA";
+import { urlOpenRouter } from "@/lib/openrouterBase";
 
 export type ListingResult = {
   titre: string;
@@ -22,8 +23,6 @@ export type ListingResult = {
 
 /** Une photo prête à partir : base64 SANS le préfixe `data:`. */
 export type ImageAnnonce = { mimeType: string; data: string };
-
-const URL_API = "https://openrouter.ai/api/v1/chat/completions";
 
 type PartTexte = { type: "text"; text: string };
 type PartImage = { type: "image_url"; image_url: { url: string } };
@@ -217,7 +216,7 @@ export async function generateListing(
   for (let essai = 1; ; essai++) {
     let res: Response;
     try {
-      res = await fetch(URL_API, {
+      res = await fetch(urlOpenRouter("/chat/completions"), {
         method: "POST",
         headers: {
           Authorization: `Bearer ${cle}`,

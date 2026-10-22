@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R10 R12 → M5
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -139,7 +140,7 @@ export default function DashboardPage() {
   if (isError || !data) {
     return (
       <Frame>
-        <p className="text-[var(--neg)]">
+        <p className="text-neg">
           {error ? (error as Error).message : "Erreur de chargement."}
         </p>
       </Frame>
@@ -164,24 +165,24 @@ export default function DashboardPage() {
       {/* SALUTATION + PÉRIODE */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="text-[24px] font-bold tracking-[-0.03em] text-[var(--ink)]">
+          <div className="text-xl font-bold tracking-[-0.03em] text-ink">
             Bonjour {nom}
           </div>
-          <div className="mt-[3px] font-mono text-[11px] tracking-[0.06em] text-[var(--faint)]">
+          <div className="mt-[3px] font-mono text-xs tracking-[0.06em] text-ink-3">
             {todayLabel()}
           </div>
         </div>
-        <div className="flex gap-[6px] rounded-full border border-[var(--border)] bg-surface p-[4px]">
+        <div className="flex gap-1.5 rounded-full border border-line bg-surface p-1">
           {PERIODES.map((p) => {
             const on = p.key === periode;
             return (
               <button
                 key={p.key}
                 onClick={() => setPeriode(p.key)}
-                className={`min-h-[44px] rounded-full px-[15px] font-mono text-[10.5px] tracking-[0.08em] transition-colors md:min-h-[36px] ${
+                className={`min-h-11 rounded-full px-[15px] font-mono text-xs tracking-[0.08em] transition-colors md:min-h-9 ${
                   on
-                    ? "bg-[var(--acc)] text-[var(--acc-ink)]"
-                    : "text-[var(--ink2)] hover:bg-[var(--tint)]"
+                    ? "bg-accent text-accent-ink"
+                    : "text-ink-2 hover:bg-surface-2"
                 }`}
               >
                 {p.code}
@@ -192,7 +193,7 @@ export default function DashboardPage() {
       </div>
 
       {/* HÉROS + MARGE + OBJECTIF */}
-      <section className="grid grid-cols-1 gap-[14px] min-[900px]:grid-cols-[1.5fr_1fr]">
+      <section className="grid grid-cols-1 gap-3.5 min-[900px]:grid-cols-[1.5fr_1fr]">
         <HeroCA
           ca={data.caTotal}
           delta={data.caDelta}
@@ -200,7 +201,7 @@ export default function DashboardPage() {
           spark={data.caParSemaine.map((w) => w.ca)}
           titre={titre}
         />
-        <div className="flex flex-col gap-[14px]">
+        <div className="flex flex-col gap-3.5">
           <MargeCard
             total={data.margeNetteTotal}
             ca={data.caTotal}
@@ -211,7 +212,7 @@ export default function DashboardPage() {
       </section>
 
       {/* KPI */}
-      <section className="grid grid-cols-2 gap-[14px] min-[900px]:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3.5 min-[900px]:grid-cols-4">
         <Kpi
           icon={TrendingUp}
           label="ARTICLES VENDUS"
@@ -242,7 +243,7 @@ export default function DashboardPage() {
       </section>
 
       {/* GRAPHE + MARQUES */}
-      <section className="grid grid-cols-1 gap-[14px] min-[900px]:grid-cols-[1fr_1.25fr]">
+      <section className="grid grid-cols-1 gap-3.5 min-[900px]:grid-cols-[1fr_1.25fr]">
         <WeekBars
           key={periode}
           bars={bars}
@@ -284,21 +285,21 @@ function HeroCA({
   const moisPrec = format(subMonths(new Date(), 1), "MMMM", { locale: fr });
 
   return (
-    <div className="relative overflow-hidden rounded-[26px] bg-[var(--acc)] p-[26px] text-[var(--acc-ink)] shadow-[var(--shadow)]">
+    <div className="relative overflow-hidden rounded-lg bg-accent p-[26px] text-accent-ink shadow-pop">
       <div className="flex items-start justify-between gap-3">
-        <span className="font-mono text-[10.5px] tracking-[0.2em] opacity-70">
+        <span className="font-mono text-xs tracking-[0.2em] opacity-70">
           CA TOTAL — {titre}
         </span>
         {pct && (
-          <span className="flex-none rounded-full bg-black/[.14] px-[10px] py-[4px] font-mono text-[11px] font-bold tabular-nums">
+          <span className="flex-none rounded-full bg-black/[.14] px-2.5 py-1 font-mono text-xs font-bold tabular-nums">
             {positive ? "▲" : "▼"} {pct}
           </span>
         )}
       </div>
-      <div className="mt-[14px] whitespace-nowrap text-[44px] font-bold leading-none tracking-[-0.045em] tabular-nums min-[900px]:text-[64px]">
+      <div className="mt-3.5 whitespace-nowrap text-2xl font-bold leading-none tracking-[-0.045em] tabular-nums min-[900px]:text-3xl">
         {euros(ca)}
       </div>
-      <div className="mt-[2px] font-mono text-[11.5px] opacity-75">
+      <div className="mt-0.5 font-mono text-xs opacity-75">
         vs {euros(moisPrecedent)} en {moisPrec} · écart {signedEur(delta.abs)}
       </div>
       <Sparkline values={spark} />
@@ -325,7 +326,7 @@ function Sparkline({ values }: { values: number[] }) {
       viewBox="0 0 400 70"
       preserveAspectRatio="none"
       aria-hidden="true"
-      className="mt-[16px] block h-[76px] w-full"
+      className="mt-4 block h-[76px] w-full"
     >
       <polyline
         points={points}
@@ -354,23 +355,23 @@ function MargeCard({
   moyenne: number;
 }) {
   return (
-    <div className="rounded-[26px] border border-[var(--border)] bg-surface p-[22px] shadow-[var(--shadow)]">
+    <div className="rounded-lg border border-line bg-surface p-[22px] shadow-pop">
       <Eyebrow>MARGE NETTE</Eyebrow>
-      <div className="mt-[8px] flex items-baseline gap-[10px]">
-        <span className="text-[38px] font-bold tracking-[-0.035em] tabular-nums text-[var(--ink)]">
+      <div className="mt-2 flex items-baseline gap-2.5">
+        <span className="text-2xl font-bold tracking-[-0.035em] tabular-nums text-ink">
           {euros(total)}
         </span>
-        <span className="font-mono text-[11.5px] text-[var(--pos)]">
+        <span className="font-mono text-xs text-pos">
           {pct1(moyenne)}
         </span>
       </div>
-      <div className="mt-[14px] h-[10px] overflow-hidden rounded-full bg-[var(--surface-2)]">
+      <div className="mt-3.5 h-2.5 overflow-hidden rounded-full bg-surface-2">
         <div
-          className="h-full rounded-full bg-[var(--pos)]"
+          className="h-full rounded-full bg-pos"
           style={{ width: `${Math.min(100, Math.max(0, moyenne * 100))}%` }}
         />
       </div>
-      <div className="mt-[7px] flex justify-between font-mono text-[10px] text-[var(--faint)]">
+      <div className="mt-[7px] flex justify-between font-mono text-xs text-ink-3">
         <span>CA {euros(ca)}</span>
         <span>NET {euros(total)}</span>
       </div>
@@ -406,13 +407,13 @@ function ObjectifCard({
     return (
       <Link
         href="/parametres"
-        className="rounded-[26px] border border-dashed border-[var(--border-strong)] bg-surface p-[22px] transition-colors hover:border-[var(--acc)]"
+        className="rounded-lg border border-dashed border-line-strong bg-surface p-[22px] transition-colors hover:border-accent"
       >
         <Eyebrow>OBJECTIF</Eyebrow>
-        <div className="mt-[4px] text-[30px] font-bold tracking-[-0.03em] text-[var(--ink)]">
+        <div className="mt-1 text-xl font-bold tracking-[-0.03em] text-ink">
           À définir
         </div>
-        <div className="font-mono text-[11px] leading-[1.6] text-[var(--ink2)]">
+        <div className="font-mono text-xs leading-[1.6] text-ink-2">
           règle ta cible mensuelle
           <br />
           dans Paramètres →
@@ -426,7 +427,7 @@ function ObjectifCard({
   const atteint = ca >= objectif;
 
   return (
-    <div className="flex items-center gap-[18px] rounded-[26px] border border-[var(--border)] bg-surface p-[22px] shadow-[var(--shadow)]">
+    <div className="flex items-center gap-[18px] rounded-lg border border-line bg-surface p-[22px] shadow-pop">
       <svg
         viewBox="0 0 100 100"
         className="h-[88px] w-[88px] flex-none"
@@ -437,7 +438,7 @@ function ObjectifCard({
           cy="50"
           r="41"
           fill="none"
-          stroke="var(--surface-2)"
+          stroke="rgb(var(--surface-2))"
           strokeWidth="12"
         />
         <circle
@@ -445,7 +446,7 @@ function ObjectifCard({
           cy="50"
           r="41"
           fill="none"
-          stroke="var(--acc)"
+          stroke="rgb(var(--accent))"
           strokeWidth="12"
           strokeLinecap="round"
           pathLength={RING_CIRC}
@@ -459,10 +460,10 @@ function ObjectifCard({
       </svg>
       <div className="min-w-0">
         <Eyebrow>OBJECTIF</Eyebrow>
-        <div className="mt-[4px] whitespace-nowrap text-[30px] font-bold tracking-[-0.03em] text-[var(--ink)]">
+        <div className="mt-1 whitespace-nowrap text-xl font-bold tracking-[-0.03em] text-ink">
           {pct1(pct)}
         </div>
-        <div className="font-mono text-[11px] leading-[1.6] text-[var(--ink2)]">
+        <div className="font-mono text-xs leading-[1.6] text-ink-2">
           cible {euros(objectif)}
           <br />
           {atteint
@@ -492,22 +493,22 @@ function Kpi({
   positive?: boolean;
 }) {
   return (
-    <div className="rounded-[22px] border border-[var(--border)] bg-surface p-[18px] transition-colors hover:border-[var(--border-strong)]">
+    <div className="rounded-lg border border-line bg-surface p-[18px] transition-colors hover:border-line-strong">
       <div className="flex items-center justify-between gap-2">
-        <span className="truncate font-mono text-[9.5px] tracking-[0.16em] text-[var(--faint)]">
+        <span className="truncate font-mono text-xs tracking-[0.16em] text-ink-3">
           {label}
         </span>
         <Icon
-          className="h-[14px] w-[14px] flex-none text-[var(--faint)]"
+          className="h-3.5 w-3.5 flex-none text-ink-3"
           strokeWidth={2}
         />
       </div>
-      <div className="mt-[10px] truncate text-[30px] font-bold tracking-[-0.03em] tabular-nums text-[var(--ink)]">
+      <div className="mt-2.5 truncate text-xl font-bold tracking-[-0.03em] tabular-nums text-ink">
         {value}
       </div>
       <div
-        className={`mt-[3px] truncate font-mono text-[10.5px] ${
-          positive ? "text-[var(--pos)]" : "text-[var(--faint)]"
+        className={`mt-[3px] truncate font-mono text-xs ${
+          positive ? "text-pos" : "text-ink-3"
         }`}
       >
         {delta}
@@ -557,7 +558,7 @@ const BAR_MAX_H = 128;
 function WeekBars({ bars, aside }: { bars: Bar[]; aside: string }) {
   const max = Math.max(1, ...bars.map((b) => b.ca));
   return (
-    <div className="rounded-[26px] border border-[var(--border)] bg-surface p-[22px]">
+    <div className="rounded-lg border border-line bg-surface p-[22px]">
       <CardTitle className="mb-[18px]" aside={aside}>
         CA par semaine
       </CardTitle>
@@ -567,20 +568,20 @@ function WeekBars({ bars, aside }: { bars: Bar[]; aside: string }) {
             key={i}
             className="flex h-full flex-1 flex-col items-center justify-end gap-[7px]"
           >
-            <span className="font-mono text-[9.5px] tabular-nums text-[var(--ink2)]">
+            <span className="font-mono text-xs tabular-nums text-ink-2">
               {Math.round(b.ca)}
             </span>
             <div
-              className="w-full rounded-[8px]"
+              className="w-full rounded"
               style={{
                 height: Math.round((b.ca / max) * BAR_MAX_H),
                 background:
-                  b.ca === max ? "var(--acc)" : "var(--surface-2)",
+                  b.ca === max ? "rgb(var(--accent))" : "rgb(var(--surface-2))",
                 transformOrigin: "bottom",
                 animation: `growBar .55s cubic-bezier(.22,1,.36,1) ${(i * 0.05).toFixed(2)}s both`,
               }}
             />
-            <span className="truncate font-mono text-[9.5px] text-[var(--faint)]">
+            <span className="truncate font-mono text-xs text-ink-3">
               {b.label}
             </span>
           </div>
@@ -597,13 +598,13 @@ function WeekBars({ bars, aside }: { bars: Bar[]; aside: string }) {
 function BrandList({ brands }: { brands: BrandRow[] }) {
   const router = useRouter();
   return (
-    <div className="rounded-[26px] border border-[var(--border)] bg-surface p-[22px]">
-      <CardTitle className="mb-[12px]" aside={`${brands.length} ACTIVES`}>
+    <div className="rounded-lg border border-line bg-surface p-[22px]">
+      <CardTitle className="mb-3" aside={`${brands.length} ACTIVES`}>
         Par marque
       </CardTitle>
 
       {brands.length === 0 ? (
-        <div className="rounded-[16px] bg-[var(--surface-2)] px-[10px] py-[28px] text-center font-mono text-[11px] text-[var(--faint)]">
+        <div className="rounded-md bg-surface-2 px-2.5 py-7 text-center font-mono text-xs text-ink-3">
           AUCUNE VENTE SUR LA PÉRIODE
         </div>
       ) : (
@@ -615,36 +616,36 @@ function BrandList({ brands }: { brands: BrandRow[] }) {
             }
             // Sous 900px la grille 6 colonnes de la maquette ne rentre pas :
             // CA et marge passent sur une seconde ligne, le taux disparaît.
-            className="mb-[8px] grid w-full grid-cols-[36px_1fr_auto] items-center gap-x-[10px] gap-y-[6px] rounded-[16px] bg-[var(--surface-2)] p-[10px] text-left transition-colors hover:bg-[var(--raise)] min-[900px]:grid-cols-[38px_1fr_58px_82px_82px_92px] min-[900px]:gap-x-[12px] min-[900px]:gap-y-0"
+            className="mb-2 grid w-full grid-cols-[36px_1fr_auto] items-center gap-x-2.5 gap-y-1.5 rounded-md bg-surface-2 p-2.5 text-left transition-colors hover:bg-surface-3 min-[900px]:grid-cols-[38px_1fr_58px_82px_82px_92px] min-[900px]:gap-x-3 min-[900px]:gap-y-0"
           >
-            <span className="flex h-[36px] w-[36px] items-center justify-center rounded-[12px] bg-[var(--raise)] font-mono text-[11px] font-bold text-[var(--ink)]">
+            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-surface-3 font-mono text-xs font-bold text-ink">
               {initials(b.marque)}
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-[13.5px] font-semibold text-[var(--ink)]">
+              <span className="block truncate text-base font-semibold text-ink">
                 {b.marque}
               </span>
-              <span className="block truncate font-mono text-[10px] text-[var(--faint)]">
+              <span className="block truncate font-mono text-xs text-ink-3">
                 {b.enStock} en stock · {b.vendus} vendus
               </span>
             </span>
-            <span className="justify-self-end rounded-full bg-[var(--acc)] px-[8px] py-[3px] text-center font-mono text-[11px] font-bold text-[var(--acc-ink)] min-[900px]:w-full min-[900px]:justify-self-auto min-[900px]:px-0">
+            <span className="justify-self-end rounded-full bg-accent px-2 py-[3px] text-center font-mono text-xs font-bold text-accent-ink min-[900px]:w-full min-[900px]:justify-self-auto min-[900px]:px-0">
               {coefDash(b.coefMoyen)}
             </span>
-            <span className="col-start-2 font-mono text-[12.5px] tabular-nums text-[var(--ink)] min-[900px]:col-start-auto min-[900px]:text-right">
+            <span className="col-start-2 font-mono text-sm tabular-nums text-ink min-[900px]:col-start-auto min-[900px]:text-right">
               {euros(b.ca)}
             </span>
-            <span className="text-right font-mono text-[12.5px] tabular-nums text-[var(--pos)]">
+            <span className="text-right font-mono text-sm tabular-nums text-pos">
               +{euros(b.margeNette)}
             </span>
             <span className="hidden min-[900px]:block">
-              <span className="block h-[6px] overflow-hidden rounded-full bg-[var(--raise)]">
+              <span className="block h-1.5 overflow-hidden rounded-full bg-surface-3">
                 <span
-                  className="block h-full bg-[var(--ink)]"
+                  className="block h-full bg-ink"
                   style={{ width: `${Math.round(b.pctVendu * 100)}%` }}
                 />
               </span>
-              <span className="mt-[3px] block text-right font-mono text-[9.5px] text-[var(--faint)]">
+              <span className="mt-[3px] block text-right font-mono text-xs text-ink-3">
                 {pctInt(b.pctVendu)}
               </span>
             </span>

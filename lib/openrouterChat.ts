@@ -11,8 +11,7 @@
 // seul l'appel réseau (`appelerChat`) ne l'est pas.
 
 import { MODELE_CHAT_PAR_DEFAUT } from "@/lib/modelesIA";
-
-const URL_API = "https://openrouter.ai/api/v1/chat/completions";
+import { urlOpenRouter } from "@/lib/openrouterBase";
 
 /**
  * Erreur dont le message est SÛR à renvoyer tel quel au client.
@@ -156,7 +155,7 @@ export async function appelerChat(
   for (let essai = 1; ; essai++) {
     let res: Response;
     try {
-      res = await fetch(URL_API, {
+      res = await fetch(urlOpenRouter("/chat/completions"), {
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,

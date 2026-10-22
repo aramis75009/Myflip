@@ -36,6 +36,15 @@ model User {
   lots      Lot[]
   prompts   PromptTemplate[]
   settings  UserSettings?
+
+  // Studio IA — cloisonné du reste (cf. la section en bas de ce fichier).
+  // Aucune de ces relations ne touche Article.
+  studioColoris    StudioColoris[]
+  studioReferences StudioReference[]
+  studioAngles     StudioAngle[]
+  studioFavoris    StudioModeleFavori[]
+  studioEchecs     StudioEchec[]
+  studioReglages   StudioReglages?
 }
 
 /// Réglages et secrets propres à un compte : clés IA et accès Trello.
@@ -271,4 +280,203 @@ model PromptTemplate {
   @@index([userId, estDefaut])
   @@index([marque])
   @@index([categorie])
+}
+
+// ─────────────────────────── Studio IA ───────────────────────────
+//
+// Variantes d'angle d'un sac (spec du 17/10, §8 ; passation du 20/10). Une
+// image VALIDÉE par Aramis rejoint l'annonce de son sac cible (`skuCible`), par
+// la seule route GET /api/studio/annonce. Rien ici ne référence `Article`, rien
+// dans `Article` ne référence ceci, et aucun module de mise en vente, d'export,
+// de l'extension ou des API Hermes / SacBase n'importe `lib/studio*` — c'est
+// `lib/studioCloisonnement.test.ts` qui le garde.
+
+/// Un coloris suivi par le Studio. `cle` vient de SacBase ("5039-black-pink") :
+/// les SKU MyFlip sont des identifiants d'unité, seul SacBase sait quel coloris
+/// porte un sac.
+model StudioColoris {
+  id      String @id @default(cuid())
+  cle     String
+  modele  String
+  coloris String
+  /// Détails à préserver, un par ligne. Servent au prompt ET à la grille de
+  /// vérification : c'est la même liste des deux côtés, volontairement.
+  details String @db.Text @default("")
+
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  references StudioReference[]
+  essais     StudioEssai[]
+  echecs     StudioEchec[]
+
+  @@unique([userId, cle])
+  @@index([userId])
+}
+
+/// Une VRAIE photo de référence. Jamais une image générée : celles-ci vivent
+/// dans `StudioEssai`, et les deux préfixes du Blob sont distincts.
+model StudioReference {
+  id String @id @default(cuid())
+  /// null = pas encore rattachée (SacBase injoignable ou SKU inconnu au
+  /// chargement). Rattachée au prochain passage ; ce n'est pas une erreur.
+  colorisId String?
+  coloris   StudioColoris? @relation(fields: [colorisId], references: [id], onDelete: SetNull)
+  /// Sac photographié, quand il est connu. L'import en lot n'en a pas.
+  sku      String?
+  /// mise_en_vente | studio
+  origine  String
+  /// face | dos | cote | detail | ouvert
+  role     String
+  urlImage String
+  /// Numéro de la prise (1 à 15) : une ligne du tableau de la fiche. null =
+  /// photo gardée mais pas une ligne (conservée à la mise en vente, ancienne).
+  ordre    Int?
+  /// Nom de la prise (« Face · détail gauche »), cf. PRISES de lib/studioCases.ts.
+  prise    String?
+
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  essais StudioEssai[]
+  echecs StudioEchec[]
+
+  @@index([userId])
+  @@index([colorisId])
+  @@index([sku])
+  @@index([colorisId, ordre])
+}
+
+/// Un prompt d'angle, éditable dans /parametres (onglet Studio) : une colonne
+/// du tableau de la fiche. Un angle qui a servi ne se supprime pas et ne se
+/// réécrit pas : le modifier archive l'ancien et crée une nouvelle version.
+model StudioAngle {
+  id            String @id @default(cuid())
+  /// Nom court : l'en-tête de colonne.
+  nom           String
+  /// Banc de test (angles archivés) : face | dos | cote | detail | ouvert.
+  /// Vide pour les prompts d'angle : la photo jointe est celle de la ligne.
+  roleReference String    @default("")
+  /// Texte envoyé, après le prompt maître (« Angle: … »).
+  angle         String    @db.Text
+  ordre         Int       @default(0)
+  /// null = actif. Les 7 angles du banc de test sont archivés au 20/10.
+  archiveLe     DateTime?
+
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  essais StudioEssai[]
+  echecs StudioEchec[]
+
+  @@index([userId, ordre])
+}
+
+/// Un essai : une image générée, sa note et la décision d'Aramis.
+model StudioEssai {
+  id        String        @id @default(cuid())
+  colorisId String
+  coloris   StudioColoris @relation(fields: [colorisId], references: [id], onDelete: Cascade)
+  angleId   String
+  /// Restrict, pas Cascade : supprimer un modèle d'angle effacerait les mesures
+  /// qui sont le but même du test (§11). Un angle qui a servi se garde.
+  angle     StudioAngle   @relation(fields: [angleId], references: [id], onDelete: Restrict)
+  /// 1er, 2e essai… pour ce triplet coloris × angle × modèle.
+  numero    Int
+  /// manuel (image faite ailleurs et déposée) | api (générée par OpenRouter).
+  source        String  @default("manuel")
+  /// Id OpenRouter du modèle (« google/gemini-3-pro-image »), "manuel" pour un
+  /// dépôt. NOT NULL : la numérotation est unique par modèle, un NULL la casserait.
+  modele        String  @default("manuel")
+  /// Estimation au lancement, null si le tarif est inconnu (jamais inventé).
+  coutEstimeUsd Float?
+  /// `usage.cost` d'OpenRouter, null s'il ne l'a pas renvoyé (jamais compté zéro).
+  coutReelUsd   Float?
+  /// Regroupe les essais d'un même clic « Générer ».
+  lancementId   String?
+  /// L'essai raté dont celui-ci est la correction.
+  essaiParentId String?
+  parent        StudioEssai?  @relation("StudioCorrection", fields: [essaiParentId], references: [id], onDelete: SetNull)
+  corrections   StudioEssai[] @relation("StudioCorrection")
+  promptUtilise String  @db.Text
+  urlImage      String
+  /// Sortie du contrôle automatique (§6). Aide à la décision, rien de plus.
+  verifIA       Json?
+  /// valide | rejete | null. C'est CE champ qui alimente les statistiques, pas
+  /// `verifIA` : le verdict du modèle n'est qu'une aide.
+  decision      String?
+  /// La vraie photo de la ligne. Restrict : une photo qui a servi ne se
+  /// supprime pas, sa case se déverrouillerait. null pour le banc de test.
+  referenceId   String?
+  reference     StudioReference? @relation(fields: [referenceId], references: [id], onDelete: Restrict)
+  /// Le sac dont l'annonce reçoit l'image une fois validée (« SDN15 »). Pas
+  /// de clé étrangère vers Article, comme StudioReference.sku.
+  skuCible      String?
+
+  createdAt DateTime @default(now())
+
+  /// Le numéro court par colonne (coloris × angle × modèle), pas par case :
+  /// le « premier essai » d'une case est celui sans `essaiParentId`.
+  @@unique([colorisId, angleId, modele, numero])
+  @@index([colorisId])
+  @@index([angleId])
+  @@index([referenceId, angleId])
+  @@index([skuCible])
+}
+
+/// Réglages du Studio, un par compte.
+model StudioReglages {
+  id           String   @id @default(cuid())
+  /// Envoyé une fois en tête de conversation Gemini, placé en tête de chaque
+  /// génération par API, suivi du prompt d'angle.
+  promptMaitre String   @db.Text @default("")
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Modèle d'image épinglé par un compte, pour le sélecteur des lignes d'angle.
+model StudioModeleFavori {
+  id     String @id @default(cuid())
+  modele String
+
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, modele])
+}
+
+/// Une génération par API qui n'a pas produit d'image. Ne consomme aucun
+/// numéro d'essai et n'entre dans aucun taux ; se compte à part au bilan.
+model StudioEchec {
+  id          String        @id @default(cuid())
+  colorisId   String
+  coloris     StudioColoris @relation(fields: [colorisId], references: [id], onDelete: Cascade)
+  angleId     String
+  angle       StudioAngle   @relation(fields: [angleId], references: [id], onDelete: Restrict)
+  modele      String
+  /// Code de `StudioGenerationError` (securite, no_image, no_credits…).
+  code        String
+  message     String        @db.Text
+  lancementId String?
+  coutReelUsd Float?
+  referenceId String?
+  reference   StudioReference? @relation(fields: [referenceId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([colorisId])
 }

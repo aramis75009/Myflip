@@ -9,60 +9,150 @@ Le mode d'emploi complet est dans [`AGENTS.md`](AGENTS.md), section
 
 ---
 
-# Passation — 2026-09-29 · Comptes Vinted et dates pour SacBase
+# Passation — 2026-10-19 · Studio IA : génération par API
 
 | | |
 |---|---|
-| **Agent** | Claude Code (Opus 5.5), session ouverte sur SacBase avec MyFlip ajouté en `--add-dir` |
-| **Branches** | `feat/comptes-vinted-sacbase` (`59fc934`, `ec1303b`) puis `feat/dates-mise-en-vente` empilée dessus (`dd0ae3d`, `cec882e`, + ce commit de docs). Parties de `origin/main` (`b0f456b`). **Non poussées. Non fusionnées.** Worktree : `.claude/worktrees/comptes-vinted`. |
-| **Specs** | `Fake hipobuy/Claude outputs/prompt5_claude_code_myflip_comptes_vinted.md` (comptes + API SacBase) et le brief « dates de mise en vente » (`prompt7_…`). |
+| **Agent** | Claude Code (Opus 5.5), orchestrateur ; 5 sous-agents routés par Jev (3 Sonnet xhigh : estimateur/catalogue, client de génération, statistiques ; 2 Opus xhigh : orchestration/routes, écran). T7–T9 faits le même jour par une autre session Opus 5.5. |
+| **Branche** | `feat/studio-ia` |
+| **Commits** | `b3d8cae` (migration seule), `fb139b9` (T7–T9 + génération par API), `602507c` (docs), poussés sur `origin/feat/studio-ia` le 19/10 à la demande d'Aramis. **Non fusionnés dans `main`, rien déployé.** |
 
 ## Goal — l'objectif
-Que SacBase (tableau de bord des sacs Hipobuy) lise dans MyFlip, pour chaque sac, le statut, le prix, la date de vente, le compte Vinted et la date de mise en vente — et que MyFlip sache dire en combien de jours un article s'est vendu.
+Mettre plusieurs modèles d'image OpenRouter en concurrence sur chaque angle d'un
+sac, avec devis, confirmation au-delà de 0,10 $, coût réel par essai et bilan par
+modèle — sans qu'aucune image générée ne puisse rejoindre une annonce.
 
 ## Current state — ce qui a été fait
-- **Comptes Vinted** : libellés réels dans `lib/comptesVente.ts` (Fripandtrend = `VINTED_PRO`, Enorab18 = `VINTED_SECOND`), choix du compte AVANT la vente (colonne « Compte » du Stock, sélecteur de la fiche de mise en vente), la comptabilisation garde le compte choisi.
-- **`GET /api/sacbase/stock`** : lecture seule, jeton `SACBASE_API_TOKEN`, compte `SACBASE_USER_EMAIL`, 6 clés par article, dates en jour de Paris, lignes hors contrat écartées et journalisées.
-- **Script** `scripts/fix-compte-vente-hipobuy.mjs` : passe les sacs Hipobuy vendus sur Enorab18. Simulation par défaut, `--apply` pour écrire. **Pas lancé sur Neon.**
-- **Dates** : colonne `Article.dateMiseEnVente` (migration écrite à la main), posée au PASSAGE en « En vente », gardée à travers les brouillons, jamais écrasée si saisie ; colonnes « Mis en vente le », « Vendu le », « Jours en vente » dans `/stock` ; date modifiable dans la fiche (enregistrée à la sortie du champ) ; « aujourd'hui » des modaux de vente en jour de Paris.
-- **Pas fait, volontairement** : la date n'est pas posée par l'API Hermes (voir Decisions) ; pas de rattrapage des articles existants.
+- **T7–T9 (autre session, 19/10)** : Blob privé `myflip-studio`, photos de mise en
+  vente conservées comme références, les trois écrans `/studio`. Détail dans
+  `CLAUDE.md`, section Studio IA.
+- **PRD du 19/10 implémenté** (plan `docs/superpowers/plans/2026-10-19-studio-ia-generation-api.md`) :
+  migration `20261019120000_studio_generation_api` (appliquée sur **dev**),
+  `lib/studioModeles.ts` (tarif, devis, seuil), `lib/studioCatalogue.ts`
+  (54 modèles retenus sur 61 le 19/10 : 25 à prix publié, 20 au jeton, 9
+  inconnus), `lib/studioGeneration.ts`, `lib/studioLancement.ts`, routes
+  `POST /api/studio/generations`, `GET /api/studio/modeles`,
+  `POST|DELETE /api/studio/modeles/favoris`, sélecteur de modèles sur chaque
+  ligne d'angle, essais groupés par modèle, régénération pour corriger, bilan
+  par modèle et total dépensé.
+- **Pas fait alors qu'on pouvait le croire : AUCUNE génération réelle n'a eu
+  lieu.** Aramis a décidé de tester la génération directement en prod.
+  Aucun coût réel n'a donc été affiché, ni aucune image générée notée.
 
 ## Decisions — choix critiques ou irréversibles
-- **Migration AVANT le code.** Le build Vercel ne lance que `prisma generate`. `articleSelect` lit `dateMiseEnVente` sur chaque requête article : si le code part avant `prisma migrate deploy`, **toutes les pages articles tombent en 500 pour tous les comptes**.
-- **Hermes non modifié.** `changerStatutArticles` a une option `{ dateMiseEnVente: true }` activée par la barre d'action du Stock, PAS par `POST /api/hermes/stock/statut`. L'activer = modifier cette route Hermes : décision d'Aramis, en attente.
-- **Passage, pas état.** Un article déjà « En vente » sans date (antérieur) ne reçoit pas de date à la première édition venue : sinon on inventerait un rattrapage.
-- **Année bornée 2000–2100** sur les dates saisies : un input date tapé au clavier émet « 0002-09-29 » en cours de frappe, et une telle date sortirait hors format vers SacBase, qui rejette alors tout le lot.
+- **`StudioEssai.modele` NOT NULL DEFAULT `'manuel'`** (le PRD disait nullable) :
+  la numérotation est unique par (coloris, angle, modèle, numéro), et un NULL
+  rendrait deux dépôts manuels n° 1 distincts pour Postgres.
+- **Échecs dans une table `StudioEchec`** : un échec ne consomme pas de numéro
+  et n'entre dans aucun taux, mais il se compte au bilan (sécurité à part), avec
+  son coût s'il a été facturé.
+- **Favoris dans une table `StudioModeleFavori`**, pas en JSON sur
+  `UserSettings`, la table des colonnes protégées.
+- **Prix par image lu sur `/images/models/{id}/endpoints`**, en majorant (max
+  des fournisseurs et variantes). **Le coût par référence (`input_reference`)
+  est compté** : il atteint 0,20 $ par photo sur riverflow-v2-pro, et sans lui
+  le seuil ne se déclenchait pas pour un lancement réel à 0,64 $.
+- **Clé du compte uniquement pour générer** (`cleDuCompte`) : pas de repli
+  `OPENROUTER_API_KEY`, sinon tout compte générerait aux frais du déploiement.
+- **Une requête par modèle**, chacune portant la liste complète des modèles
+  cochés : le serveur recalcule le devis sur toute la liste et refuse (409)
+  sans `confirme: true`.
+- **Vérification IA lancée par l'écran** après chaque génération réussie, pas
+  dans la route, pour rester sous 300 s ; un échec du contrôle n'invalide pas
+  un essai payé.
+- **Modèles SVG seuls écartés** du catalogue : le Blob et la vérification ne
+  lisent que jpg, png et webp.
 
 ## Changed — fichiers et composants
 | Fichier | Nature |
 |---|---|
-| `lib/comptesVente.ts` (+ test) | nouveau — libellés et règles de compte |
-| `lib/sacbaseAuth.ts`, `lib/sacbaseStock.ts` (+ test), `app/api/sacbase/stock/route.ts` | nouveau — API SacBase |
-| `lib/dateMiseEnVente.ts` (+ test) | nouveau — règle de date, jours en vente, validation des dates |
-| `prisma/schema.prisma`, `prisma/migrations/20260929120000_date_mise_en_vente/` | colonne `dateMiseEnVente` |
-| `app/api/articles/[id]/route.ts`, `…/comptabiliser/route.ts`, `app/api/articles/bulk/route.ts`, `app/api/chat/route.ts`, `lib/stock.ts` | écritures de statut |
-| `lib/serialize.ts`, `lib/types.ts`, `lib/hooks.ts` | DTO / patch |
-| `components/EditableCell.tsx` | variantes `select` et `date` |
-| `app/stock/page.tsx`, `app/mise-en-vente/*`, `components/SellDialog.tsx`, `components/SellModal.tsx` | interface |
-| `scripts/fix-compte-vente-hipobuy.mjs` | nouveau — correction ponctuelle |
-| `CLAUDE.md` | API SacBase, règle de date, variables |
+| `prisma/migrations/20261019120000_studio_generation_api/migration.sql`, `prisma/schema.prisma` | neuf / modifié : 5 colonnes, unique par modèle, 2 tables |
+| `lib/studioModeles.ts` (+test, 47) | neuf, isomorphe : tarif, estimation, devis, seuil, libellés |
+| `lib/studioCatalogue.ts` (+test, 22) | neuf, serveur : catalogue OpenRouter en cache |
+| `lib/studioGeneration.ts` (+test, 88) | neuf, serveur : `/images`, repli chat, erreurs typées, clé du compte |
+| `lib/studioLancement.ts` (+test, 47) | neuf, serveur : contrôle du lancement et orchestration injectée |
+| `lib/studioBlob.ts` (+test) | `jpg|png|webp`, `lireImageEnBase64` rend le type |
+| `lib/studioStats.ts`, `lib/studioFiche.ts` (+tests) | dimension par modèle, coûts, `numeroSuivant` par modèle |
+| `lib/studioServeur.ts` | fiche et bilan lisent coûts, modèles et échecs |
+| `app/api/studio/generations/route.ts`, `modeles/route.ts`, `modeles/favoris/route.ts` | neufs |
+| `app/api/studio/essais/route.ts`, `essais/[id]/verifier/route.ts` | numéro « manuel », vrai type d'image |
+| `app/studio/_components/SelecteurModeles.tsx` | neuf : catalogue, favoris, devis, confirmation |
+| `app/studio/_components/LigneAngle.tsx`, `CarteEssai.tsx`, `FicheColoris.tsx`, `app/studio/bilan/page.tsx` | lancement, colonnes par modèle, régénération, bilan par modèle |
+| `lib/studioCloisonnement.test.ts` | sentinelles des fichiers neufs, tables `Echec`/`ModeleFavori` |
+| `CLAUDE.md`, `TODOS.md`, `docs/superpowers/plans/2026-10-19-…` | documentation |
 
 ## Validations — passants / échoués / non lancés
-- **Passants** : `npm run test` → 21 fichiers, **292 tests** ; `npm run typecheck` → 0 erreur ; lint (`npx eslint --no-eslintrc -c .eslintrc.json app lib components` — `npm run lint` échoue dans un worktree imbriqué, ESLint charge aussi le `.eslintrc` du dépôt parent) → 0 ; `npm run build` → OK (un avertissement `jose`/Edge préexistant).
-- **Passants, sur une base Postgres jetable locale (PGlite, toutes les migrations rejouées)** : `prisma migrate deploy` OK, `migrate diff` base→schéma = seulement le `DROP photosPretes` connu ; route SacBase 401/200/405, périmètre (autre compte et autre fournisseur exclus), tri naturel ; la réponse réelle passe le parseur strict de SacBase ; PATCH compte / date (valide, `FOO`, `null`, année 0002) ; comptabilisation qui garde le compte ; barre d'action ; script `--apply` ; `/stock` et fiche vérifiés au navigateur à 1440 et 390 px.
-- **Non lancés** : rien sur Neon (ni dev ni prod) ; `SellDialog` de `/a-comptabiliser` non ouvert au navigateur ; enregistrement complet d'une annonce (génération IA) non rejoué — la mise à jour de la fiche après `enregistrer` n'est vérifiée que par le code.
-- **Relecture indépendante** faite (Opus) : 1 critique + 4 importants ; critique et 2 importants corrigés (`cec882e`), 2 soumis à Aramis (Blockers).
+- **Passants** :
+  - `npm test` → `Tests 795 passed (795)` ;
+  - `npm run typecheck` → `tsc --noEmit`, 0 erreur ;
+  - `npm run lint` → `✔ No ESLint warnings or errors`.
+- **Cloisonnement prouvé par injection de faute** : un import de
+  `_publierVinted` dans `lib/studioGeneration.ts` et un `prisma.article.update(`
+  dans la route de génération donnent `Tests 2 failed | 18 passed (20)`. Après
+  retour arrière, 20/20.
+- **Mutations** :
+  - estimateur et catalogue : 23 sur 23 tuées après ajout d'un test ;
+  - client de génération : 6 sur 7 (la 7e était une mutation infidèle) ;
+  - migration vérifiée sur `information_schema` de dev : 5 colonnes, ancien
+    unique supprimé et nouveau présent, 2 tables, clés étrangères aux bonnes
+    règles, `photosPretes`, `geminiKey` et `anthropicKey` intactes ;
+    `migrate diff` ne signale que le `DROP photosPretes` connu.
+- **Navigateur (dev, port 3123, compte `studio-test@myflip.test`)** :
+  - écran : catalogue affiché avec ses prix, badge « PAS DE 3:4 », favoris
+    persistants, devis qui suit les cases, encadré de confirmation (annulé) ;
+  - comportements vérifiés avec un faux `fetch` : 409 qui rouvre l'encadré,
+    `missing_key` avec lien « Mon compte », succès suivi de la vérification ;
+  - colonnes par modèle, sur 4 essais temporaires effacés ensuite ;
+  - bilan avec tableau par modèle et total dépensé ;
+  - **seuil serveur par appel direct** :
+    - modèle au jeton sans confirmation → `409 confirmation_requise` ;
+    - riverflow-v2-pro + qwen → 409, devis 0,548 $ ;
+    - qwen à 0,018 $ et modèle au jeton confirmé → `400 missing_key`, sans
+      appel OpenRouter ni ligne en base ;
+    - modèle hors catalogue → `400 modele_inconnu`.
+- **Non lancés** :
+  - aucun appel OpenRouter payant, ni génération réelle, ni `usage.cost` réel ;
+  - forme réelle des refus de sécurité (Nike) : supposée, pas observée ;
+  - repli `chat/completions` contre le vrai service ;
+  - `npm run build` ;
+  - base de prod : sa lecture en lecture seule a été **refusée par le mode
+    auto**, son état est inconnu ;
+  - `/code-review` sur le diff ;
+  - bandeau « SacBase injoignable » (SacBase local arrêté pendant le test).
 
 ## Blockers — ce qui bloque
-- **Décision Aramis — pseudos visibles par les autres comptes.** Les libellés Fripandtrend / Enorab18 sont globaux (demandé par la spec) : un autre utilisateur de MyFlip les voit à la place de « Vinted Pro / Vinted Second ». Pistes : libellés réglables par compte, ou réservés à `SACBASE_USER_EMAIL`.
-- **Décision Aramis — date posée par Hermes ?** (voir Decisions).
+- **La prod n'est pas prête** : base de prod non vérifiée (jusqu'à 3 migrations
+  possibles en retard), `SACBASE_URL` et `SACBASE_STUDIO_TOKEN` absentes de
+  Vercel, PR SacBase #18 non déployée, rien de commité. Check-list complète,
+  non exécutée :
+  `~/Library/Application Support/Claude/side-session-notes/local_14c446c8-f52c-4b42-bc96-60d310021637/2026-10-19-studio-ia-checklist-prod.md`.
+- **Les prompts du 17/10 ne sont dans aucun dépôt** : les 7 angles sont une
+  réécriture, à comparer avant de conclure sur un modèle.
+- Le parent `MyFlip/.env.local` a été écrasé le 18/10 (sauvegarde :
+  `.env.local.avant-blob-18-10`).
 
 ## Next — la prochaine action
-1. Poser `SACBASE_API_TOKEN` (`openssl rand -hex 32`) et `SACBASE_USER_EMAIL` dans Vercel (Production).
-2. `npx prisma migrate status` sur la base de **prod**, puis `npx prisma migrate deploy` — lire d'abord la liste des migrations en attente (la `20260908…` supprime la table `PrixReference`, si la prod ne l'a pas encore vue).
-3. Fusionner `feat/dates-mise-en-vente` (qui contient `feat/comptes-vinted-sacbase`) dans `main`, pousser `origin` (pas `alex`), laisser Vercel déployer.
-4. `node --env-file=<env prod> scripts/fix-compte-vente-hipobuy.mjs`, lire la liste (6 sacs attendus), puis `--apply`.
-5. `curl -H "Authorization: Bearer <jeton>" https://myflip-app.vercel.app/api/sacbase/stock` → 200.
+1. Aramis lance, depuis la racine du dépôt, la lecture seule de la base de prod :
+   `node ~/Library/Application\ Support/Claude/side-session-notes/local_14c446c8-f52c-4b42-bc96-60d310021637/prod-lecture.cjs`
+   (transaction `READ ONLY`, lit `information_schema` et `_prisma_migrations`).
+2. Avec son accord, une étape à la fois : commits (migration seule d'abord),
+   `migrate deploy` sur la prod, variables Vercel, SacBase #18, fusion sur `main`.
+3. Premier test en prod : sa clé dans « Mon compte », puis un lancement sur
+   `qwen/qwen-image-2.1-turbo` + `bytedance-seed/seedream-5-0-flash`
+   (0,018 $ chacun) ; contrôler coût réel, note IA et bilan.
+
+### Coût Jev (`report.py`, historique cumulé, pas seulement cette session)
+```
+22 routed tasks
+  fast         3  (14%)
+  balanced    15  (68%)
+  deep         4  (18%)
+jev latency: median 509 ms, max 1023 ms
+jev cost: 14051 input tokens, 0.000562 $ total (639 tokens per task, 0.04 $ per million, output free)
+Estimated relative cost vs all-deep: 56% (weights fast=0.25, balanced=0.5, deep=1.0; assumed)
+```
+Cette session : 5 sous-agents (3 Sonnet, 2 Opus), environ 1,03 M de jetons de
+sous-agents, aucun échec, donc aucune relance au cran du dessus.
 
 ---
 
@@ -70,7 +160,9 @@ Que SacBase (tableau de bord des sacs Hipobuy) lise dans MyFlip, pour chaque sac
 
 | Date | Sujet | Agent | Fiche |
 |---|---|---|---|
-| 2026-09-29 | Comptes Vinted et dates pour SacBase | Claude Code (Opus 5.5) | *(passation courante)* |
+| 2026-10-19 | Studio IA : génération par API | Claude Code (Opus 5.5) | *(passation courante)* |
+| 2026-10-18 | Studio IA, la moitié back | Claude Code (Opus 5) | [fiche](docs/handoffs/2026-10-18-studio-ia-moitie-back.md) |
+| 2026-09-29 | Comptes Vinted et dates pour SacBase | Claude Code (Opus 5.5) | [fiche](docs/handoffs/2026-09-29-comptes-vinted-dates-sacbase.md) |
 | 2026-09-09 | Le champ prix : diagnostic et correctifs | Claude Code (Opus 5) | [fiche](docs/handoffs/2026-09-09-champ-prix-diagnostic.md) |
 | 2026-09-09 | Le prix dans le prompt, le délai dans un pop-up | Claude Code (Opus 5) | [fiche](docs/handoffs/2026-09-09-prix-prompt-delai-popup.md) |
 | 2026-09-08 | Remplissage Vinted livré, prochain chantier cadré | Claude Code (Opus 5) | [fiche](docs/handoffs/2026-09-08-remplissage-vinted-livre.md) |

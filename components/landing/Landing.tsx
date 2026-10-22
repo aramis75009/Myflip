@@ -1,7 +1,8 @@
+// design-tokens-dette: R1 R14 → M11
 // Landing publique de MyFlip.
 //
 // Direction visuelle : les tokens de l'app, pas ceux de la maquette HTML
-// d'origine. Aucun hex en dur — l'accent est var(--acc), qui vire au lime en
+// d'origine. Aucun hex en dur — l'accent est rgb(var(--accent)), qui vire au lime en
 // thème sombre (cf. globals.css). Deux polices, déjà chargées par le layout :
 // Space Grotesk pour les titres et le corps, JetBrains Mono pour tout ce qui
 // est donnée ou micro-libellé. Ce contraste display serré / mono très espacé
@@ -32,7 +33,7 @@ import { lienApp } from "@/lib/hosts";
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--acc)]">
+    <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent-text">
       {children}
     </p>
   );
@@ -50,11 +51,11 @@ function SectionHeader({
   return (
     <div className="mx-auto mb-14 max-w-[680px] text-center">
       <Eyebrow>{eyebrow}</Eyebrow>
-      <h2 className="mt-3 font-grotesk text-[clamp(1.7rem,3.6vw,2.4rem)] font-bold leading-[1.15] tracking-[-0.03em] text-[var(--ink)]">
+      <h2 className="mt-3 font-sans text-[clamp(1.7rem,3.6vw,2.4rem)] font-bold leading-[1.15] tracking-[-0.03em] text-ink">
         {titre}
       </h2>
       {chapeau && (
-        <p className="mt-4 text-[15.5px] leading-relaxed text-[var(--ink2)]">
+        <p className="mt-4 text-md leading-relaxed text-ink-2">
           {chapeau}
         </p>
       )}
@@ -90,7 +91,7 @@ function Card({
 }) {
   return (
     <div
-      className={`rounded-card border border-line bg-surface p-7 shadow-card ${className}`}
+      className={`rounded-lg border border-line bg-surface p-7 ${className}`}
     >
       {children}
     </div>
@@ -99,7 +100,7 @@ function Card({
 
 function Jeton({ children }: { children: React.ReactNode }) {
   return (
-    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--acc-soft)] text-[var(--acc)]">
+    <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
       {children}
     </span>
   );
@@ -263,7 +264,7 @@ const FAQ = [
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-[var(--bg)]">
+    <div className="min-h-screen bg-bg">
       <LandingNav />
 
       <main>
@@ -271,15 +272,15 @@ export default function Landing() {
         <section className="border-b border-line px-5 py-16 sm:px-6 sm:py-24">
           <div className="mx-auto grid max-w-[1200px] items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
             <div>
-              <span className="inline-flex rounded-full border border-line bg-surface px-3.5 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-[var(--ink2)]">
+              <span className="inline-flex rounded-full border border-line bg-surface px-3.5 py-1.5 font-mono text-xs uppercase tracking-[0.14em] text-ink-2">
                 Pour les revendeurs de vêtements d’occasion
               </span>
 
-              <h1 className="mt-6 font-grotesk text-[clamp(2.3rem,6vw,4rem)] font-bold leading-[1.04] tracking-[-0.035em] text-[var(--ink)]">
+              <h1 className="mt-6 font-sans text-[clamp(2.3rem,6vw,4rem)] font-bold leading-[1.04] tracking-[-0.035em] text-ink">
                 Pilotez vos marges de l’achat à la pièce.
               </h1>
 
-              <p className="mt-6 max-w-[52ch] text-[16.5px] leading-relaxed text-[var(--ink2)]">
+              <p className="mt-6 max-w-[52ch] text-md leading-relaxed text-ink-2">
                 Arrêtez de deviner. Le premier outil de gestion conçu pour les
                 professionnels Vinted et Vestiaire Collective qui achètent en
                 lots. Suivez vos achats fournisseurs, générez vos annonces par
@@ -289,13 +290,13 @@ export default function Landing() {
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Link
                   href={lienApp("/signup")}
-                  className="flex min-h-[48px] items-center justify-center rounded-full bg-[var(--acc)] px-7 text-[15px] font-bold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)]"
+                  className="flex min-h-12 items-center justify-center rounded-full bg-accent px-7 text-md font-bold text-accent-ink transition-colors hover:bg-accent-hover"
                 >
                   Créer mon compte
                 </Link>
                 <a
                   href="#tarifs"
-                  className="flex min-h-[48px] items-center justify-center rounded-full border border-[var(--border-strong)] px-7 text-[15px] font-semibold text-[var(--ink)] transition-colors hover:bg-[var(--tint)]"
+                  className="flex min-h-12 items-center justify-center rounded-full border border-line-strong px-7 text-md font-semibold text-ink transition-colors hover:bg-surface-2"
                 >
                   Voir les tarifs
                 </a>
@@ -320,13 +321,13 @@ export default function Landing() {
               const Icone = p.icone;
               return (
                 <Card key={p.titre}>
-                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--neg-soft)] text-[var(--neg)]">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-neg-soft text-neg">
                     <Icone className="h-5 w-5" strokeWidth={1.9} />
                   </span>
-                  <h3 className="mt-5 font-grotesk text-[18px] font-bold tracking-[-0.01em] text-[var(--ink)]">
+                  <h3 className="mt-5 font-sans text-lg font-bold tracking-[-0.01em] text-ink">
                     {p.titre}
                   </h3>
-                  <p className="mt-2.5 text-[14.5px] leading-relaxed text-[var(--ink2)]">
+                  <p className="mt-2.5 text-base leading-relaxed text-ink-2">
                     {p.texte}
                   </p>
                 </Card>
@@ -344,17 +345,17 @@ export default function Landing() {
 
           {/* La génération d'annonces garde le bloc pleine largeur que lui
               donnait la maquette : c'est la fonctionnalité phare. */}
-          <Card className="mb-5 border-[var(--acc)] bg-[var(--acc-soft)]">
+          <Card className="mb-5 border-accent bg-accent-soft">
             <div className="grid items-center gap-8 lg:grid-cols-[1.15fr_0.85fr]">
               <div>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--acc)] px-3 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--acc-ink)]">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 font-mono text-xs uppercase tracking-[0.14em] text-accent-ink">
                   <Sparkles className="h-3 w-3" strokeWidth={2.2} />
                   Fonctionnalité phare
                 </span>
-                <h3 className="mt-4 font-grotesk text-[clamp(1.35rem,2.6vw,1.75rem)] font-bold tracking-[-0.02em] text-[var(--ink)]">
+                <h3 className="mt-4 font-sans text-[clamp(1.35rem,2.6vw,1.75rem)] font-bold tracking-[-0.02em] text-ink">
                   Annonces générées par IA depuis vos photos
                 </h3>
-                <p className="mt-3 max-w-[54ch] text-[15px] leading-relaxed text-[var(--ink2)]">
+                <p className="mt-3 max-w-[54ch] text-md leading-relaxed text-ink-2">
                   Prenez vos photos, l’IA rédige le titre, la description et les
                   mots-clés. Titre saturé de mots-clés porteurs, description
                   structurée, état et matière annoncés — prêt à coller dans
@@ -362,14 +363,14 @@ export default function Landing() {
                 </p>
               </div>
 
-              <div className="rounded-xl border border-line bg-surface p-5">
-                <p className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--faint)]">
+              <div className="rounded-lg border border-line bg-surface p-5">
+                <p className="font-mono text-xs uppercase tracking-[0.14em] text-ink-3">
                   Titre généré
                 </p>
-                <p className="mt-2 text-[14.5px] font-semibold leading-snug text-[var(--ink)]">
+                <p className="mt-2 text-base font-semibold leading-snug text-ink">
                   Polo Ralph Lauren vintage vert forêt — Taille L, coupe droite
                 </p>
-                <p className="mt-4 font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--faint)]">
+                <p className="mt-4 font-mono text-xs uppercase tracking-[0.14em] text-ink-3">
                   Mots-clés
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -377,7 +378,7 @@ export default function Landing() {
                     (t) => (
                       <span
                         key={t}
-                        className="rounded-md bg-[var(--tint)] px-2 py-0.5 font-mono text-[11px] text-[var(--ink2)]"
+                        className="rounded-md bg-surface-2 px-2 py-0.5 font-mono text-xs text-ink-2"
                       >
                         {t}
                       </span>
@@ -396,10 +397,10 @@ export default function Landing() {
                   <Jeton>
                     <Icone className="h-5 w-5" strokeWidth={1.9} />
                   </Jeton>
-                  <h3 className="mt-5 font-grotesk text-[17px] font-bold tracking-[-0.01em] text-[var(--ink)]">
+                  <h3 className="mt-5 font-sans text-md font-bold tracking-[-0.01em] text-ink">
                     {f.titre}
                   </h3>
-                  <p className="mt-2.5 text-[14.5px] leading-relaxed text-[var(--ink2)]">
+                  <p className="mt-2.5 text-base leading-relaxed text-ink-2">
                     {f.texte}
                   </p>
                 </Card>
@@ -419,14 +420,14 @@ export default function Landing() {
           <ol className="grid gap-8 md:grid-cols-3">
             {ETAPES.map((e, i) => (
               <li key={e.titre}>
-                <span className="font-mono text-[13px] font-bold tracking-[0.12em] text-[var(--acc)]">
+                <span className="font-mono text-sm font-bold tracking-[0.12em] text-accent-text">
                   {String(i + 1).padStart(2, "0")}
                 </span>
                 <div className="mt-3 h-px w-full bg-line" />
-                <h3 className="mt-5 font-grotesk text-[19px] font-bold tracking-[-0.015em] text-[var(--ink)]">
+                <h3 className="mt-5 font-sans text-lg font-bold tracking-[-0.015em] text-ink">
                   {e.titre}
                 </h3>
-                <p className="mt-2.5 text-[14.5px] leading-relaxed text-[var(--ink2)]">
+                <p className="mt-2.5 text-base leading-relaxed text-ink-2">
                   {e.texte}
                 </p>
               </li>
@@ -446,36 +447,36 @@ export default function Landing() {
             {OFFRES.map((o) => (
               <div
                 key={o.slug}
-                className={`relative flex h-full flex-col rounded-card border bg-surface p-7 shadow-card ${
+                className={`relative flex h-full flex-col rounded-lg border bg-surface p-7 ${
                   o.populaire
-                    ? "border-[var(--acc)] ring-1 ring-[var(--acc)]"
+                    ? "border-accent ring-1 ring-accent"
                     : "border-line"
                 }`}
               >
                 {o.populaire && (
-                  <span className="absolute -top-3 left-7 rounded-full bg-[var(--acc)] px-3 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--acc-ink)]">
+                  <span className="absolute -top-3 left-7 rounded-full bg-accent px-3 py-1 font-mono text-xs uppercase tracking-[0.12em] text-accent-ink">
                     Le plus populaire
                   </span>
                 )}
 
-                <h3 className="font-grotesk text-[20px] font-bold tracking-[-0.02em] text-[var(--ink)]">
+                <h3 className="font-sans text-lg font-bold tracking-[-0.02em] text-ink">
                   {o.nom}
                 </h3>
 
                 <p className="mt-3 flex items-baseline gap-1.5">
-                  <span className="font-mono text-[34px] font-bold tabular-nums tracking-[-0.02em] text-[var(--ink)]">
+                  <span className="font-mono text-2xl font-bold tabular-nums tracking-[-0.02em] text-ink">
                     {o.prix}
                   </span>
-                  <span className="font-mono text-[11.5px] text-[var(--faint)]">
+                  <span className="font-mono text-xs text-ink-3">
                     /mois TTC
                   </span>
                 </p>
 
-                <p className="mt-1 font-mono text-[10.5px] uppercase tracking-[0.12em] text-[var(--acc)]">
+                <p className="mt-1 font-mono text-xs uppercase tracking-[0.12em] text-accent-text">
                   14 jours d’essai gratuit
                 </p>
 
-                <p className="mt-4 text-[14px] leading-relaxed text-[var(--ink2)]">
+                <p className="mt-4 text-base leading-relaxed text-ink-2">
                   {o.chapeau}
                 </p>
 
@@ -483,11 +484,11 @@ export default function Landing() {
                   {o.lignes.map((l) => (
                     <li
                       key={l}
-                      className="flex gap-2.5 text-[14px] text-[var(--ink2)]"
+                      className="flex gap-2.5 text-base text-ink-2"
                     >
                       <span
                         aria-hidden
-                        className="mt-[7px] h-1.5 w-1.5 flex-none rounded-full bg-[var(--acc)]"
+                        className="mt-[7px] h-1.5 w-1.5 flex-none rounded-full bg-accent"
                       />
                       <span>{l}</span>
                     </li>
@@ -496,10 +497,10 @@ export default function Landing() {
 
                 <Link
                   href={lienApp(`/signup?plan=${o.slug}`)}
-                  className={`mt-7 flex min-h-[48px] items-center justify-center rounded-full text-[14.5px] font-bold transition-colors ${
+                  className={`mt-7 flex min-h-12 items-center justify-center rounded-full text-base font-bold transition-colors ${
                     o.populaire
-                      ? "bg-[var(--acc)] text-[var(--acc-ink)] hover:bg-[var(--acc-hover)]"
-                      : "border border-[var(--border-strong)] text-[var(--ink)] hover:bg-[var(--tint)]"
+                      ? "bg-accent text-accent-ink hover:bg-accent-hover"
+                      : "border border-line-strong text-ink hover:bg-surface-2"
                   }`}
                 >
                   Démarrer l’essai {o.nom}
@@ -508,7 +509,7 @@ export default function Landing() {
             ))}
           </div>
 
-          <p className="mt-8 text-center text-[13.5px] text-[var(--ink2)]">
+          <p className="mt-8 text-center text-base text-ink-2">
             Un compte de vente supplémentaire sur n’importe quelle formule : +6
             €/mois TTC.
           </p>
@@ -527,18 +528,18 @@ export default function Landing() {
             {FAQ.map((f) => (
               <details
                 key={f.q}
-                className="group rounded-card border border-line bg-surface px-6 shadow-card"
+                className="group rounded-lg border border-line bg-surface px-6"
               >
-                <summary className="flex min-h-[60px] cursor-pointer list-none items-center justify-between gap-4 font-grotesk text-[15.5px] font-semibold text-[var(--ink)] [&::-webkit-details-marker]:hidden">
+                <summary className="flex min-h-[60px] cursor-pointer list-none items-center justify-between gap-4 font-sans text-md font-semibold text-ink [&::-webkit-details-marker]:hidden">
                   {f.q}
                   <span
                     aria-hidden
-                    className="font-mono text-[18px] font-normal text-[var(--acc)] transition-transform group-open:rotate-45"
+                    className="font-mono text-lg font-normal text-accent-text transition-transform group-open:rotate-45"
                   >
                     +
                   </span>
                 </summary>
-                <p className="border-t border-line py-5 text-[14.5px] leading-relaxed text-[var(--ink2)]">
+                <p className="border-t border-line py-5 text-base leading-relaxed text-ink-2">
                   {f.r}
                 </p>
               </details>
@@ -548,16 +549,16 @@ export default function Landing() {
 
         {/* ── CTA final ────────────────────────────────────────────────── */}
         <Section className="text-center">
-          <h2 className="mx-auto max-w-[18ch] font-grotesk text-[clamp(1.8rem,4.2vw,2.8rem)] font-bold leading-[1.1] tracking-[-0.03em] text-[var(--ink)]">
+          <h2 className="mx-auto max-w-[18ch] font-sans text-[clamp(1.8rem,4.2vw,2.8rem)] font-bold leading-[1.1] tracking-[-0.03em] text-ink">
             Reprenez le contrôle de vos lots dès aujourd’hui.
           </h2>
           <Link
             href="/signup"
-            className="mt-9 inline-flex min-h-[52px] items-center rounded-full bg-[var(--acc)] px-8 text-[15.5px] font-bold text-[var(--acc-ink)] transition-colors hover:bg-[var(--acc-hover)]"
+            className="mt-9 inline-flex min-h-[52px] items-center rounded-full bg-accent px-8 text-md font-bold text-accent-ink transition-colors hover:bg-accent-hover"
           >
             Créer mon compte
           </Link>
-          <p className="mt-5 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--faint)]">
+          <p className="mt-5 font-mono text-xs uppercase tracking-[0.14em] text-ink-3">
             14 jours d’essai · Sans engagement · Sans carte bancaire
           </p>
         </Section>
@@ -568,14 +569,14 @@ export default function Landing() {
         <div className="mx-auto flex max-w-[1200px] flex-col gap-10 md:flex-row md:items-start md:justify-between">
           <div className="max-w-[42ch]">
             <div className="flex h-11 items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[var(--acc)] font-grotesk text-[17px] font-bold text-[var(--acc-ink)]">
+              <span className="flex h-9 w-9 items-center justify-center rounded bg-accent font-sans text-md font-bold text-accent-ink">
                 M
               </span>
-              <span className="font-grotesk text-[18px] font-bold tracking-[-0.02em] text-[var(--ink)]">
+              <span className="font-sans text-lg font-bold tracking-[-0.02em] text-ink">
                 MyFlip
               </span>
             </div>
-            <p className="mt-4 text-[14px] leading-relaxed text-[var(--ink2)]">
+            <p className="mt-4 text-base leading-relaxed text-ink-2">
               L’outil de gestion conçu pour optimiser la rentabilité des
               professionnels de la friperie et de l’achat-revente de marques
               d’occasion.
@@ -583,7 +584,7 @@ export default function Landing() {
           </div>
 
           <nav aria-label="Liens légaux">
-            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--faint)]">
+            <p className="font-mono text-xs uppercase tracking-[0.16em] text-ink-3">
               Légal
             </p>
             <ul className="mt-2 flex flex-col">
@@ -596,7 +597,7 @@ export default function Landing() {
                   {/* min-h-44 : cible tactile, règle mobile de CLAUDE.md. */}
                   <Link
                     href={l.href}
-                    className="inline-flex min-h-[44px] items-center text-[14px] text-[var(--ink2)] transition-colors hover:text-[var(--ink)]"
+                    className="inline-flex min-h-11 items-center text-base text-ink-2 transition-colors hover:text-ink"
                   >
                     {l.label}
                   </Link>
@@ -607,7 +608,7 @@ export default function Landing() {
         </div>
 
         <div className="mx-auto mt-10 max-w-[1200px] border-t border-line pt-6">
-          <p className="font-mono text-[11px] tracking-[0.06em] text-[var(--faint)]">
+          <p className="font-mono text-xs tracking-[0.06em] text-ink-3">
             © 2026 MyFlip. Tous droits réservés.
           </p>
         </div>

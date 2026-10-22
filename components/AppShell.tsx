@@ -1,17 +1,26 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import Sidebar from "./Sidebar";
-import ChatBot from "./ChatBot";
-import TopBar from "./TopBar";
-import TitreOnglet from "./TitreOnglet";
 
-// Pages servies sans le châssis de l'app : ni sidebar, ni bottom nav, ni
-// chatbot. Ce sont les pages publiques — la landing, l'authentification et les
-// mentions légales — auxquelles on accède sans session.
+import Dock from "./cadre/Dock";
+import MenuLateral from "./cadre/MenuLateral";
+import ChatBot from "./ChatBot";
+import TitreOnglet from "./TitreOnglet";
+import TopBar from "./TopBar";
+
+// Pages served without the app frame: no menu, no dock, no assistant. They
+// are the public pages (landing, authentication, legal notices), reached
+// without a session.
 const SANS_CHASSIS = ["/", "/login", "/signup", "/reset-password"];
 
-// Enveloppe l'app : sidebar + décalage du contenu.
+/**
+ * The app frame: skip link, side menu (desktop), one column of a single
+ * height (min-h-dvh, the page fills it with `Frame` = flex-1), dock and
+ * assistant bubble (mobile).
+ *
+ * Bottom margin: the dock, the safe area and the bubble on mobile, the
+ * bubble on desktop, plus the height of an open action bar (--fab-offset).
+ */
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
@@ -21,15 +30,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      {/* Monté ici et pas plus haut : il fait une requête authentifiée. */}
+      <a
+        href="#contenu"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-skip focus:rounded focus:bg-surface focus:px-4 focus:py-2.5 focus:text-base focus:font-semibold focus:text-ink focus:shadow-over"
+      >
+        Aller au contenu
+      </a>
+      {/* Mounted here and no higher: it makes an authenticated request. */}
       <TitreOnglet />
-      <Sidebar />
-      {/* Décalage pour la sidebar (desktop) et la bottom nav (mobile).
-          La largeur suit --sidebar-w → s'anime avec le repli de la sidebar. */}
-      <div className="pb-24 transition-[padding] duration-200 ease-out md:pb-0 md:pl-[var(--sidebar-w)]">
+      <MenuLateral />
+      <div className="flex min-h-dvh flex-col pb-[calc(var(--dock-h)+env(safe-area-inset-bottom)+4.5rem+var(--fab-offset,0px))] transition-[padding] duration-base ease-out md:pb-[calc(5.5rem+var(--fab-offset,0px))] md:pl-[var(--sidebar-w)]">
         <TopBar />
         {children}
       </div>
+      <Dock />
       <ChatBot />
     </>
   );

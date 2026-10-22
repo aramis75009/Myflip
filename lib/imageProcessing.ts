@@ -160,9 +160,15 @@ export function encodeRotated(
  * (plus grand côté, ratio conservé) et réencode en JPEG qualité 0.75. Évite
  * les 413 Payload Too Large sur /api/listings/generate.
  */
-export async function compressForApi(blob: Blob): Promise<Blob> {
-  const MAX = 1024;
-  const QUALITY = 0.75;
+export function compressForApi(blob: Blob): Promise<Blob> {
+  return compressImage(blob, 1024, 0.75);
+}
+
+/**
+ * Redimensionne à `MAX` px sur le plus grand côté (ratio conservé, jamais
+ * agrandi) et réencode en JPEG. Lève si le navigateur ne sait pas décoder.
+ */
+export async function compressImage(blob: Blob, MAX: number, QUALITY: number): Promise<Blob> {
   const bitmap = await createImageBitmap(blob);
   const { width, height } = bitmap;
   const scale = Math.min(1, MAX / Math.max(width, height));

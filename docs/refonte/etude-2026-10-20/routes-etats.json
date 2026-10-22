@@ -1,0 +1,1081 @@
+{
+ "routes": [
+  {
+   "path": "/",
+   "file": "app/page.tsx:25-28 ; Landing = components/landing/Landing.tsx (617 l.), LandingNav.tsx, SkuLifecycle.tsx",
+   "auth": false,
+   "renders": "Landing publique SANS châssis (AppShell.tsx:12 la met dans SANS_CHASSIS). Composant serveur : auth() puis redirect('/dashboard') si session (page.tsx:26). Contenu : en-tête collant LandingNav (sticky top-0 z-50, LandingNav.tsx:20), hero h1, sections #probleme #fonctionnalites #methode #tarifs (3 offres slug solo/atelier/negoce, Landing.tsx:192/207/224) #faq (<details> natifs, Landing.tsx:526) et pied de page légal. Menu burger sous 1024 px (lg:hidden, LandingNav.tsx:73). Frise SkuLifecycle auto-animée.",
+   "dataNeeded": "Aucune donnée. Contexte SANS cookie de session (sinon redirection vers /dashboard) : prendre cette capture dans un contexte vierge.",
+   "variants": [
+    "clair / sombre (clé myflip-theme posée avant chargement)",
+    "1440 px : nav horizontale ; 390 px : burger fermé",
+    "390 px : menu ouvert (bouton aria-label « Ouvrir le menu » -> #menu-mobile)",
+    "FAQ : une <details> ouverte (clic sur le <summary>) vs toutes fermées",
+    "reducedMotion=reduce pour figer SkuLifecycle (SkuLifecycle.tsx:58-66 lit la media query en JS ; sans cela setInterval fait défiler les étapes)",
+    "capture pleine page ET en-tête collant après défilement (bug d'opacité bg-[var(--bg)]/85)"
+   ],
+   "loadTimeCalls": "GET /api/auth/session (SessionProvider, app/providers.tsx). Aucun appel métier. Les liens CTA pointent /signup, /signup?plan=<slug>, /login (relatifs tant que NEXT_PUBLIC_*_HOST est absent, lib/hosts.ts)."
+  },
+  {
+   "path": "/login",
+   "file": "app/login/page.tsx:7-170 (LoginForm dans Suspense)",
+   "auth": false,
+   "renders": "Carte centrée sans châssis : tuile M + « Connecte-toi pour continuer. », champs Email / Mot de passe, bouton « Se connecter », lien « Mot de passe oublié ? » qui bascule le MÊME composant en mode « forgot ». Public (auth.config.ts:52-55). Ne redirige pas si déjà connecté.",
+   "dataNeeded": "Aucune. Contexte non connecté. Un compte de test local existant pour se connecter (voir notes).",
+   "variants": [
+    "mode login (défaut)",
+    "mode forgot : clic sur « Mot de passe oublié ? » (état local, sans réseau) ; titre « Réinitialiser ton mot de passe », bouton « Envoyer le lien »",
+    "forgotDone : encart vert « Si cet email est enregistré… » (login/page.tsx:117) : n'apparaît qu'après POST /api/auth/forgot-password -> à simuler par page.route",
+    "erreur : « Identifiants invalides. » après un faux mot de passe (POST /api/auth/callback/credentials, lecture seule en base)",
+    "état chargement du bouton « Connexion… » (fetch retardé)",
+    "?callbackUrl=/stock (login/page.tsx:10 : seule la redirection après succès change)"
+   ],
+   "loadTimeCalls": "GET /api/auth/session uniquement. Au submit : signIn('credentials') ; mode forgot : POST /api/auth/forgot-password (écrit un resetToken en base et envoie un e-mail Resend : ne jamais soumettre sans page.route)."
+  },
+  {
+   "path": "/signup",
+   "file": "app/signup/page.tsx:16-183",
+   "auth": false,
+   "renders": "Carte d'inscription sans châssis : Prénom, Email, Mot de passe (aide « 8 caractères minimum. »), Code d'invitation (police mono, majuscules), bouton « Créer mon compte », lien « J'ai déjà un compte ». Sous-titre « Créer ton compte <Plan> » si ?plan= valide.",
+   "dataNeeded": "Aucune. INVITE_CODES doit être défini côté serveur pour que l'inscription fonctionne (lib/invite.ts : absent = toute inscription refusée, 403).",
+   "variants": [
+    "défaut",
+    "?plan=solo / ?plan=atelier / ?plan=negoce (signup/page.tsx:10-14 : sous-titre « Créer ton compte Solo/Atelier/Négoce »)",
+    "?plan=inconnu (retombe sur « Créer ton compte »)",
+    "erreur role=alert : mauvais code -> « Code d'invitation invalide. » (403), email déjà pris (409) : à provoquer par page.route sur POST /api/auth/signup pour ne pas créer de compte",
+    "état « Création… » (fetch retardé)"
+   ],
+   "loadTimeCalls": "GET /api/auth/session. Au submit : POST /api/auth/signup (écrit User + prompt par défaut ; tente un e-mail Resend, best-effort) puis signIn. C'est aussi le moyen de créer le compte de test (voir notes)."
+  },
+  {
+   "path": "/reset-password",
+   "file": "app/reset-password/page.tsx:6-125",
+   "auth": false,
+   "renders": "Carte « Nouveau mot de passe » sans châssis : deux champs (nouveau / confirmer), bouton « Mettre à jour le mot de passe ». Lit ?token= (page.tsx:9).",
+   "dataNeeded": "Aucune (le token n'est jamais validé au chargement, seulement au submit).",
+   "variants": [
+    "sans token : bandeau rouge « Lien invalide. Recommence la procédure… », champs et bouton désactivés",
+    "?token=abc : formulaire actif",
+    "erreur client « Les mots de passe ne correspondent pas. » (sans réseau)",
+    "done : encart vert « Mot de passe mis à jour. Redirection vers la connexion… » puis router.push('/login') après 2,5 s : exige POST /api/auth/reset-password simulé par page.route"
+   ],
+   "loadTimeCalls": "GET /api/auth/session. Au submit : POST /api/auth/reset-password (écrit le mot de passe : ne jamais laisser passer sans interception)."
+  },
+  {
+   "path": "/legal/mentions-legales",
+   "file": "app/legal/mentions-legales/page.tsx (37 l.)",
+   "auth": false,
+   "renders": "Page statique serveur, sans châssis (AppShell.tsx:18 startsWith('/legal')) : h1 + carte (Éditeur, Hébergement Vercel, Base Neon).",
+   "dataNeeded": "Aucune.",
+   "variants": [
+    "clair / sombre",
+    "en contexte connecté ET non connecté : identique (route publique, auth.config.ts:55)"
+   ],
+   "loadTimeCalls": "GET /api/auth/session uniquement."
+  },
+  {
+   "path": "/legal/cgu",
+   "file": "app/legal/cgu/page.tsx (27 l.)",
+   "auth": false,
+   "renders": "Page statique serveur sans châssis : liste de 5 conditions.",
+   "dataNeeded": "Aucune.",
+   "variants": [
+    "clair / sombre"
+   ],
+   "loadTimeCalls": "GET /api/auth/session uniquement."
+  },
+  {
+   "path": "/legal/confidentialite",
+   "file": "app/legal/confidentialite/page.tsx (43 l.)",
+   "auth": false,
+   "renders": "Page statique serveur sans châssis.",
+   "dataNeeded": "Aucune.",
+   "variants": [
+    "clair / sombre"
+   ],
+   "loadTimeCalls": "GET /api/auth/session uniquement."
+  },
+  {
+   "path": "/dashboard",
+   "file": "app/dashboard/page.tsx:121-258 (composant client ; HeroCA, MargeCard, ObjectifCard :395, Kpi, WeekBars, BrandList :596) ; components/console.tsx (Frame, Module, Eyebrow, CardTitle) ; components/DemarrageCard.tsx",
+   "auth": true,
+   "renders": "Dans le châssis. « Bonjour <prénom> » + date du jour en capitales + segmented control de période, héros CA + marge + objectif (anneau), 4 KPI, graphe en barres par semaine, liste « Par marque » (chaque ligne = bouton qui fait router.push('/stock?marque=…')). Frame = <main min-h-screen> (console.tsx:14) en plus du min-h-screen du body : source du défilement parasite.",
+   "dataNeeded": "Ventes (statut Vendu, prixVente, dateVente dans le mois courant, 30 j, 3 mois, plus ancien), plusieurs marques, articles En stock/En vente. UserSettings : objectifMensuel (null ET valeur) et onboardingTermine (false = carte Démarrage visible, true = masquée). Le prénom vient de User.prenom.",
+   "variants": [
+    "période : clic sur MOIS (défaut) / 30J / TRIM. / TOUT (état local, dashboard/page.tsx:175-190) : 4 captures, graphe et KPI changent",
+    "objectif non défini : lien en pointillés « À définir » vers /parametres vs anneau de progression (page.tsx:407 / 424)",
+    "DemarrageCard visible (compte neuf : onboardingTermine absent = false) vs masquée",
+    "état chargement (« Chargement du dashboard ») : retarder GET /api/dashboard par page.route",
+    "état erreur : GET /api/dashboard en 500 -> message rouge",
+    "mois sans vente : « AUCUNE VENTE SUR LA PÉRIODE » (BrandList)"
+   ],
+   "loadTimeCalls": "GET /api/dashboard?periode=month (une seule requête, dédupliquée avec useDashboard('month')), GET /api/user/settings (useObjectifMensuel + DemarrageCard, même clé de cache), GET /api/notifications (TitreOnglet/Sidebar/cloche, relancé toutes les 60 s), GET /api/auth/session. Un changement de période refait GET /api/dashboard?periode=<30j|3m|all>."
+  },
+  {
+   "path": "/stock",
+   "file": "app/stock/page.tsx (1827 l. ; StockInner :858, ArticleRow :~360-520, ArticleCard :~560-780, barre groupée :1603, modales :1639-1653 ; StatutPill.tsx, EditableCell.tsx, SellModal.tsx, NewCommandeModal.tsx, Modal.tsx)",
+   "auth": true,
+   "renders": "Dans le châssis. 4 KPI ; module unique : recherche SKU (aria-label « Rechercher un SKU »), 3 selects (« Filtrer par marque » / « Filtrer par lot » / « Filtrer par commande »), boutons Colonnes, Export CSV, Nouvelle commande, Réinitialiser ; 11 chips de statut ; tableau virtualisé (≥768 px, useWindowVirtualizer) ou cartes virtualisées (<768 px, useIsDesktop :197) ; pied de liste ; barre d'action fixe en cas de sélection. Page enveloppée dans Suspense (useSearchParams).",
+   "dataNeeded": "30 à 40 articles seulement (liste virtualisée : une capture pleine page ne montre que la fenêtre rendue ; avec 1 200 lignes la hauteur est énorme). Couvrir les 10 statuts (Brouillon, En stock, Photos prêtes, En vente, En livraison, À comptabiliser, Vendu, En lavage, Repassé, Perdu), 2+ marques, 2+ lots, 2+ commandes (le select Commande), canaux et comptes de vente variés (Fripandtrend / Enorab18 / Vestiaire Collective), grades, dates de vente, au moins un article avec titreAnnonce (modale détail) et un sans.",
+   "variants": [
+    "URL ?marque=<marque> (lien du Dashboard), ?lot=<lot>, ?statut=<statut> (liens de la cloche, ex. ?statut=Brouillon), ?commande=<id> (lien du menu Commandes) : chacun pré-filtre et fait apparaître « Réinitialiser »",
+    "chips de statut : un clic par chip (état local, aria-pressed) ; compteurs par statut",
+    "recherche SKU (débounce 300 ms) -> « Aucun article. » si aucun résultat",
+    "tri : clic sur un en-tête de colonne (flèche ↑/↓)",
+    "Colonnes ouvert (aria-expanded) : rang de cases ; préférence dans localStorage myflip-columns (stock/page.tsx:96)",
+    "sélection : case « Sélectionner <SKU> » ou « Tout sélectionner » -> barre fixe verte « N sélectionné(s) »",
+    "état chargement / erreur : retarder ou faire échouer GET /api/articles",
+    "1440 px = tableau ; 390 px = cartes (comportement bascule par matchMedia, pas par CSS : attendre l'hydratation)"
+   ],
+   "loadTimeCalls": "GET /api/articles (avec statut) ET GET /api/articles (sans statut, pour les compteurs de chips : même clé de cache si aucun statut actif), GET /api/commandes (select Commande), GET /api/notifications, GET /api/auth/session. localStorage lu au montage."
+  },
+  {
+   "path": "/mise-en-vente",
+   "file": "app/mise-en-vente/page.tsx (799 l.) ; _reducer.ts ; _barreAction.ts ; _persistance.ts ; _components/{EtapeSku,RailArticles,FicheArticle(717 l.),FileGeneration,ExportAnnonces,DialogueDelaiVinted}.tsx",
+   "auth": true,
+   "renders": "Dans le châssis. Assistant à 4 étapes (SKU, Fiches, Génération, Annonces) pilotées par un reducer, SANS paramètre d'URL. En-tête avec 4 boutons d'étape, contenu max 1100 px, barre d'action collante en bas (page.tsx:758), zoom photo plein écran. Étape 2 : rail d'articles (masqué <768 px) + FicheArticle (carte Photos collante lg:sticky, chips marque/catégorie/taille/état/matière, couleurs Vinted, prix suggéré, compte Vinted, date de mise en vente).",
+   "dataNeeded": "Articles de test existants dont le SKU sera saisi (statuts En stock / Photos prêtes), PromptTemplate (créé à la volée par GET /api/prompts), de préférence NON Hipobuy (commande.fournisseur sans « hipobuy ») sinon l'ajout de photos pousse des références vers le Blob et lit /api/studio/annonce. Photos fixtures (PNG/JPEG locaux) à injecter via setInputFiles sur l'input caché de FicheArticle (:378). Pour l'étape 4 sans IA : amorcer sessionStorage['mev_session_v2'].",
+   "variants": [
+    "étape 1 : vide ; SKU en recherche (spinner) ; SKU trouvé (coche) ; SKU inconnu (« Aucun article pour « X ». ») ; plusieurs lignes ; doublon",
+    "étape 2 : sans photo (message vide, bouton « Ajouter », barre « Il manque : … ») ; avec photos dont 2 à 3 sélectionnées (badge ordre) ; fiche prête (barre verte « Générer l'annonce ») ; carte « Vinted — pilote automatique » visible seulement si marque+catégorie ont un mapping (FicheArticle.tsx:~590) ; bouton « Changer » (prompt) ouvre un select",
+    "étape 3 : liste de génération en cours (spinner Loader2), en échec (bouton « Relancer »), terminée (« Voir les annonces ») : exige POST /api/listings/generate simulé (réponse retardée / 500 / 200)",
+    "étape 4 : annonces générées (titre, description, mots-clés, boutons Copier) ; bandeau « N annonces — tout enregistrer en : Brouillon / En vente / Tout mettre en brouillon sur Vinted » quand >1 ; « Publier sur Vinted » ou « Choisis une couleur » (désactivé) ; barre « Nouvelle session »",
+    "session restaurée (sessionStorage) : toast « Session restaurée : N article(s). Les photos sont à remettre. » et étape 4 directement si une annonce existait (_persistance.ts:deserialiser)",
+    "zoom photo (overlay), modale délai Vinted, 390 px : rail masqué, mini-en-tête « fiche N sur M », barre collante à bottom-[68px] au-dessus du dock"
+   ],
+   "loadTimeCalls": "GET /api/prompts (crée le prompt par défaut s'il n'existe pas : écriture à la lecture, lib/promptsServer.ensureDefaultPrompt), GET /api/notifications, GET /api/auth/session. sessionStorage lu au montage ; si session restaurée : GET /api/articles?q=<sku> par fiche (+ GET /api/studio/annonce?sku= et /api/studio/image pour un sac Hipobuy)."
+  },
+  {
+   "path": "/a-comptabiliser",
+   "file": "app/a-comptabiliser/page.tsx:54-359 ; components/SellDialog.tsx",
+   "auth": true,
+   "renders": "Dans le châssis. 3 modules de tête (« Ventes en attente » en accent, « Ventes comptabilisées », « Synchro »), puis soit l'état vide « Tout est à jour ! », soit la liste : cartes (<768 px, md:hidden) ou tableau (≥768 px) avec boutons Valider / Remettre en stock / Supprimer ; SellDialog ; modale de suppression inline (page.tsx:314).",
+   "dataNeeded": "Articles au statut « À comptabiliser » : 0 (état vide) puis 3 à 5 (liste), avec et sans transporteur, prixVente, dateVente, canal, compteVente.",
+   "variants": [
+    "vide / 3 à 5 lignes",
+    "chargement (<Loader/>) / erreur (retarder ou faire échouer GET /api/articles?statut=…)",
+    "390 px : cartes ; 1440 px : tableau",
+    "SellDialog ouvert (bouton « Valider »), modale « Supprimer l'article » ouverte"
+   ],
+   "loadTimeCalls": "GET /api/articles?statut=À comptabiliser, GET /api/dashboard?periode=all (compteur « Ventes comptabilisées »), GET /api/notifications, GET /api/auth/session."
+  },
+  {
+   "path": "/calendrier",
+   "file": "app/calendrier/page.tsx:117-640 (CountUp :26, modale du jour :553)",
+   "auth": true,
+   "renders": "Dans le châssis. En-tête (kicker + boutons « Mois précédent » / « Aujourd'hui » / « Mois suivant »), titre du mois, grille 7 colonnes + « RÉCAP SEMAINE » (≥768 px) ou liste d'accordéons par jour (<768 px), bandeau de métriques mensuelles, modale « Détail du jour » (desktop).",
+   "dataNeeded": "Ventes (Vendu + dateVente) réparties sur plusieurs jours du mois courant ET du mois précédent ; un mois sans vente ; idéalement un jour avec plusieurs articles pour la couronne « meilleur jour ».",
+   "variants": [
+    "mois courant (défaut) ; mois précédent ; mois sans vente (« Aucune vente ce mois-ci. » en mobile)",
+    "jour sélectionné : clic sur une cellule avec ventes -> modale (desktop) ; accordéon ouvert (mobile)",
+    "survol d'une cellule (translateY/scale, :371-373)",
+    "chargement / erreur (« Erreur lors du chargement du calendrier. »)",
+    "les chiffres sont animés par CountUp (rAF, 850 ms) : attendre ~1 s avant capture (reducedMotion ne les fige pas)"
+   ],
+   "loadTimeCalls": "GET /api/calendar?month=<AAAA-MM> (mois courant), GET /api/notifications, GET /api/auth/session. Navigation de mois = nouvelle requête, sans changement d'URL."
+  },
+  {
+   "path": "/commandes",
+   "file": "app/commandes/page.tsx (905 l. ; CommandeTableRow :~495, CommandeCarte :~600, CommandeDetailPanel :~180, page :693) ; components/NewCommandeModal.tsx",
+   "auth": true,
+   "renders": "Dans le châssis. Héros « TOTAL INVESTI » + chips + sparkline, module « Ajouter des pièces » (boutons « Créer une commande », « Importer un fichier Excel »), « Par fournisseur », table « Commandes récentes » (≥768 px) ou cartes (<768 px) ; ligne dépliable (panneau de détail), menu ⋯ d'actions, NewCommandeModal.",
+   "dataNeeded": "3+ commandes de dates, fournisseurs et lots différents (au moins un fournisseur répété), avec articles de statuts variés pour que useCommandeStats donne rentabilité / lots ; une commande à 0 article (« Aucun article dans cette commande. »).",
+   "variants": [
+    "liste vide (« Aucune commande. Crée ta première commande ! »)",
+    "liste remplie ; ligne dépliée (clic sur la ligne ou bouton « Détail »/« Masquer ») ; une seule ligne dépliée à la fois (expandedId)",
+    "menu ⋯ ouvert (desktop seulement : les cartes mobiles n'ont pas de menu)",
+    "toast « Import Excel — bientôt disponible. » (bouton « Importer un fichier Excel »)",
+    "modale « Nouvelle commande »",
+    "chargement / erreur",
+    "390 px : cartes avec détail déplié sous la carte"
+   ],
+   "loadTimeCalls": "GET /api/commandes, puis UNE requête GET /api/commandes/<id>/stats par commande (CommandeTableRow et CommandeCarte montent toutes deux useCommandeStats : même clé, dédupliquée), GET /api/notifications, GET /api/auth/session."
+  },
+  {
+   "path": "/statistiques",
+   "file": "app/statistiques/page.tsx (735 l. ; ScopeBar :95, page :225)",
+   "auth": true,
+   "renders": "Dans le châssis. Barre « PÉRIMÈTRE D'ANALYSE » (bouton qui ouvre un listbox de commandes), carte CA par canal, vitesse de vente, projection d'écoulement (carte accent), meilleur jour de la semaine, répartition des statuts (aria-label « Répartition des statuts »), tableaux par marque / par lot.",
+   "dataNeeded": "Ventes sur plusieurs semaines, plusieurs canaux, plusieurs marques, 2+ commandes. Variantes de projection : cadence nulle (aucune vente récente), > 365 jours, normale.",
+   "variants": [
+    "Tout l'historique (défaut) / une commande choisie dans le listbox",
+    "listbox ouvert (aria-haspopup=listbox, role=option)",
+    "cadence nulle : bandeau « CADENCE NULLE — PROJECTION IMPOSSIBLE » ; > 1 an : « PLUS D'UN AN AU RYTHME ACTUEL »",
+    "aucune vente : « AUCUNE VENTE » dans les cartes (variable AUCUNE_VENTE)",
+    "chargement / erreur (la barre de périmètre reste affichée)"
+   ],
+   "loadTimeCalls": "GET /api/commandes (pour le listbox), GET /api/stats (périmètre global), GET /api/notifications, GET /api/auth/session. Changer de périmètre : GET /api/stats?commande=<id>."
+  },
+  {
+   "path": "/parametres",
+   "file": "app/parametres/page.tsx (586 l.) ; components/parametres/MetaPrompt.tsx ; components/parametres/PromptsStudio.tsx (381 l.)",
+   "auth": true,
+   "renders": "Dans le châssis. Deux onglets (role=tablist « Prompts ») : « Annonces » (carte compte, carte MODÈLE IA, MODÈLES ENREGISTRÉS, carte Objectif de CA mensuel, MetaPrompt, maître-détail des prompts d'annonce + modale d'édition) et « Studio : variantes d'angle » (prompt maître + prompts d'angle, éditeurs inline). Entrée de menu nommée « Prompts » (Sidebar.tsx:51).",
+   "dataNeeded": "Annonces : 2 à 3 PromptTemplate (un par défaut, un avec marque/catégorie/prixReference). Studio : StudioReglages.promptMaitre rempli ET vide ; 0, 1 et 4+ StudioAngle actifs (archiveLe null). UserSettings.modeleIA (null et valeur) et objectifMensuel.",
+   "variants": [
+    "onglet Annonces (défaut) / onglet Studio : ?onglet=studio (lu après montage par new URLSearchParams, parametres/page.tsx:186-188 ; l'URL est réécrite par history.replaceState au clic)",
+    "prompt sélectionné dans la colonne de gauche (état local)",
+    "modale « Nouveau prompt » / « Modifier le prompt » (bouton « Nouveau prompt » ou icône aria-label « Nouveau prompt » ; bouton « Modifier »)",
+    "modale « Méta-prompt » (bouton « Obtenir le méta-prompt »)",
+    "Studio : prompt maître en lecture / en édition (textarea aria-label « Prompt maître ») ; « Nouveau prompt d'angle » (formulaire inline) ; angle sélectionné ; état « aucun angle »",
+    "aucun prompt : « Crée ton premier prompt »",
+    "chargement (<Loader/>) / erreur « Prompts du Studio illisibles »"
+   ],
+   "loadTimeCalls": "GET /api/prompts (écrit un prompt par défaut s'il n'y en a aucun), GET /api/user/settings (modèle IA + objectif), GET /api/studio/reglages (usePromptsStudio, appelé même sur l'onglet Annonces), GET /api/notifications, GET /api/auth/session."
+  },
+  {
+   "path": "/compte",
+   "file": "app/compte/page.tsx:32-173 ; components/compte/Integrations.tsx (724 l.)",
+   "auth": true,
+   "renders": "Dans le châssis. AUCUN onglet (contrairement à /parametres). Grille 2 colonnes : carte Identité (initiales, e-mail, tuiles Objectif mensuel / Authentification, lien « Modifier l'objectif mensuel ») et carte « Changer le mot de passe » ; puis <Integrations/> en 2 colonnes : « Mes clés IA » (clé OpenRouter, modèles de rédaction et de chat, listes + champ libre « Autre ») et « Mon Trello ».",
+   "dataNeeded": "Compte de test. UserSettings : sans Trello (défaut) ; avec Trello connecté = soit lignes UserSettings chiffrées (exige ENCRYPTION_KEY) soit, plus simple, réponse GET /api/user/settings simulée par page.route (connecte:true, boardId, labelId, comptabiliseLabelId, membreNom, webhookActif true/false, source 'heritee' ou non).",
+   "variants": [
+    "Trello non connecté (défaut) : bouton lien « Connecter Trello » (<a href='/api/trello/connect'> : navigue vers Trello, ne PAS cliquer)",
+    "Trello connecté (réponse simulée) ; webhookActif=false -> role=alert « Aucun webhook enregistré… » ; source heritee -> encart « Passer à la connexion Trello »",
+    "clé OpenRouter renseignée (aperçu 4 derniers caractères) vs absente ; pastille d'origine « Ta clé / Tu utilises celle de MyFlip / Aucune clé »",
+    "chiffrementDisponible=false -> role=alert « Le chiffrement n'est pas configuré… »",
+    "?trello=ok -> toast « Trello est connecté. » ; ?trello=<refus|oauth|callback-invalide|demande-expiree|token-invalide|aucun-board|aucune-etiquette|board-supprime|etiquette-supprimee|introuvable|api|non-configure> -> toast d'erreur, puis l'URL est nettoyée (Integrations.tsx:239-251)",
+    "champ « Autre modèle » ouvert (select AUTRE_MODELE)",
+    "toasts de validation locale : « Aucune clé saisie. », « Les nouveaux mots de passe ne correspondent pas. » (sans réseau)"
+   ],
+   "loadTimeCalls": "GET /api/user/settings DEUX fois (useObjectifMensuel/useReglages + Integrations.charger), GET /api/notifications, GET /api/auth/session. SI Trello connecté : GET /api/user/settings/trello (liste des boards = appel à api.trello.com) puis GET /api/user/settings/trello?boardId=… (étiquettes) au montage (Integrations.tsx:330-345) : à intercepter."
+  },
+  {
+   "path": "/demarrage",
+   "file": "app/demarrage/page.tsx:43-330 (+ <Integrations/> à l'étape 1)",
+   "auth": true,
+   "renders": "Dans le châssis (TopBar générique « MyFlip / CONSOLE REVENTE », aucune entrée de menu active). Page qui rend null tant que GET /api/user/settings n'a pas répondu (:109). Fil de 3 étapes cliquables puis contenu de l'étape : 1 Connecter Trello (Integrations complet + bouton « Mon board est choisi, continuer » / « Connecte Trello et choisis ton board » désactivé), 2 Préparer le board (colonnes + étiquettes, boutons « Créer tout sur mon board » / « Sans les transporteurs » / « Les choisir à la main », rapport), 3 Ta première commande (« Créer ma première commande » / « Plus tard »).",
+   "dataNeeded": "Compte de test avec UserSettings.onboardingEtape 1, 2, 3 et onboardingTermine true (via réponse simulée de GET /api/user/settings ou PUT en base). Les boutons de l'étape 2 ne s'activent que si trello.connecte && boardId (réponse simulée).",
+   "variants": [
+    "étape 1 / 2 / 3 : clic sur les boutons du fil (setEtape local, sans réseau) ; l'étape initiale vient de onboardingEtape",
+    "onboardingTermine=true : toutes les étapes cochées, aucune active",
+    "étape 2 avec rapport affiché (« Colonnes créées : … ») : exige POST /api/user/settings/trello/setup simulé",
+    "étape 2 boutons actifs vs désactivés (trelloPret, etiquettesPretes)"
+   ],
+   "loadTimeCalls": "GET /api/user/settings (puis, comme /compte, GET /api/user/settings x2 et appels Trello via <Integrations/> si connecté), GET /api/notifications, GET /api/auth/session."
+  },
+  {
+   "path": "/studio",
+   "file": "app/studio/page.tsx:9-16 (serveur, force-dynamic) -> app/studio/_components/Accueil.tsx ; layout app/studio/layout.tsx ; lib/studioServeur.ts:chargerGrille",
+   "auth": true,
+   "renders": "Dans le châssis ; le layout Studio ajoute un bandeau permanent (role=note, jaune) avec liens COLORIS / BILAN et un conteneur min-h-screen. Accueil : bandeau SacBase éventuel, filtres Génération (V1/V2/V3), filtres d'état, recherche, compteur, grille de cartes coloris (vignette /api/studio/vignette, badge Doublon/À photographier, état « Voir la fiche » / « N images à juger » / « Préparer SKU »). Desktop uniquement par conception (absent du dock mobile, Sidebar.tsx:65).",
+   "dataNeeded": "Serveur SacBase FACTICE : SACBASE_URL=http://localhost:<port> + SACBASE_STUDIO_TOKEN=<fictif> ; GET /api/studio/coloris au format strict de lib/studioColoris.ts:parseColorisCatalogue (genere ISO, coloris[{cle, modele, coloris, image '/img/…png', sacs[{sku ^[A-Z]{2,5}\\d+$, statut, vendu}], chezMoi<=sacs, generation V1/V2/V3}] ; tout écart rejette la réponse) + GET /img/… renvoyant un PNG. En base du compte de test : StudioColoris, StudioReference (ordre 1-15, prise), StudioAngle, StudioEssai (decision null / valide / rejete), StudioReglages ; des Article dont les SKU sont ceux du faux catalogue.",
+   "variants": [
+    "filtre Génération : Toutes gén. / V1 / V2 / V3 (role=group « Génération », aria-pressed)",
+    "filtre d'état : Tous / Doublons chez moi / À juger / À photographier (role=group « Filtre »)",
+    "recherche « Rechercher un coloris… » + état vide « Aucun coloris ne correspond à ces filtres. »",
+    "bandeau SacBase : absent (live), « SacBase non configuré… » (sans SACBASE_URL), « SacBase injoignable… », « …catalogue de HH:MM » (stale) ; le cache de 60 s est dans le processus serveur (studioColoris.ts:COLORIS_TTL_MS) : un état stale/off exige un 2e serveur ou un redémarrage",
+    "lien « aucun prompt d'angle : ajoute-les dans Prompts » (nbAngles = 0) ; « N photo(s) non rattachée(s) »",
+    "cartes : avec / sans vignette (repli rayé), doublon ×N, à juger, à photographier, aucun sac à préparer"
+   ],
+   "loadTimeCalls": "RENDU SERVEUR : SacBase (GET <SACBASE_URL>/api/studio/coloris) + Prisma ; ÉCRIT en base (rattacherOrphelines : updateMany StudioReference, upsert StudioColoris, studioServeur.ts:60-85). Côté navigateur : GET /api/studio/vignette?cle=<cle> par carte (relais SacBase), GET /api/notifications, GET /api/auth/session."
+  },
+  {
+   "path": "/studio/[cle]",
+   "file": "app/studio/[cle]/page.tsx:10-21 (serveur) -> app/studio/_components/Fiche.tsx, ImportPrises.tsx, FileAJuger.tsx, TableauCases.tsx, useModeles.ts, lancer.ts, envoi.ts ; lib/studioServeur.ts:chargerFiche",
+   "auth": true,
+   "renders": "Fiche d'un coloris. Ordre actuel : bandeau SacBase, lien « Tous les coloris », en-tête (vignette, génération · modèle, h1, boutons SKU des sacs aria-pressed, 3 KPI, « Détails vérifiés par l'IA » repliable), « Photographie le sac » (planche de 15 cases), « À juger » (si essais non décidés), « Choisir les angles » (tableau photos x prompts d'angle + barre de génération). notFound() si clé inconnue (page.tsx:17) -> app/not-found.tsx.",
+   "dataNeeded": "Clé présente dans le faux catalogue SacBase, ex. 5039-black-pink (exemple de CLAUDE.md), et clé absente pour le 404. Pour chaque variante : 0 / 4 / 15 StudioReference avec ordre ; 0 / 3+ StudioAngle ; essais : décision null avec verifIA RENSEIGNÉ (voir notes : sinon appel IA automatique), verdicts ok / a_corriger / rejet, modele 'manuel' ET un id de catalogue, un essai purgé (urlImage ''), un valide, un rejete ; StudioReglages.promptMaitre rempli ; Article cibles (statut En stock / Photos prêtes) ; StudioModeleFavori.",
+   "variants": [
+    "clé valide / clé inconnue (404 plein écran avec châssis, à confirmer)",
+    "planche vide (« 14 à 15 vraies photos… », cases « Dépose ici ») / partielle / 15 photos ; mode sélection (clic sur une photo -> bandeau « Photo X sélectionnée… » + Annuler)",
+    "sans file « À juger » / avec 1 et 3 images (compteur « i / N », précédent/suivant) ; avis IA : ok / à corriger / rejet / « Avis en cours… » / « Pas encore d'avis » ; panneau « Corriger un détail » ouvert (modèle manuel vs API) ; alertdialog « Confirmer la dépense » dans la correction",
+    "tableau : cases Libre / Choisie / Validée / À juger / verrouillée par un SKU en vente ; « Choisir automatiquement » / « Tout décocher » ; état « Aucun prompt d'angle » ; état « Le tableau apparaît dès que les vraies photos sont importées »",
+    "barre de génération : onglet « Par API » (modèles proposés = favoris sinon 3 premiers, « Autre modèle… », devis, alertdialog de confirmation) / onglet « À la main, dans Gemini » (3 étapes)",
+    "catalogue de modèles : « Chargement du catalogue… » / « Catalogue indisponible (…) — réessayer » / chargé",
+    "aucun sac cible : « Aucun sac de ce coloris sans annonce : rien à préparer. »",
+    "« Détails vérifiés par l'IA » déplié",
+    "fixes de rendu : la page contient un min-h-screen de Frame dans le min-h-screen du layout Studio"
+   ],
+   "loadTimeCalls": "RENDU SERVEUR : SacBase + Prisma, avec ÉCRITURES (assurerColoris upsert, rattacherOrphelines, renommage des prises : studioServeur.ts chargerFiche). Côté navigateur au montage : GET /api/studio/modeles (le serveur interroge openrouter.ai : à intercepter), GET /api/studio/image?ref=<id> par photo et ?essai=<id> (lecture du Blob Vercel : à intercepter), GET /api/studio/vignette, ET POST /api/studio/essais/<id>/verifier pour chaque essai à juger sans verifIA (Fiche.tsx:75-80 : appel OpenRouter automatique)."
+  },
+  {
+   "path": "/studio/bilan",
+   "file": "app/studio/bilan/page.tsx:19-112 (serveur, force-dynamic) ; lib/studioStats.ts ; lib/studioServeur.ts:chargerBilan",
+   "auth": true,
+   "renders": "Dans le châssis + bandeau Studio. 4 chiffres (réussite au 1er essai, essais moyens par angle, essais, total dépensé), tables « Par modèle », « Par angle », « Par coloris » (liens vers /studio/<cle>), « Détails qui dérivent le plus ».",
+   "dataNeeded": "StudioEssai variés (decision valide/rejete/null, verifIA avec détails 'derive', modele manuel + ids du catalogue, coutReelUsd renseigné et null, essaiParentId), StudioEchec (codes dont securite), StudioAngle, StudioColoris. Variante vide (aucun essai).",
+   "variants": [
+    "compte sans essai (« Aucun essai. » partout)",
+    "compte rempli avec coût connu / coût inconnu (« ≥ » et « au moins — N essai(s) sans coût connu »)",
+    "modèle manuel libellé « Dépôt manuel » vs nom du catalogue vs id brut quand le catalogue est vide",
+    "blocages sécurité (« · N sécu. » en rouge)"
+   ],
+   "loadTimeCalls": "RENDU SERVEUR : Prisma ET getCatalogue() (page.tsx:24) = requêtes réseau SORTANTES vers openrouter.ai à chaque rendu (liste + un /endpoints par modèle, lib/studioCatalogue.ts:26). Non interceptable par page.route : exige un stub côté serveur (voir notes). Côté navigateur : GET /api/notifications, GET /api/auth/session."
+  },
+  {
+   "path": "(404) toute URL inconnue + notFound()",
+   "file": "app/not-found.tsx:1-20",
+   "auth": false,
+   "renders": "« 404 », « Cette page n'existe pas. », bouton « ← Retour au dashboard ». Rendu DANS le RootLayout : avec châssis (Sidebar + TopBar titre « MyFlip » sous-titre « CONSOLE REVENTE ») pour toute URL hors /, /login, /signup, /reset-password, /legal* (AppShell.tsx:18) ; sans châssis sous /legal/xxx. Il n'existe ni error.tsx, ni loading.tsx, ni global-error.tsx dans app/ (vérifié par find).",
+   "dataNeeded": "Aucune.",
+   "variants": [
+    "connecté : /page-inconnue (châssis + 404) ; non connecté : /page-inconnue est redirigée vers /login?callbackUrl=… par le middleware (auth.config.ts:64-72), donc invisible",
+    "non connecté : /legal/inconnue (public car startsWith('/legal')) -> 404 sans châssis",
+    "connecté : /studio/cle-inconnue (notFound() du Studio ; le bandeau Studio ne devrait pas s'afficher car le not-found est celui du segment racine : SUPPOSÉ, à constater à la capture)"
+   ],
+   "loadTimeCalls": "Variante avec châssis : GET /api/notifications, GET /api/auth/session. Sans châssis : GET /api/auth/session."
+  }
+ ],
+ "states": [
+  {
+   "id": "shell.sidebar-desktop",
+   "route": "* (toutes pages avec châssis)",
+   "kind": "fixed-bar",
+   "component": "components/Sidebar.tsx:153-271",
+   "trigger": "Toujours présent en ≥768 px (hidden md:flex). Entrées : Dashboard, Stock, Mise en vente, À comptabiliser (pastille rouge N), Calendrier, Commandes, Statistiques, Prompts, Mon compte, séparateur, Studio ; bas : « Déconnexion », liens légaux MENTIONS/CGU/CONFIDENTIALITÉ, © 2026 MYFLIP. Entrée active déterminée par isActive(pathname) ; /demarrage n'active rien.",
+   "sideEffects": "Aucun. Le badge lit GET /api/notifications.",
+   "safeToTriggerInTest": true,
+   "viewport": "desktop"
+  },
+  {
+   "id": "shell.sidebar-collapsed",
+   "route": "* (toutes pages avec châssis)",
+   "kind": "other",
+   "component": "components/Sidebar.tsx:117-127 (toggleSidebar), app/globals.css:136-160",
+   "trigger": "Clic sur le bouton aria-label « Réduire ou agrandir le menu » (rond sur la bordure droite) OU localStorage['myflip-sidebar']='collapsed' posé via addInitScript avant navigation (le script inline le copie sur <html data-sidebar>). Rail 76 px : icône + code mono (DASH, STOCK, VENTE, COMPTA, AGENDA, CMD, STATS, PROMPT, MOI, STUDIO, SORTIR).",
+   "sideEffects": "Écrit localStorage uniquement.",
+   "safeToTriggerInTest": true,
+   "viewport": "desktop"
+  },
+  {
+   "id": "shell.topbar",
+   "route": "* (toutes pages avec châssis)",
+   "kind": "sticky-bar",
+   "component": "components/TopBar.tsx:28-53",
+   "trigger": "Toujours présent : titre + kicker (kicker masqué <768 px), cloche, bascule de thème, avatar. Sticky top-0 z-40, h-62 px. Titre déduit de LABELS par préfixe de chemin ; /demarrage, 404 : « MyFlip / CONSOLE REVENTE ».",
+   "sideEffects": "Aucun.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "shell.dock-mobile",
+   "route": "* (toutes pages avec châssis)",
+   "kind": "fixed-bar",
+   "component": "components/Sidebar.tsx:274-298",
+   "trigger": "Toujours présent <768 px (md:hidden), fixe bas z-40, défilable horizontalement : 9 entrées (Studio exclu) + bouton SORTIR ; padding env(safe-area-inset-bottom). Le contenu a pb-24 (AppShell.tsx:30).",
+   "sideEffects": "Aucun (sauf clic sur SORTIR = signOut).",
+   "safeToTriggerInTest": true,
+   "viewport": "mobile"
+  },
+  {
+   "id": "shell.logout",
+   "route": "* (toutes pages avec châssis)",
+   "kind": "other",
+   "component": "Sidebar.tsx:246-253 (title « Déconnexion »), Sidebar.tsx:292-297 (dock « SORTIR »), AccountMenu.tsx:50-56",
+   "trigger": "Boutons « Déconnexion » / « SORTIR » : signOut({callbackUrl:'/login'}).",
+   "sideEffects": "Détruit la session du contexte Playwright et navigue vers /login.",
+   "safeToTriggerInTest": false,
+   "viewport": "both"
+  },
+  {
+   "id": "shell.theme-toggle",
+   "route": "* (toutes pages avec châssis)",
+   "kind": "other",
+   "component": "components/ThemeToggle.tsx:9-43",
+   "trigger": "Bouton aria-label « Passer en thème sombre » / « Passer en thème clair » (icône lune / soleil). Préférer poser myflip-theme avant le chargement pour la matrice de captures.",
+   "sideEffects": "Écrit localStorage['myflip-theme'] et data-theme sur <html>.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "shell.notifications-panel",
+   "route": "* (toutes pages avec châssis)",
+   "kind": "popover",
+   "component": "components/NotificationBell.tsx:27-125",
+   "trigger": "Clic sur le bouton aria-label « Notifications (N) » (ou « Notifications » sans pastille), aria-expanded. Panneau 384 px : vide (« Tout est à jour — rien à faire ») ou jusqu'à 5 lignes (clés a-comptabiliser, annonce-prete, brouillons, photos-pretes en sévérité action ; sans-photos en info). Se ferme au clic extérieur ou Échap (lib/useDismiss.ts).",
+   "sideEffects": "Lecture seule (données déjà chargées). Un clic sur une ligne navigue vers /a-comptabiliser ou /stock?statut=… (fermer plutôt que cliquer).",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "shell.account-menu",
+   "route": "* (toutes pages avec châssis)",
+   "kind": "menu",
+   "component": "components/AccountMenu.tsx:11-61",
+   "trigger": "Clic sur l'avatar rond aria-label « Mon compte (<prénom>) » (aria-expanded) : carte avec initiale, nom, « Connecté », lien « Mon compte », bouton « Déconnexion ».",
+   "sideEffects": "Ouverture sans effet. « Déconnexion » détruit la session.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "shell.chatbot-fab",
+   "route": "* (toutes pages avec châssis)",
+   "kind": "other",
+   "component": "components/ChatBot.tsx:113-128",
+   "trigger": "Bouton flottant rond aria-label « Ouvrir l'assistant IA », fixe z-50, bottom-20 right-6 en mobile (au-dessus du dock), md:bottom-6. Visible tant que le panneau est fermé. Absent des pages sans châssis.",
+   "sideEffects": "Aucun.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "shell.chatbot-panel",
+   "route": "* (toutes pages avec châssis)",
+   "kind": "drawer",
+   "component": "components/ChatBot.tsx:131-228",
+   "trigger": "Clic sur « Ouvrir l'assistant IA » : volet droit fixe z-50 h-screen, pleine largeur en mobile, 380 px dès sm ; en-tête « Assistant IA » + bouton aria-label « Fermer » (✕) ; message d'accueil statique ; textarea placeholder « Écris un message… » + bouton « Envoyer ». Boutons « ✓ Confirmer » / « ✗ Annuler » seulement après une réponse avec action en attente.",
+   "sideEffects": "L'ouverture ne fait aucun appel. Envoyer un message = POST /api/chat -> OpenRouter côté serveur ; Confirmer = exécute une action d'écriture. Ne jamais envoyer sans page.route sur /api/chat.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "shell.toaster",
+   "route": "* (y compris pages publiques)",
+   "kind": "toast",
+   "component": "app/layout.tsx:84 (<Toaster position='bottom-right'/> de sonner)",
+   "trigger": "Toast sûr à déclencher : bouton « Importer un fichier Excel » de /commandes (toast.info « Import Excel — bientôt disponible. », commandes/page.tsx:792) ; ou /compte?trello=ok (« Trello est connecté. ») ; ou /compte : « Enregistrer ma clé » champ vide (« Aucune clé saisie. ») ; ou /parametres?… Sonner n'a pas de thème : capturer le toast en sombre (le PRD note qu'il reste clair).",
+   "sideEffects": "Aucun pour ces déclencheurs.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "shell.session-expired",
+   "route": "* (toutes pages avec châssis)",
+   "kind": "toast",
+   "component": "lib/hooks.ts:21-30 (jsonFetch sur 401)",
+   "trigger": "Une requête useQuery qui reçoit 401 : toast.error « Session expirée, reconnecte-toi. » puis window.location.href='/login' après 1,5 s.",
+   "sideEffects": "Navigue vers /login.",
+   "safeToTriggerInTest": false,
+   "viewport": "both"
+  },
+  {
+   "id": "shell.welcome-modal",
+   "route": "-",
+   "kind": "modal",
+   "component": "INEXISTANT : components/WelcomeModal.tsx et la clé localStorage myflip_welcomed n'existent plus dans le code (grep app components lib). Remplacés par components/DemarrageCard.tsx (dashboard/page.tsx:157-161, DemarrageCard.tsx:5-8). CLAUDE.md est périmé sur ce point.",
+   "trigger": "Rien à déclencher. Voir dashboard.demarrage-card et /demarrage.",
+   "sideEffects": "Sans objet.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "dashboard.demarrage-card",
+   "route": "/dashboard",
+   "kind": "banner",
+   "component": "components/DemarrageCard.tsx:24-79",
+   "trigger": "Visible quand GET /api/user/settings renvoie onboardingTermine=false (cas d'un compte neuf sans ligne UserSettings : défaut 1/false, api/user/settings/route.ts:119-120). Contient « Configuration · étape N sur 3 », titre d'étape, lien « Reprendre » -> /demarrage, liste des 3 étapes.",
+   "sideEffects": "Aucun (le lien navigue).",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "dashboard.periode",
+   "route": "/dashboard",
+   "kind": "tab",
+   "component": "app/dashboard/page.tsx:175-190",
+   "trigger": "Boutons texte « MOIS », « 30J », « TRIM. », « TOUT » (pas de role tab ; état local).",
+   "sideEffects": "Nouvelle lecture GET /api/dashboard?periode=… Aucune écriture.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "dashboard.objectif",
+   "route": "/dashboard",
+   "kind": "panel",
+   "component": "app/dashboard/page.tsx:395-470 (ObjectifCard)",
+   "trigger": "Dépend de UserSettings.objectifMensuel : null -> carte pointillée « OBJECTIF / À définir » (lien vers /parametres) ; valeur -> anneau SVG aria-label « Objectif mensuel atteint à X % ». Ne pas poser localStorage['myflip-objectif-mensuel'] : lib/hooks.ts useObjectifMensuel le migrerait vers le compte.",
+   "sideEffects": "Aucun en lecture.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "dashboard.loader",
+   "route": "/dashboard",
+   "kind": "other",
+   "component": "components/Loader.tsx + page.tsx:132-136",
+   "trigger": "Retarder GET /api/dashboard (page.route avec attente) pour voir « Chargement du dashboard » (tuile sombre + logo M animé). Le même <Loader> sert sur Stock, À comptabiliser, Calendrier, Commandes, Statistiques, Paramètres, Studio : le bug de police du libellé s'y voit.",
+   "sideEffects": "Aucun.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "stock.chips-statut",
+   "route": "/stock",
+   "kind": "tab",
+   "component": "app/stock/page.tsx:1371-1410",
+   "trigger": "11 boutons aria-pressed (« Tous » + les 10 statuts), état local.",
+   "sideEffects": "Lecture GET /api/articles?statut=…",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "stock.colonnes",
+   "route": "/stock",
+   "kind": "panel",
+   "component": "app/stock/page.tsx:1331-1362 (bouton aria-expanded) et rang de cases :1366-1383",
+   "trigger": "Bouton « Colonnes » (desktop seulement, hidden md:inline-flex) : rang de pastilles pour 16 colonnes ; SKU verrouillée.",
+   "sideEffects": "Écrit localStorage['myflip-columns'].",
+   "safeToTriggerInTest": true,
+   "viewport": "desktop"
+  },
+  {
+   "id": "stock.selection-bar",
+   "route": "/stock",
+   "kind": "fixed-bar",
+   "component": "app/stock/page.tsx:1603-1636",
+   "trigger": "Cocher « Sélectionner <SKU> » ou « Tout sélectionner » (ou glisser sur la colonne de cases, useDragSelect :221) : barre verte fixe z-30 (bottom-16 en mobile, bottom-6 + left=--sidebar-w en desktop) avec « N sélectionné(s) », select Statut, bouton « Appliquer », bouton aria-label « Annuler la sélection ».",
+   "sideEffects": "Sélection locale sans effet. « Appliquer » = POST /api/articles/bulk (écrit les statuts).",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "stock.detail-modal",
+   "route": "/stock",
+   "kind": "modal",
+   "component": "app/stock/page.tsx:1653-1790 (components/Modal.tsx, portail z-60)",
+   "trigger": "Bouton « Voir le détail » (desktop : title « Voir le détail » ou « Voir le détail (annonce générée) », page.tsx:642 ; mobile : aria-label « Voir le détail », :757). Contenu : badge de statut, marque, catégorie, prix d'achat ; si Vendu : « Informations de vente » (cellules éditables au double-clic, select Canal) ; annonce avec boutons « Copier » ou « Aucune annonce générée. ».",
+   "sideEffects": "Ouverture sans effet. Le select Canal et les EditableCell font un PATCH au changement ; « Copier » écrit le presse-papier.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "stock.sell-modal",
+   "route": "/stock",
+   "kind": "modal",
+   "component": "components/SellModal.tsx:14-120 (via Modal.tsx) ; ouvert par handleStatutChange stock/page.tsx:1154-1158",
+   "trigger": "Dans la pastille de statut (select aria-label « Statut de <SKU> »), choisir l'option « Vendu » : ouvre « Vendre <SKU> » (Prix de vente, Date de vente, Canal de vente ; boutons Annuler / « Confirmer la vente »). Même titre mais composant différent de SellDialog (À comptabiliser) : deux fenêtres de vente.",
+   "sideEffects": "Ouverture sans effet (le statut n'est pas modifié tant qu'on ne confirme pas). « Confirmer la vente » = PATCH article + confettis + toast (lib/celebrate.tsx).",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "stock.new-commande-modal",
+   "route": "/stock",
+   "kind": "modal",
+   "component": "components/NewCommandeModal.tsx:72-638 (via Modal.tsx) ; ouvert stock/page.tsx:1639",
+   "trigger": "Bouton « Nouvelle commande » -> modale « Nouvelle commande » : Fournisseur, Date, Frais de livraison, fieldset « Lots de la commande » (lot accordéon aria-expanded, boutons « Supprimer le lot N », radiogroup « Mode de saisie du lot N » avec « Au lot » / « Pièce par pièce », « Ajouter une pièce », « Ajouter un lot »), récapitulatif, pied « Annuler » / « Créer » (désactivé tant que la saisie est incomplète). Même modale depuis /commandes (« Créer une commande »).",
+   "sideEffects": "Ouverture et saisie sans effet. « Créer » = POST /api/commandes (écrit commande, lots, articles).",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "stock.delete-confirm",
+   "route": "/stock",
+   "kind": "other",
+   "component": "app/stock/page.tsx:1162-1170 (window.confirm)",
+   "trigger": "Bouton « Supprimer » (desktop : title « Supprimer », :649 ; mobile : aria-label « Supprimer <SKU> ») -> boîte native confirm(« Supprimer <SKU> ? »). Non visible dans une capture d'écran Playwright.",
+   "sideEffects": "Accepter = DELETE /api/articles/<id> + toast « <SKU> supprimé. ». Refuser = rien.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "stock.cell-edit",
+   "route": "/stock",
+   "kind": "other",
+   "component": "components/EditableCell.tsx:25-111",
+   "trigger": "Double-clic sur une cellule du tableau (title « Double-clic pour modifier ») : input avec anneau d'accent ou select (compte). Échap annule ; Entrée ou perte de focus valide si la valeur a changé.",
+   "sideEffects": "Valider une valeur modifiée = PATCH article. Échap = aucun effet.",
+   "safeToTriggerInTest": true,
+   "viewport": "desktop"
+  },
+  {
+   "id": "stock.export-csv",
+   "route": "/stock",
+   "kind": "other",
+   "component": "app/stock/page.tsx:1107 (exportCSV), bouton « Export CSV » :1347",
+   "trigger": "Clic sur « Export CSV » (desktop) : génère un téléchargement navigateur des lignes affichées.",
+   "sideEffects": "Téléchargement local d'un fichier ; aucune écriture serveur.",
+   "safeToTriggerInTest": false,
+   "viewport": "desktop"
+  },
+  {
+   "id": "stock.empty-error-loader",
+   "route": "/stock",
+   "kind": "other",
+   "component": "app/stock/page.tsx:1471-1495 (desktop), :1527-1542 (mobile)",
+   "trigger": "« Aucun article. » : saisir un SKU inexistant ; chargement : retarder GET /api/articles ; erreur : le faire échouer en 500.",
+   "sideEffects": "Aucun.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "commandes.row-expanded",
+   "route": "/commandes",
+   "kind": "panel",
+   "component": "app/commandes/page.tsx:~495-660 (CommandeTableRow / CommandeCarte), CommandeDetailPanel :~180",
+   "trigger": "Clic sur la ligne (desktop), bouton « Détail » / « Masquer », ou le bouton-carte (mobile). Panneau avec graphe aria-label « Investissement dans le temps » ou « Aucun article dans cette commande. », Loader size sm pendant le chargement.",
+   "sideEffects": "Lecture GET /api/commandes/<id>/stats (déjà préchargé).",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "commandes.row-menu",
+   "route": "/commandes",
+   "kind": "menu",
+   "component": "app/commandes/page.tsx:556-592",
+   "trigger": "Bouton ⋯ aria-label « Actions » (desktop seulement) -> popover avec « Voir les articles » (router.push /stock?commande=<id>) et « Supprimer » (native confirm « Supprimer la commande « X » et ses articles ? »). Un voile fixed inset-0 z-40 invisible ferme le menu au clic.",
+   "sideEffects": "Ouverture sans effet. Supprimer + accepter = DELETE /api/commandes/<id> (supprime aussi les articles).",
+   "safeToTriggerInTest": true,
+   "viewport": "desktop"
+  },
+  {
+   "id": "commandes.toast-import",
+   "route": "/commandes",
+   "kind": "toast",
+   "component": "app/commandes/page.tsx:792",
+   "trigger": "Bouton « Importer un fichier Excel ».",
+   "sideEffects": "Aucun : simple toast.info.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "mev.etape-sku",
+   "route": "/mise-en-vente",
+   "kind": "step",
+   "component": "app/mise-en-vente/_components/EtapeSku.tsx ; page.tsx:586-596",
+   "trigger": "État initial (étape 1 « SKU »). Champ placeholder « Ex : PRL1 », bouton aria-label « Retirer la ligne N », « Ajouter un article », bouton collant « Continuer » (désactivé tant qu'aucun SKU n'est valide ; indice « Saisis au moins un SKU valide »).",
+   "sideEffects": "Recherche = GET /api/articles?q=<sku> (lecture).",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "mev.etape-fiches",
+   "route": "/mise-en-vente",
+   "kind": "step",
+   "component": "page.tsx:598-662 ; FicheArticle.tsx ; RailArticles.tsx",
+   "trigger": "« Continuer » après un SKU valide (étape 2). Ajout de photos : input[type=file] caché (FicheArticle.tsx:378, bouton aria-label « Ajouter des photos ») avec setInputFiles, ou glisser-déposer, ou collage ⌘V. Photo : boutons aria-label « Sélectionner la photo N » (aria-pressed), « Supprimer la photo N », « Tourner à gauche/droite », « Agrandir la photo N ». Chips aria-pressed pour marque, catégorie, taille, état, matière, couleurs Vinted ; bouton « Changer » (prompt) ; « Autre » ouvre un input. Rail masqué <768 px.",
+   "sideEffects": "Décodage et rotation 100 % locaux (canvas, blob:). Pour un sac Hipobuy : POST /api/studio/references (écrit le Blob et la base). Les select « Compte Vinted » et le champ « Mis en vente le » (à la perte de focus) font un PATCH article.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "mev.etape-generation",
+   "route": "/mise-en-vente",
+   "kind": "step",
+   "component": "page.tsx:664-672 ; FileGeneration.tsx",
+   "trigger": "Bouton collant « Générer l'annonce » / « Générer les N annonces » (étape 2, fiche prête : 2 à 3 photos sélectionnées + taille + état). Liste des fiches avec spinner / coche / alerte ; « Retour », « Voir les annonces », « Relancer ».",
+   "sideEffects": "POST /api/listings/generate -> OpenRouter côté serveur (coût réel, clé du compte ou OPENROUTER_API_KEY de repli). À ne déclencher qu'avec page.route (réponse retardée pour capturer le chargement, 500 pour l'échec, 200 JSON {titre,description,motsCles,promptNom} pour le succès).",
+   "safeToTriggerInTest": false,
+   "viewport": "both"
+  },
+  {
+   "id": "mev.etape-annonces",
+   "route": "/mise-en-vente",
+   "kind": "step",
+   "component": "page.tsx:674-702 ; ExportAnnonces.tsx",
+   "trigger": "Étape 4. Accès sans IA : sessionStorage['mev_session_v2'] = {version:2, active, fiches:[{id, sku, qcm, promptId, annonce:{titre,description,motsCles}, genere:true}]} puis rechargement : étape 4 + toast. Boutons : « Copier », « Copier tout », vignettes de téléchargement, « Brouillon » / « En vente » (par fiche et groupés), « Publier sur Vinted » (ou « Choisis une couleur », désactivé), « Tout mettre en brouillon sur Vinted », barre « Nouvelle session ».",
+   "sideEffects": "Lecture sans effet. « Brouillon » / « En vente » = PATCH article (statut, annonce, prix ; pose dateMiseEnVente au passage en En vente). « Publier sur Vinted » = PATCH + CustomEvent + window.open('https://www.vinted.fr/items/new') si l'extension est absente.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "mev.action-bar",
+   "route": "/mise-en-vente",
+   "kind": "fixed-bar",
+   "component": "app/mise-en-vente/page.tsx:758-800",
+   "trigger": "Toujours présente : fixed bottom-[68px] sous 768 px (au-dessus du dock), bottom-0 md:pl-[calc(var(--sidebar-w)+18px)] ensuite, z-40, fond bg-surface/95 (opacité sans effet = barre transparente). Libellés de _barreAction.ts selon l'étape : Continuer / Générer / Génération… / Nouvelle session, boutons « Retour ».",
+   "sideEffects": "Aucun en soi. « Nouvelle session » vide sessionStorage.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "mev.delai-modal",
+   "route": "/mise-en-vente",
+   "kind": "modal",
+   "component": "app/mise-en-vente/_components/DialogueDelaiVinted.tsx:70-179 (via Modal.tsx) ; ouvrirDialogueDelai page.tsx:505",
+   "trigger": "Étape 4 : « Publier sur Vinted » ou « Tout mettre en brouillon sur Vinted » -> modale « Délai entre deux brouillons » (boutons aria-pressed « Délai fixe » / fourchette, champs delai-fixe, delai-min, delai-max, erreur mono, pied Annuler + « Lancer le brouillon » / « Lancer le lot »). Lit localStorage['mev_delai_vinted_v1'] à l'ouverture.",
+   "sideEffects": "Ouvrir / Annuler sans effet. Confirmer = écrit le délai en localStorage, PATCH article, événement vers l'extension, window.open Vinted : NE PAS confirmer.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "mev.photo-zoom",
+   "route": "/mise-en-vente",
+   "kind": "modal",
+   "component": "app/mise-en-vente/page.tsx:723-745",
+   "trigger": "Bouton aria-label « Agrandir la photo N » : overlay fixed inset-0 z-60 bg-[var(--ink)]/80 (voile invisible : bug d'opacité) + bouton aria-label « Fermer » ; Échap ferme.",
+   "sideEffects": "Aucun (blob: local).",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "mev.session-restored",
+   "route": "/mise-en-vente",
+   "kind": "toast",
+   "component": "app/mise-en-vente/page.tsx:127-143",
+   "trigger": "Recharger la page avec sessionStorage['mev_session_v2'] valide : toast.info « Session restaurée : N article(s). Les photos sont à remettre. ».",
+   "sideEffects": "GET /api/articles?q=<sku> par fiche (lecture).",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "mev.beforeunload",
+   "route": "/mise-en-vente",
+   "kind": "other",
+   "component": "app/mise-en-vente/page.tsx:145-155",
+   "trigger": "Dès qu'une fiche a des photos ou une annonce non enregistrée, toute navigation / rechargement déclenche la boîte native « Quitter le site ? ».",
+   "sideEffects": "Bloque la navigation Playwright tant que page.on('dialog') ne la traite pas.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "compta.sell-dialog",
+   "route": "/a-comptabiliser",
+   "kind": "modal",
+   "component": "components/SellDialog.tsx:42-205 ; ouvert a-comptabiliser/page.tsx:302-312",
+   "trigger": "Bouton « Valider » d'une ligne/carte -> carte sombre fixe (#16261D en dur) « Vendre <SKU> » : Prix de vente (autoFocus), Date, Canal, Compte de vente ; Annuler, « Confirmer la vente » ; Échap et clic sur le fond ferment ; overlay bg-black/45 backdrop-blur.",
+   "sideEffects": "Ouverture sans effet. « Confirmer la vente » = POST /api/articles/<id>/comptabiliser (écrit ; synchronise Trello en best-effort si connecté) + confettis + toast.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "compta.delete-modal",
+   "route": "/a-comptabiliser",
+   "kind": "modal",
+   "component": "app/a-comptabiliser/page.tsx:314-356",
+   "trigger": "Bouton « Supprimer » -> modale inline fixed inset-0 z-50 bg-black/40 « Supprimer l'article » (boutons Annuler / « Supprimer »). 3e implémentation de fenêtre de confirmation.",
+   "sideEffects": "Ouverture / Annuler sans effet. « Supprimer » = DELETE /api/articles/<id>.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "compta.remettre-en-stock",
+   "route": "/a-comptabiliser",
+   "kind": "other",
+   "component": "app/a-comptabiliser/page.tsx:95-98, :194-201 et :274-282",
+   "trigger": "Bouton « Remettre en stock » : PATCH immédiat, sans confirmation.",
+   "sideEffects": "Écrit le statut (« En stock »).",
+   "safeToTriggerInTest": false,
+   "viewport": "both"
+  },
+  {
+   "id": "cal.day-detail",
+   "route": "/calendrier",
+   "kind": "modal",
+   "component": "app/calendrier/page.tsx:552-595 (desktop) ; accordéon :250-300 (mobile)",
+   "trigger": "Desktop : clic sur une cellule de jour avec ventes (hasSale) -> overlay fixed z-80 rgba(22,38,29,.4) « Détail du jour » (CA animé par CountUp, lignes Marge nette / Articles vendus / Taux de marge), bouton ✕ (sans aria-label). Mobile : bouton de jour qui déplie la liste d'articles.",
+   "sideEffects": "Aucun (données déjà chargées).",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "cal.month-nav",
+   "route": "/calendrier",
+   "kind": "tab",
+   "component": "app/calendrier/page.tsx:186-215",
+   "trigger": "Boutons aria-label « Mois précédent », « Mois suivant » et texte « Aujourd'hui ».",
+   "sideEffects": "Lecture GET /api/calendar?month=… et animation de grille (gridFadeR/L).",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "stats.scope-listbox",
+   "route": "/statistiques",
+   "kind": "popover",
+   "component": "app/statistiques/page.tsx:103-175",
+   "trigger": "Clic sur le bouton du périmètre (texte « Tout l'historique », aria-haspopup=listbox, aria-expanded) : liste role=listbox de 300 px avec role=option par commande ; voile fixed inset-0 z-10 invisible pour fermer. Choisir une option relance GET /api/stats?commande=<id>.",
+   "sideEffects": "Lecture seule.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "params.tabs",
+   "route": "/parametres",
+   "kind": "tab",
+   "component": "app/parametres/page.tsx:249-272",
+   "trigger": "role=tablist aria-label « Prompts » : onglets « Annonces » et « Studio : variantes d'angle » (role=tab, aria-selected). Direct par URL ?onglet=studio.",
+   "sideEffects": "history.replaceState uniquement.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "params.prompt-modal",
+   "route": "/parametres",
+   "kind": "modal",
+   "component": "app/parametres/page.tsx:460-585 (via Modal.tsx)",
+   "trigger": "Bouton « Nouveau prompt » (ou icône aria-label « Nouveau prompt ») ou « Modifier » -> modale « Nouveau prompt » / « Modifier le prompt » : Nom, Marque, Catégorie (datalist), Prix de référence, Contenu (textarea), case « Définir comme prompt par défaut », Annuler / Enregistrer ; erreurs en mono rouge (« Le nom est requis. »).",
+   "sideEffects": "Ouverture et erreurs de validation locales sans effet. « Enregistrer » = POST/PATCH /api/prompts.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "params.metaprompt-modal",
+   "route": "/parametres",
+   "kind": "modal",
+   "component": "components/parametres/MetaPrompt.tsx:101-208 (via Modal.tsx)",
+   "trigger": "Bouton « Obtenir le méta-prompt » -> modale « Méta-prompt » : Marque visée, catégorie, texte généré, bouton Copier, zone de collage du résultat, pied « Fermer » / « Enregistrer le modèle » (désactivé tant que vide).",
+   "sideEffects": "Ouverture sans effet ; « Copier » écrit le presse-papier (toast d'erreur si refusé). « Enregistrer le modèle » = POST /api/prompts.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "params.delete-prompt",
+   "route": "/parametres",
+   "kind": "other",
+   "component": "app/parametres/page.tsx:409-420 (window.confirm) ; PromptsStudio.tsx:247",
+   "trigger": "Bouton aria-label « Supprimer » (prompt d'annonce ou d'angle) -> confirm natif « Supprimer le prompt « X » ? » / « Supprimer « X » ? ».",
+   "sideEffects": "Accepter = DELETE. Refuser = rien.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "params.studio-editors",
+   "route": "/parametres",
+   "kind": "panel",
+   "component": "components/parametres/PromptsStudio.tsx:57-380",
+   "trigger": "Onglet Studio : prompt maître en lecture ; bouton « Modifier » ouvre le textarea aria-label « Prompt maître » ; « Nouveau prompt d'angle » ouvre un formulaire inline (nom + texte « Angle: ») ; angle sélectionné aria-pressed ; « Copier ».",
+   "sideEffects": "Ouvrir les éditeurs sans effet ; « Copier » = presse-papier + toast ; Enregistrer = PUT /api/studio/reglages ou POST/PATCH /api/studio/angles (écrit les tables Studio du compte).",
+   "safeToTriggerInTest": true,
+   "viewport": "desktop"
+  },
+  {
+   "id": "compte.trello-toast-url",
+   "route": "/compte",
+   "kind": "toast",
+   "component": "components/compte/Integrations.tsx:239-251",
+   "trigger": "Charger /compte?trello=ok (toast succès) ou ?trello=<code d'erreur> parmi les 12 de lib/trelloErreurs.ts : toast d'erreur ; l'URL est ensuite nettoyée.",
+   "sideEffects": "Aucun (la lecture GET /api/user/settings a lieu de toute façon).",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "compte.trello-connect",
+   "route": "/compte",
+   "kind": "other",
+   "component": "components/compte/Integrations.tsx:597, :627 ; demarrage idem",
+   "trigger": "Liens « Connecter Trello » / « Passer à la connexion Trello » : <a href='/api/trello/connect'> qui redirige (302) vers trello.com (OAuth 1.0a). Ne pas suivre.",
+   "sideEffects": "Sortie vers un site externe + création d'une demande OAuth.",
+   "safeToTriggerInTest": false,
+   "viewport": "both"
+  },
+  {
+   "id": "compte.trello-disconnect",
+   "route": "/compte",
+   "kind": "other",
+   "component": "Integrations.tsx:347-370",
+   "trigger": "Bouton « Déconnecter Trello » (état connecté) -> window.confirm puis POST /api/trello/disconnect.",
+   "sideEffects": "Appel API Trello (suppression du webhook, révocation du jeton) + effacement en base.",
+   "safeToTriggerInTest": false,
+   "viewport": "both"
+  },
+  {
+   "id": "compte.test-cle",
+   "route": "/compte",
+   "kind": "other",
+   "component": "Integrations.tsx:283-293 (tester) ; lib/aiTest.ts:26",
+   "trigger": "Bouton « Tester » sous le champ de clé OpenRouter : POST /api/user/settings/test?fournisseur=openrouter -> GET https://openrouter.ai/api/v1/key.",
+   "sideEffects": "Appel externe OpenRouter.",
+   "safeToTriggerInTest": false,
+   "viewport": "both"
+  },
+  {
+   "id": "compte.integrations-forms",
+   "route": "/compte",
+   "kind": "panel",
+   "component": "Integrations.tsx:405-575 ; compte/page.tsx:116-166",
+   "trigger": "Champs : « Enregistrer ma clé » (champ vide -> toast « Aucune clé saisie. », sans réseau) ; selects modèle de rédaction / de chat avec option « Autre » qui ouvre un champ libre (AUTRE_MODELE) ; formulaire mot de passe (confirmation différente -> toast d'erreur, sans réseau).",
+   "sideEffects": "Validations locales sans effet. Valeurs valides = PUT /api/user/settings (chiffre et écrit la clé) ou POST /api/user/password.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "demarrage.steps",
+   "route": "/demarrage",
+   "kind": "step",
+   "component": "app/demarrage/page.tsx:121-166 (fil) et :168-326 (contenus)",
+   "trigger": "Boutons du fil : « Connecter ton Trello », « Préparer le board », « Ta première commande » (setEtape local). Étape 2 : « Créer tout sur mon board » / « Sans les transporteurs » ; étape 3 : « Créer ma première commande » / « Plus tard ».",
+   "sideEffects": "Naviguer dans le fil = aucun effet. « Mon board est choisi, continuer » et « Continuer » = PUT /api/user/settings (onboardingEtape). « Créer tout… » = POST /api/user/settings/trello/setup (API Trello). Les deux boutons de l'étape 3 écrivent onboardingTermine=true puis redirigent : la carte du Dashboard disparaît.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "studio.layout-banner",
+   "route": "/studio, /studio/[cle], /studio/bilan",
+   "kind": "banner",
+   "component": "app/studio/layout.tsx:15-25",
+   "trigger": "Toujours présent : role=note, fond --warn-soft, texte « Images générées par IA : seules celles que tu valides partent dans l'annonce du sac », liens COLORIS et BILAN. Statique (non collant).",
+   "sideEffects": "Aucun.",
+   "safeToTriggerInTest": true,
+   "viewport": "desktop"
+  },
+  {
+   "id": "studio.bandeau-sacbase",
+   "route": "/studio, /studio/[cle]",
+   "kind": "banner",
+   "component": "app/studio/_ui.tsx:37-50",
+   "trigger": "role=status : rien si SacBase répond ; « SacBase non configuré (SACBASE_URL / SACBASE_STUDIO_TOKEN)… » sans variables ; « SacBase injoignable… » ; « SacBase injoignable (<erreur>) — catalogue de HH:MM. » (stale). Cache de 60 s dans le processus serveur.",
+   "sideEffects": "Aucun.",
+   "safeToTriggerInTest": true,
+   "viewport": "desktop"
+  },
+  {
+   "id": "studio.accueil-filtres",
+   "route": "/studio",
+   "kind": "tab",
+   "component": "app/studio/_components/Accueil.tsx:43-96",
+   "trigger": "Boutons aria-pressed du groupe « Génération » (Toutes gén., V1, V2, V3) et du groupe « Filtre » (Tous, Doublons chez moi, À juger, À photographier) ; champ type=search « Rechercher un coloris… ». État local.",
+   "sideEffects": "Aucun.",
+   "safeToTriggerInTest": true,
+   "viewport": "desktop"
+  },
+  {
+   "id": "studio.fiche-details-ia",
+   "route": "/studio/[cle]",
+   "kind": "panel",
+   "component": "app/studio/_components/Fiche.tsx:176-220",
+   "trigger": "Bouton aria-expanded « Détails vérifiés par l'IA N » déplie un textarea + bouton « Enregistrer ».",
+   "sideEffects": "Déplier sans effet. « Enregistrer » (actif seulement si le texte change) = PATCH /api/studio/coloris/<cle>.",
+   "safeToTriggerInTest": true,
+   "viewport": "desktop"
+  },
+  {
+   "id": "studio.fiche-sku-cible",
+   "route": "/studio/[cle]",
+   "kind": "other",
+   "component": "Fiche.tsx:119-140",
+   "trigger": "Boutons SKU aria-pressed dans l'en-tête (désactivés pour un sac déjà en vente) : choisissent le sac cible ; le texte du tableau et de la file « À juger » change.",
+   "sideEffects": "État local.",
+   "safeToTriggerInTest": true,
+   "viewport": "desktop"
+  },
+  {
+   "id": "studio.planche-selection",
+   "route": "/studio/[cle]",
+   "kind": "panel",
+   "component": "app/studio/_components/ImportPrises.tsx:155-303",
+   "trigger": "Clic sur une photo de la planche (aria-label « Photo rangée sous <prise> », aria-pressed) : bandeau jaune « Photo X sélectionnée : touche la case où la ranger. » + bouton Annuler ; bordure en surbrillance au survol d'un glisser.",
+   "sideEffects": "Sélection locale sans effet. Cliquer ensuite une case vide « Ranger ici » ou occupée = PATCH /api/studio/references/<id> (échange d'ordre, écrit). Bouton « Ajouter des photos » / « Dépose ici » : input fichier caché + POST /api/studio/references (écrit le Blob Vercel réel et la base).",
+   "safeToTriggerInTest": true,
+   "viewport": "desktop"
+  },
+  {
+   "id": "studio.file-a-juger",
+   "route": "/studio/[cle]",
+   "kind": "panel",
+   "component": "app/studio/_components/FileAJuger.tsx:41-359",
+   "trigger": "Présente si au moins un essai non décidé et non purgé. Boutons aria-label « Image précédente » / « Image suivante » (aussi flèches ← →), « Demander l'avis » (si verifIA vide), « Valider pour <SKU> » (touche V), « Rejeter » (touche R), « Corriger un détail » (aria-expanded, touche C).",
+   "sideEffects": "Précédent/suivant et ouverture de la correction : locaux. « Valider » / « Rejeter » et les touches V / R = PATCH /api/studio/essais/<id> IMMÉDIAT, sans confirmation ni annulation (raccourcis posés sur window, FileAJuger.tsx:163-176, actifs dès que le focus n'est pas dans un champ). « Demander l'avis » = POST …/verifier -> OpenRouter.",
+   "safeToTriggerInTest": false,
+   "viewport": "desktop"
+  },
+  {
+   "id": "studio.correction-panel",
+   "route": "/studio/[cle]",
+   "kind": "panel",
+   "component": "FileAJuger.tsx:299-355",
+   "trigger": "« Corriger un détail » : cases à cocher des détails dérivants (ou « Aucun détail saisi… »). Essai manuel : « Copier le prompt de correction » + « Déposer la version corrigée ». Essai API : « Régénérer avec <modèle> » + montant du devis.",
+   "sideEffects": "Ouvrir et cocher : local. Copier : presse-papier + toast. Déposer = rejette l'essai et POST /api/studio/essais (Blob + base). Régénérer = POST /api/studio/generations (dépense réelle OpenRouter).",
+   "safeToTriggerInTest": true,
+   "viewport": "desktop"
+  },
+  {
+   "id": "studio.confirmation-depense",
+   "route": "/studio/[cle]",
+   "kind": "panel",
+   "component": "TableauCases.tsx:421-440 et FileAJuger.tsx:334-346 (role=alertdialog aria-label « Confirmer la dépense »)",
+   "trigger": "Dans TableauCases : bouton « Générer N image(s) » quand devis.confirmationRequise (tarif inconnu ou > 0,10 $) : l'alertdialog s'affiche, autoFocus sur « Annuler », bouton « Confirmer et générer ». Avec un modèle bon marché (< 0,10 $), le même bouton envoie la requête SANS aucune confirmation. Dans FileAJuger : après une 409 confirmation_requise.",
+   "sideEffects": "Afficher l'alertdialog (cas coûteux) = aucun appel. « Confirmer et générer » et le clic direct sur « Générer » cheap = POST /api/studio/generations (dépense OpenRouter). À n'utiliser qu'avec un catalogue simulé dont le tarif est inconnu et page.route sur /api/studio/generations.",
+   "safeToTriggerInTest": false,
+   "viewport": "desktop"
+  },
+  {
+   "id": "studio.mode-generation",
+   "route": "/studio/[cle]",
+   "kind": "tab",
+   "component": "TableauCases.tsx:326-345",
+   "trigger": "role=tablist aria-label « Façon de générer » : onglets « Par API » et « À la main, dans Gemini » (aria-selected).",
+   "sideEffects": "Local. Mode manuel : « Copier le prompt maître » et « Prompts d'angle » = presse-papier + toast ; « Photos » télécharge via GET /api/studio/image ; « Déposer » ouvre l'input fichier (POST /api/studio/essais).",
+   "safeToTriggerInTest": true,
+   "viewport": "desktop"
+  },
+  {
+   "id": "studio.cases-choix",
+   "route": "/studio/[cle]",
+   "kind": "other",
+   "component": "TableauCases.tsx:222-297 et :310-324 ; Case :524-561",
+   "trigger": "Boutons-cases « Libre » / « Choisie » (aria-pressed) ; liens-boutons « Choisir automatiquement » et « Tout décocher » ; cases verrouillées (SKU en vente), « Validée », « À juger ». Select aria-label « Prise de la photo N » à gauche de chaque ligne.",
+   "sideEffects": "Les cases et les deux liens : état local. Le select de prise = PATCH /api/studio/references/<id> (écrit l'ordre).",
+   "safeToTriggerInTest": true,
+   "viewport": "desktop"
+  },
+  {
+   "id": "studio.modeles-catalogue",
+   "route": "/studio/[cle]",
+   "kind": "other",
+   "component": "app/studio/_components/useModeles.ts:17-82 ; TableauCases.tsx:346-395",
+   "trigger": "Dépend de GET /api/studio/modeles (à simuler) : « Chargement du catalogue… », bouton « Catalogue indisponible (…) — réessayer », pastilles de modèles (favoris sinon les 3 premiers) avec tarif et étoile statique « favori », select aria-label « Autre modèle ». Le composant SelecteurModeles (étoiles cliquables, filtre) n'est importé nulle part : inatteignable.",
+   "sideEffects": "Lecture simulée. Le bouton « réessayer » rappelle GET /api/studio/modeles.",
+   "safeToTriggerInTest": true,
+   "viewport": "desktop"
+  },
+  {
+   "id": "landing.menu-mobile",
+   "route": "/",
+   "kind": "menu",
+   "component": "components/landing/LandingNav.tsx:67-114",
+   "trigger": "Sous 1024 px : bouton aria-label « Ouvrir le menu » (aria-expanded, aria-controls menu-mobile) ouvre le panneau avec 5 liens d'ancre + Connexion / Créer mon compte ; le libellé devient « Fermer le menu ».",
+   "sideEffects": "Aucun.",
+   "safeToTriggerInTest": true,
+   "viewport": "mobile"
+  },
+  {
+   "id": "landing.header-sticky",
+   "route": "/",
+   "kind": "sticky-bar",
+   "component": "components/landing/LandingNav.tsx:20",
+   "trigger": "En-tête sticky top-0 z-50 bg-[var(--bg)]/85 (opacité sans effet) : visible en défilant la page ; capturer la page défilée au milieu.",
+   "sideEffects": "Aucun.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "landing.faq-details",
+   "route": "/",
+   "kind": "panel",
+   "component": "components/landing/Landing.tsx:526-545",
+   "trigger": "Clic sur le <summary> d'une question : la <details> s'ouvre (le + tourne de 45°). Plusieurs peuvent être ouvertes.",
+   "sideEffects": "Aucun.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "login.forgot-mode",
+   "route": "/login",
+   "kind": "step",
+   "component": "app/login/page.tsx:109-157",
+   "trigger": "Bouton « Mot de passe oublié ? » (état local) puis « ← Retour à la connexion ». Soumettre = encart de succès.",
+   "sideEffects": "Basculer : aucun. « Envoyer le lien » = POST /api/auth/forgot-password (écrit un token, envoie un e-mail Resend) : intercepter.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  },
+  {
+   "id": "reset.invalid-token",
+   "route": "/reset-password",
+   "kind": "banner",
+   "component": "app/reset-password/page.tsx:67-71",
+   "trigger": "Ouvrir /reset-password sans ?token= : bandeau rouge « Lien invalide… », champs et bouton désactivés.",
+   "sideEffects": "Aucun.",
+   "safeToTriggerInTest": true,
+   "viewport": "both"
+  }
+ ],
+ "shell": "CADRE (tout est client sauf le layout racine). FICHIERS : app/layout.tsx (RootLayout serveur : polices next/font Space Grotesk + JetBrains Mono, script inline anti-flash lignes 78-79, <Providers> = SessionProvider + QueryClientProvider (app/providers.tsx, staleTime 60 s, refetchOnWindowFocus false), <AppShell>, <Toaster position='bottom-right'/> ligne 84) ; components/AppShell.tsx : SANS_CHASSIS = ['/', '/login', '/signup', '/reset-password'] + tout chemin commençant par '/legal' (lignes 12 et 18) rendent les enfants nus ; sinon : <TitreOnglet/> (préfixe « (N) » du document.title) + <Sidebar/> + <div pb-24 md:pb-0 md:pl-[var(--sidebar-w)]> contenant <TopBar/> puis la page, + <ChatBot/> hors de ce div. Donc le châssis entoure AUSSI /demarrage, le 404 et /studio/*. components/Sidebar.tsx (aside fixe desktop ≥768 px + nav fixe mobile <768 px), components/TopBar.tsx (sticky z-40, h-62, titre via LABELS par préfixe), components/NotificationBell.tsx, ThemeToggle.tsx, AccountMenu.tsx, ChatBot.tsx. PAS de WelcomeModal : fichier et clé localStorage myflip_welcomed absents du code (vérifié par grep) ; la bienvenue est la DemarrageCard du Dashboard + /demarrage. CLÉS DE STOCKAGE (liste complète, grep sur app/components/lib) : localStorage['myflip-theme'] = 'dark' | 'light' (absent = suit prefers-color-scheme) ; localStorage['myflip-sidebar'] = 'collapsed' | 'expanded' ; localStorage['myflip-columns'] = JSON {colonne:bool} (Stock, stock/page.tsx:96) ; localStorage['mev_delai_vinted_v1'] = {minMinutes,maxMinutes} (mise en vente) ; localStorage['myflip-objectif-mensuel'] = legacy, NE PAS poser (migré vers le compte, écriture) ; sessionStorage['mev_session_v2'] = session de mise en vente (version 2) ; 'mev_state' obsolète purgé. Cookie : session Auth.js (JWT). ATTRIBUTS <html> POSÉS AVANT LE PAINT par le script inline : data-theme='dark' (absent en clair : le clair est l'état sans attribut) si myflip-theme==='dark' ou (clé absente et prefers-color-scheme: dark) ; data-sidebar='collapsed' si myflip-sidebar==='collapsed'. CSS : --sidebar-w 236 px / 76 px (globals.css:136-140), classes .sb-hide-collapsed / .sb-only-collapsed / .sb-item. <html lang='fr' suppressHydrationWarning>. COMMENT PILOTER EN TEST : (1) thème et repli = page.addInitScript(() => { localStorage.setItem('myflip-theme','dark'|'light'); localStorage.setItem('myflip-sidebar','collapsed'|'expanded'); }) AVANT goto, ou colorScheme du contexte pour le mode sans clé ; (2) mouvement : reducedMotion:'reduce' fige les animations CSS (globals.css:342-353 met animation-duration à 0,01 ms) et la frise de la landing, mais PAS le CountUp du Calendrier (requestAnimationFrame) ; (3) cloche : clic sur le bouton « Notifications » ; avatar : « Mon compte (<prénom>) » ; thème : « Passer en thème sombre/clair » ; repli : « Réduire ou agrandir le menu » ; chat : « Ouvrir l'assistant IA » puis « Fermer » ; (4) NE PAS masquer le ChatBot ni le dock : ils font partie de la refonte (le FAB est à bottom-20 right-6 en mobile, z-50) ; (5) à neutraliser : poll de GET /api/notifications toutes les 60 s (refetchInterval) sans effet visible sur une capture courte ; ne jamais cliquer « Déconnexion » / « SORTIR » ; le script de thème est dans un <script> serveur : le laisser tel quel. Z-INDEX observés : sidebar 40 (bouton de repli 50), TopBar 40, dock 40, barre Mise en vente 40, barre sélection Stock 30, Chat 50, SellDialog 50, suppression À comptabiliser 50, Modal 60, zoom Mise en vente 60, calendrier 80, voiles invisibles 10 et 40 (Statistiques, menu Commandes), en-tête landing 50. Bugs du PRD § 1 qui se voient seulement dans certains états : barre du haut + barre collante Mise en vente + en-tête landing (opacité /85, /95 sans effet), voile de Modal (bg-ink/30) et zoom Mise en vente (/80), pastille active du menu blanche sur blanc au premier affichage (Sidebar.tsx:143-148 : l'indicateur n'existe qu'après useLayoutEffect ; visible avec un contexte javaScriptEnabled:false sur /dashboard), toasts clairs en sombre, scrollbar claire en sombre (globals.css:358-367).",
+ "notes": [
+  "Aiguilleur de skill : exécuté une fois (python3 aiguilleur.py --auto). Résultat : browse 0,59 / redesign-existing-projects 0,26 / vercel:nextjs 0,15, confiance finale 0,38, donc sous le seuil de 0,60 et sans utilité pour une tâche en lecture seule : aucun skill chargé. Rien n'a été écrit, aucun serveur lancé, aucun réseau appelé ; seules des commandes de lecture (cat, sed, grep, find) ont été utilisées.",
+  "[VÉRIFIÉ] Inventaire : 20 fichiers page.tsx + app/not-found.tsx, 3 layouts (app, studio) ; il n'existe NI error.tsx, NI loading.tsx, NI global-error.tsx (find). Base de captures : 21 routes x 2 thèmes x 2 viewports = 84 captures de base, plus les états du tableau ci-dessus. /manifest.webmanifest (app/manifest.ts) est une route fichier, exclue du middleware (matcher), pas une page à capturer.",
+  "[VÉRIFIÉ] Écart avec la commande : WelcomeModal et localStorage.myflip_welcomed n'existent plus dans le code ; CLAUDE.md est périmé (il cite aussi app/layout.tsx:70, le script est en :78-79). /compte n'a pas d'onglets ; seuls /parametres (Annonces / Studio) en ont.",
+  "[VÉRIFIÉ] Aucune URL externe n'est surchargeable par variable d'environnement, sauf SacBase : api.trello.com (lib/trello.ts:9, trelloOAuth.ts:25-26, api/trello/disconnect/route.ts:10), openrouter.ai (openrouter.ts:26, openrouterChat.ts:15, studioVerif.ts:110, studioGeneration.ts:352, studioCatalogue.ts:26, aiTest.ts:26). SACBASE_URL accepte http://localhost:<port> (studioColoris.ts:getSacbaseConfig) : le serveur factice SacBase est réalisable proprement (contrat strict décrit dans la route /studio). Les serveurs factices Trello / OpenRouter ne le sont PAS par env : page.route ne couvre que les appels faits par le navigateur.",
+  "[VÉRIFIÉ] Appels sortants vers OpenRouter faits PAR LE SERVEUR lors d'un simple affichage de page, donc invisibles pour page.route : /studio/bilan (page.tsx:24, getCatalogue : GET /images/models + un /endpoints par modèle, sans clé). Côté navigateur mais traités par le serveur : GET /api/studio/modeles (monté par Fiche via useModeles) ; POST /api/studio/essais/<id>/verifier lancé AUTOMATIQUEMENT à l'ouverture de /studio/<cle> pour chaque essai à juger sans verifIA (Fiche.tsx:75-80), avec la clé du compte ou le repli OPENROUTER_API_KEY de resoudreReglages. Le capture suite exige donc : (a) un stub de fetch côté serveur pour openrouter.ai et api.trello.com (preload NODE_OPTIONS ou petite couture d'URL en variable d'environnement), et (b) page.route sur /api/studio/modeles, /api/studio/essais/*/verifier, /api/studio/generations, /api/chat, /api/listings/generate, /api/user/settings/test, /api/user/settings/trello**, /api/auth/forgot-password.",
+  "[VÉRIFIÉ] Raccourcis dangereux : sur /studio/<cle> avec une file « À juger » non vide, les touches V et R (listener window, FileAJuger.tsx:163-176) valident ou rejettent l'image affichée IMMÉDIATEMENT (PATCH, sans annulation). Ne jamais appeler page.keyboard.press/type sur cette page hors d'un champ de saisie, ni en test d'accessibilité clavier sans page.route sur /api/studio/essais/*. Idem C (ouvre la correction) et flèches (changent d'image).",
+  "[VÉRIFIÉ] Images du Studio : GET /api/studio/image lit le store Vercel Blob privé avec @vercel/blob get() (studioBlob.ts:183-190) ; .env.local contient BLOB_READ_WRITE_TOKEN (nom vu, valeur jamais lue). Surcharger BLOB_READ_WRITE_TOKEN par une valeur factice dans l'env du serveur de test et répondre à **/api/studio/image** par page.route avec un PNG fixture. Les envois (POST /api/studio/references, /api/studio/essais) écriraient dans le Blob si le jeton réel restait actif.",
+  "[VÉRIFIÉ] Lectures qui écrivent (compte de test uniquement) : /studio et /studio/<cle> (rattacherOrphelines, assurerColoris upsert, renommage des prises, studioServeur.ts) ; GET /api/prompts crée un prompt par défaut s'il n'y en a aucun (api/prompts/route.ts:32) ; /demarrage ne crée rien au chargement.",
+  "[VÉRIFIÉ] Base de données : .env ligne 11 (active) = endpoint ep-autumn-morning-asmqan0o (branche dev) ; ligne 10 (commentée) = ep-curly-haze-asq0mlqt (PROD). Seuls ces identifiants d'endpoint ont été lus, aucun mot de passe. Un décommentage suffit à pointer sur la prod : le harnais Playwright doit REFUSER de démarrer si DATABASE_URL contient ep-curly-haze-asq0mlqt. prisma/seed.ts supprime tous les articles et commandes de l'utilisateur ciblé (deleteMany scopé userId) et ne crée ni UserSettings, ni données Studio, ni ventes datées : il faut un seed de fixtures dédié, rattaché à l'e-mail du compte de test.",
+  "[VÉRIFIÉ] Authentification en test : middleware Edge + auth.config.ts (public = '/', '/login', '/signup', '/reset-password', '/legal*', lignes 52-55 ; le reste redirige vers /login?callbackUrl=… avec l'origine de la requête). Mémoire du projet : fabriquer un cookie de session est refusé par le classifieur de permissions, ne pas réessayer ; passer par le formulaire /login sur localhost avec un compte de test (autorisé : application de l'utilisateur, hôte local) puis storageState. Création du compte : POST /api/auth/signup exige un code d'invitation de INVITE_CODES (lib/invite.ts) : définir INVITE_CODES=<code fictif> dans l'env du serveur de test plutôt que lire .env.local.",
+  "[VÉRIFIÉ] Variables à NEUTRALISER dans l'env du serveur de test (noms seulement, valeurs jamais lues) : .env.local contient RESEND_API_KEY (l'inscription tente un e-mail de bienvenue, best-effort), TRELLO_API_KEY/SECRET/TOKEN, GEMINI/ANTHROPIC/DASHSCOPE_API_KEY, BLOB_READ_WRITE_TOKEN, VERCEL_OIDC_TOKEN, ENCRYPTION_KEY, AUTH_SECRET, NEXTAUTH_URL ; .env.local ne contient PAS OPENROUTER_API_KEY ni NEXT_PUBLIC_APP_HOST / NEXT_PUBLIC_LANDING_HOST (donc la séparation de domaines de lib/hosts.ts est inerte en local). Une variable posée dans le processus n'est pas écrasée par les fichiers .env : définir RESEND_API_KEY='' , BLOB_READ_WRITE_TOKEN=<factice>, SACBASE_URL, SACBASE_STUDIO_TOKEN, INVITE_CODES dans la config webServer de Playwright. .env.prod.tmp (secrets de prod, noms POSTGRES_*, NEXT_PUBLIC_*_HOST) est présent à la racine : ignoré par git (.gitignore:49 .env*), ne jamais le charger ni le copier.",
+  "[VÉRIFIÉ] Faux Trello sans appel externe : un compte connecté à Trello exige ENCRYPTION_KEY et déclenche au montage de /compte et /demarrage GET /api/user/settings/trello puis ?boardId= (Integrations.tsx:330-345), qui appellent api.trello.com. Le plus sûr pour les captures « connecté » : simuler côté navigateur GET /api/user/settings (page.route, DTO connecte:true) ET /api/user/settings/trello**.",
+  "[VÉRIFIÉ] Mise en vente, chemin le plus court sans IA : sessionStorage['mev_session_v2'] (format de _persistance.ts, version 2) amène directement à l'étape 4 avec le toast de restauration ; l'étape 2 exige des photos (setInputFiles sur l'input caché, décodage local) ; l'étape 3 exige POST /api/listings/generate simulé (le retarder pour capturer le chargement). Éviter les SKU Hipobuy : estSacHipobuy(commandeFournisseur) ajoute des appels /api/studio/* et un envoi au Blob. La page pose un beforeunload dès qu'il y a des photos : gérer page.on('dialog').",
+  "[VÉRIFIÉ] Boîtes natives, absentes des captures et bloquantes si non traitées : window.confirm dans Stock (stock/page.tsx:1164), Commandes (commandes/page.tsx:510), Paramètres (parametres/page.tsx:412), PromptsStudio (:247), Integrations déconnecter (:349). Les listes déroulantes natives (<select> StatutPill, filtres Stock, EditableCell select) ne figurent pas non plus sur un screenshot : capturer l'état fermé, ou la valeur choisie.",
+  "[VÉRIFIÉ] Code mort à ne pas chercher : components SelecteurModeles (export default) et ConfirmationLancement ne sont importés par aucun fichier (grep) ; seuls ses helpers (devisPour, montantDevis, SEUIL_TEXTE) servent. L'étoile visible dans TableauCases est une icône statique : les favoris cliquables n'existent pas à l'écran avant la refonte (cohérent avec le PRD).",
+  "[VÉRIFIÉ] Implémentations d'overlays recensées : components/Modal.tsx (portail, bg-ink/30), SellDialog (bg-black/45, #16261D en dur), suppression À comptabiliser (inline bg-black/40), modale du jour du Calendrier (inline z-80), zoom Mise en vente (bg-[var(--ink)]/80), et deux voiles transparents de fermeture (menu Commandes z-40, listbox Statistiques z-10) ; plus ChatBot en volet fixe. Deux fenêtres de vente distinctes : SellModal (Stock) et SellDialog (À comptabiliser).",
+  "[SUPPOSÉ, à confirmer par un essai local] Playwright en mode headless lance Chromium avec --hide-scrollbars : le bug « barre de défilement parasite » et « barre claire en sombre » ne se verrait pas. Prévoir launchOptions.ignoreDefaultArgs:['--hide-scrollbars'] et, en plus, mesurer document.documentElement.scrollHeight - innerHeight pour chaque route (preuve chiffrée avant/après du double min-h-screen : Frame console.tsx:14 + body layout.tsx:72).",
+  "[SUPPOSÉ] Déterminisme : Dashboard (todayLabel), Calendrier (mois courant, jour actif), SellDialog (date par défaut) lisent l'horloge du navigateur (figeable par page.clock) ; les agrégats serveur (/api/dashboard, /api/calendar, /api/stats) utilisent l'horloge du serveur : générer les fixtures avec des dates relatives au jour d'exécution et masquer les libellés de date dans les comparaisons. Le CountUp du Calendrier demande ~1 s d'attente. next/font/google télécharge Space Grotesk et JetBrains Mono au premier démarrage du serveur de dev (réseau) : lancer une première fois en ligne pour remplir le cache, sinon repli système et captures différentes.",
+  "[VÉRIFIÉ] Pièges d'outillage : Playwright n'est PAS installé (absent de package.json, aucun playwright.config, aucun dossier e2e/tests). vitest.config.ts n'inclut que lib/**/*.test.ts, app/**/*.test.ts, extension-vinted/**/*.test.js : placer les specs dans e2e/*.spec.ts pour ne pas être ramassées par npm test. tsconfig.json inclut **/*.ts : une fois @playwright/test installé, e2e/ passe dans npx tsc --noEmit. .eslintrc.json = next/core-web-vitals + next/typescript, next lint ne parcourt par défaut que app, components, lib, pages, src. Liste d'exclusion de recherche respectée (worktrees, banc, node_modules, .next, doublons ' 2').",
+  "[VÉRIFIÉ] Stock virtualisé (useWindowVirtualizer) : une capture pleine page ne contient que les lignes rendues autour de la fenêtre ; garder 30 à 40 articles de fixture. À 390 px la liste est rendue en cartes par matchMedia (JS), pas par CSS : attendre l'hydratation avant capture. /studio est volontairement hors dock mobile : capturer à 390 px à titre informatif seulement.",
+  "[SUPPOSÉ] 404 : notFound() lancé depuis /studio/<cle-inconnue> est capté par app/not-found.tsx racine, donc le bandeau du layout Studio ne devrait pas apparaître ; à constater à la capture. Non connecté, toute URL inconnue hors /legal est redirigée vers /login par le middleware (donc seul /legal/xxx montre un 404 public).",
+  "QUESTION 1 : comment obtenir des faux serveurs OpenRouter / Trello côté serveur ? Conseil : ajouter une petite couture en variable d'environnement (ex. OPENROUTER_BASE_URL, TRELLO_API_BASE, sans effet quand absente) dans un commit séparé AVANT la base « avant » (la production ne change pas), plutôt qu'un preload de fetch dont le fonctionnement sous next dev n'est pas vérifié ici ; en attendant, ne pas capturer /studio/bilan ni /studio/<cle> sans stub.",
+  "QUESTION 2 : quelle base pour les tests ? Conseil : une branche Neon dédiée « e2e » (ou Postgres local) plutôt que la branche dev partagée qui porte déjà des comptes verif-…@example.test, avec le garde-fou anti-prod ci-dessus ; le compte de test et ses fixtures sont créés par un script à part (jamais le compte d'Aramis).",
+  "QUESTION 3 : faut-il capturer le Studio à 390 px ? Conseil : oui pour la base (le PRD dit « toutes les routes ») mais l'étiqueter « informatif » et ne pas lui appliquer les critères mobile (zones tactiles) ; le Studio reste desktop.",
+  "QUESTION 4 : figer l'horloge ? Conseil : figer le navigateur (page.clock) ET générer les fixtures relativement à la date d'exécution, puis masquer les dates ; ne pas toucher à l'horloge du serveur.",
+  "QUESTION 5 : mettre à jour CLAUDE.md (WelcomeModal, ligne du script) ? Conseil : oui mais en fin de refonte avec le nouveau design-system.md, pas pendant la base « avant »."
+ ]
+}

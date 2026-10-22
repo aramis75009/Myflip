@@ -50,3 +50,17 @@ scripts/init-user.mjs
 
 # Worktrees créés par Claude Code : outillage local, pas du projet.
 .claude/worktrees/
+
+# Suite e2e Playwright (e2e/README.md) : builds, base, sessions, captures et
+# rapports locaux. e2e/rapports/avant/ (petits JSON) reste suivi.
+/.next-e2e-*.nosync/
+/.e2e-db.nosync/
+/e2e/.auth/
+/e2e/captures.nosync/
+/e2e/rapports/courant*/
+/e2e/rapports/apres-*/
+/test-results*/
+/playwright-report*/
+# Captures des pistes de direction rejetées (20/10) et doublons iCloud des rapports.
+/docs/refonte/**/*.png
+/e2e/rapports/avant/* [0-9].*

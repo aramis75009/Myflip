@@ -378,3 +378,81 @@ parce qu'ils demandent une décision ou restent sans effet aujourd'hui.
   `process.exit(1)` dans le `try` saute le `$disconnect`. Cosmétique.
 - **`EditableCell` variante select** : sur Chrome Windows, une flèche au clavier
   sur le select fermé déclenche un enregistrement immédiat.
+
+---
+
+## P2 · Studio IA — convertir le HEIC pour de vrai
+
+**Quoi.** Installer une bibliothèque de décodage HEIC (`heic2any` ou
+équivalent) pour l'import en lot de la fiche coloris.
+
+**Pourquoi.** La spec du Studio (§3) promet « HEIC accepté et converti ». Le
+dépôt ne convertit rien : `ACCEPT_IMAGES` et le tri de `_fichiers.ts` listent
+bien `.heic`/`.heif`, mais le décodage repose entièrement sur
+`createImageBitmap` puis `HTMLImageElement` (`lib/imageProcessing.ts:111-128`),
+c'est-à-dire sur le navigateur. **Safari sait lire le HEIC, Chrome ne sait
+pas.** Or l'import en lot sert justement à récupérer les photos prises à
+l'iPhone.
+
+**L'état livré le 18/10.** Aucune dépendance ajoutée, volontairement : l'échec
+est *nommé* fichier par fichier au lieu d'être avalé (le pipeline de
+`/mise-en-vente` se contente d'un toast). Ça marche dans Safari, pas ailleurs.
+
+**Ce que ça coûte.** ~1,5 Mo de WASM côté client, chargés seulement sur la page
+du Studio. À mesurer avant de décider.
+
+**Prérequis.** Essayer d'abord un vrai HEIC d'iPhone dans Chrome ET dans
+Safari : si Aramis travaille exclusivement sous Safari, ce chantier n'existe
+pas.
+
+---
+
+## P3 · Studio IA — lancer un coloris entier d'un coup
+
+**Quoi.** Un bouton « Tous les angles » sur la fiche coloris, qui enchaîne les
+lancements angle par angle avec les modèles cochés.
+
+**Pourquoi.** L'option B (génération par API OpenRouter) est **faite le
+19/10** (PRD `2026-10-19-studio-ia-generation-api-prd.md`), mais angle par
+angle : c'est la définition du lancement retenue pour le seuil de 0,10 $.
+Sur ~10 coloris × 5 angles, le clic par angle devient la contrainte.
+
+**Contexte.** Exclu du PRD (§5, §10). Avant de le faire : décider si le seuil
+vaut par angle (5 confirmations) ou par coloris (une seule, sur un total plus
+gros), et garder une requête par modèle et par angle (limite de 300 s).
+
+**Prérequis.** Que le test angle par angle ait désigné 2 ou 3 modèles dignes
+d'être lancés en série.
+
+## P3 · Studio IA — ce que la génération par API ne fait pas encore
+
+- **Pas de plafond mensuel** : seulement le seuil par lancement (choix
+  d'Aramis au cadrage). Le total dépensé est affiché au bilan.
+- **Résolution non demandée** : on laisse le défaut du modèle (souvent 1K).
+  L'estimation prend le maximum des variantes (4K compris), donc surestime.
+- **Modèles SVG seuls écartés** du catalogue (`recraft/*vector*`) : le Blob et
+  la vérification IA ne lisent que jpg, png et webp.
+- **Pas de nouvelle tentative du repli chat avec `modalities: ["image"]`** :
+  un modèle image seul qui passerait par `chat/completions` sort en
+  `parametres`. À ajouter si le cas se présente.
+- **Modèles sans `3:4`** (krea-2, gpt-image-1, gpt-5-image…) : `aspect_ratio`
+  n'est pas envoyé, l'image sort au format par défaut du modèle.
+
+---
+
+## P3 · Studio IA — recul après échec du client SacBase
+
+**Quoi.** Un court recul (10 à 15 s) dans `lib/studioColoris.ts` quand SacBase
+ne répond pas.
+
+**Pourquoi.** Le cache de 60 s n'est pas rafraîchi après un échec, donc chaque
+appel retente et peut attendre jusqu'à 4 s. C'est la limite héritée du client
+de SacBase (`lib/myflip.server.ts`), copiée telle quelle.
+
+**Ce qui l'évite aujourd'hui.** Appeler `getColoris` une seule fois puis
+construire l'index `sku → cle`, au lieu de `resolveSkuToCle` en boucle. C'est
+ce que la T8 doit faire.
+
+**Quand ça deviendra nécessaire.** Si `/mise-en-vente` finit par résoudre les
+coloris photo par photo, ou si une page du Studio appelle SacBase à chaque
+rendu.

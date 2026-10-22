@@ -1,4 +1,5 @@
 "use client";
+// design-tokens-dette: R13 → M4
 
 import { useId, useMemo, useState } from "react";
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
@@ -183,8 +184,8 @@ export default function NewCommandeModal({
   };
 
   const field =
-    "w-full rounded-md border border-line bg-surface px-3 py-2.5 text-body-md text-ink outline-none focus:border-primary focus:ring-2 focus:ring-[var(--acc-ring)]";
-  const label = "mb-1.5 block text-label-sm text-ink-muted";
+    "w-full rounded-md border border-line bg-surface px-3 py-2.5 text-base text-ink outline-none focus:border-accent focus:ring-2 focus:ring-focus";
+  const label = "mb-1.5 block text-xs font-medium text-ink-2";
 
   const prêt =
     apercu != null &&
@@ -200,7 +201,7 @@ export default function NewCommandeModal({
         <div className="flex items-center justify-between gap-3">
           {/* Masqué sur mobile : le total figure déjà dans le récapitulatif
               juste au-dessus, et à 390 px il passait sur deux lignes. */}
-          <span className="hidden text-label-sm text-ink-faint sm:inline">
+          <span className="hidden text-xs font-medium text-ink-3 sm:inline">
             {apercu ? (
               <>
                 {apercu.nb} pièce{apercu.nb > 1 ? "s" : ""} ·{" "}
@@ -214,7 +215,7 @@ export default function NewCommandeModal({
             <button
               type="button"
               onClick={onClose}
-              className="min-h-[44px] rounded-full border border-line px-5 text-body-md font-medium text-ink-muted transition-colors hover:bg-surface-container"
+              className="min-h-11 rounded-full border border-line px-5 text-base font-medium text-ink-2 transition-colors hover:bg-surface-2"
             >
               Annuler
             </button>
@@ -222,7 +223,7 @@ export default function NewCommandeModal({
               type="submit"
               form={formId}
               disabled={create.isPending || !prêt}
-              className="min-h-[44px] rounded-full bg-primary px-5 text-body-md font-medium text-on-primary transition-colors hover:bg-primary-dark disabled:opacity-60"
+              className="min-h-11 rounded-full bg-accent px-5 text-base font-medium text-accent-ink transition-colors hover:bg-accent-hover disabled:opacity-60"
             >
               {create.isPending ? "Création…" : "Créer"}
             </button>
@@ -277,7 +278,7 @@ export default function NewCommandeModal({
             />
           </div>
         </div>
-        <p id="aide-frais" className="-mt-2 text-label-sm text-ink-faint">
+        <p id="aide-frais" className="-mt-2 text-xs font-medium text-ink-3">
           Répartis au prorata du prix de chaque pièce, tous lots confondus. Un
           lot cher en absorbe davantage.
         </p>
@@ -300,16 +301,16 @@ export default function NewCommandeModal({
                     type="button"
                     onClick={() => setOuvert(estOuvert ? null : l.id)}
                     aria-expanded={estOuvert}
-                    className="flex min-h-[52px] flex-1 items-center gap-2 px-3 text-left transition-colors hover:bg-surface-soft"
+                    className="flex min-h-[52px] flex-1 items-center gap-2 px-3 text-left transition-colors hover:bg-surface-2"
                   >
                     <ChevronDown
-                      className={`h-4 w-4 flex-none text-ink-faint transition-transform ${estOuvert ? "rotate-180" : ""}`}
+                      className={`h-4 w-4 flex-none text-ink-3 transition-transform ${estOuvert ? "rotate-180" : ""}`}
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-body-md font-semibold text-ink">
+                      <span className="block truncate text-base font-semibold text-ink">
                         {nomEffectif(l) || `Lot ${i + 1}`}
                       </span>
-                      <span className="block font-mono text-label-sm text-ink-faint">
+                      <span className="block font-mono text-xs font-medium text-ink-3">
                         {ligne
                           ? `${prefixeEffectif(l)} · ${ligne.nb} pièce${ligne.nb > 1 ? "s" : ""} · ${euros(ligne.somme)}`
                           : `${prefixeEffectif(l)} · à compléter`}
@@ -325,7 +326,7 @@ export default function NewCommandeModal({
                     }
                     disabled={lots.length === 1}
                     aria-label={`Supprimer le lot ${i + 1}`}
-                    className="flex w-12 flex-none items-center justify-center text-ink-faint transition-colors hover:bg-surface-container hover:text-error disabled:opacity-30"
+                    className="flex w-12 flex-none items-center justify-center text-ink-3 transition-colors hover:bg-surface-2 hover:text-neg disabled:opacity-30"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -334,7 +335,7 @@ export default function NewCommandeModal({
                 {estOuvert && (
                   // Un champ par ligne sur mobile : quatre champs côte à côte à
                   // 390 px tronquaient « Sac à dos » en « sac a c ».
-                  <div className="space-y-3 border-t border-line bg-surface-soft p-3">
+                  <div className="space-y-3 border-t border-line bg-surface-2 p-3">
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div>
                         <label className={label} htmlFor={`marque-${l.id}`}>
@@ -410,7 +411,7 @@ export default function NewCommandeModal({
                     <div
                       role="radiogroup"
                       aria-label={`Mode de saisie du lot ${i + 1}`}
-                      className="grid grid-cols-2 gap-1 rounded-lg bg-surface p-1"
+                      className="grid grid-cols-2 gap-1 rounded-md bg-surface p-1"
                     >
                       {(
                         [
@@ -424,16 +425,16 @@ export default function NewCommandeModal({
                           role="radio"
                           aria-checked={l.mode === v}
                           onClick={() => majLot(l.id, { mode: v })}
-                          className={`min-h-[44px] rounded-md px-3 py-1.5 text-left transition-colors ${
+                          className={`min-h-11 rounded-md px-3 py-1.5 text-left transition-colors ${
                             l.mode === v
-                              ? "bg-surface-soft shadow-card"
-                              : "text-ink-muted hover:bg-surface-soft/60"
+                              ? "bg-surface-2"
+                              : "text-ink-2 hover:bg-surface-2/60"
                           }`}
                         >
-                          <span className="block text-body-md font-semibold">
+                          <span className="block text-base font-semibold">
                             {titre}
                           </span>
-                          <span className="block text-label-sm text-ink-faint">
+                          <span className="block text-xs font-medium text-ink-3">
                             {aide}
                           </span>
                         </button>
@@ -481,7 +482,7 @@ export default function NewCommandeModal({
                       <div className="space-y-2">
                         {l.pieces.map((p, j) => (
                           <div key={p.id} className="flex items-center gap-2">
-                            <span className="w-7 flex-none text-right font-mono text-label-sm text-ink-faint">
+                            <span className="w-7 flex-none text-right font-mono text-xs font-medium text-ink-3">
                               {j + 1}.
                             </span>
                             <input
@@ -514,7 +515,7 @@ export default function NewCommandeModal({
                               }
                               disabled={l.pieces.length === 1}
                               aria-label={`Supprimer la pièce ${j + 1}`}
-                              className="flex h-11 w-11 flex-none items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-surface-container hover:text-error disabled:opacity-30"
+                              className="flex h-11 w-11 flex-none items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-surface-2 hover:text-neg disabled:opacity-30"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -530,7 +531,7 @@ export default function NewCommandeModal({
                               ],
                             })
                           }
-                          className="flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-line text-body-md font-medium text-ink-muted transition-colors hover:border-primary hover:text-primary"
+                          className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-line text-base font-medium text-ink-2 transition-colors hover:border-accent hover:text-accent-text"
                         >
                           <Plus className="h-4 w-4" />
                           Ajouter une pièce
@@ -550,7 +551,7 @@ export default function NewCommandeModal({
               setLots((ls) => [...ls, l]);
               setOuvert(l.id);
             }}
-            className="flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-line text-body-md font-medium text-ink-muted transition-colors hover:border-primary hover:text-primary"
+            className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-line text-base font-medium text-ink-2 transition-colors hover:border-accent hover:text-accent-text"
           >
             <Plus className="h-4 w-4" />
             Ajouter un lot
@@ -559,31 +560,31 @@ export default function NewCommandeModal({
 
         {/* Récapitulatif : le garde-fou de saisie. Le coût total n'est pas un
             champ, il découle des lots — impossible de le contredire. */}
-        <div className="rounded-md border border-line bg-surface-soft px-3 py-2.5 text-body-md">
+        <div className="rounded-md border border-line bg-surface-2 px-3 py-2.5 text-base">
           {apercu ? (
             <dl className="space-y-1">
               {apercu.lignes.map((ligne) => (
                 <div key={ligne.id} className="flex justify-between gap-3">
-                  <dt className="min-w-0 truncate text-ink-muted">
+                  <dt className="min-w-0 truncate text-ink-2">
                     {ligne.nom}{" "}
-                    <span className="text-ink-faint">× {ligne.nb}</span>
+                    <span className="text-ink-3">× {ligne.nb}</span>
                   </dt>
                   <dd className="flex-none font-mono">{euros(ligne.somme)}</dd>
                 </div>
               ))}
               <div className="flex justify-between">
-                <dt className="text-ink-muted">Frais de livraison</dt>
+                <dt className="text-ink-2">Frais de livraison</dt>
                 <dd className="font-mono">{euros(apercu.frais)}</dd>
               </div>
               <div className="flex justify-between border-t border-line pt-1 font-semibold">
                 <dt>Total de la commande</dt>
-                <dd className="font-mono text-primary">
+                <dd className="font-mono text-accent-text">
                   {euros(apercu.total)}
                 </dd>
               </div>
             </dl>
           ) : (
-            <span className="text-ink-faint">
+            <span className="text-ink-3">
               Complète les lots pour voir le total.
             </span>
           )}
@@ -619,7 +620,7 @@ export default function NewCommandeModal({
           </div>
         </div>
 
-        <p className="text-label-sm text-ink-faint">
+        <p className="text-xs font-medium text-ink-3">
           {/* Pas d'exemple numéroté : les SKU ne repartent pas de 1, ils
               continuent la série existante de chaque préfixe. */}
           Série{lots.length > 1 ? "s" : ""} :{" "}
@@ -628,7 +629,7 @@ export default function NewCommandeModal({
         </p>
 
         {create.isError && (
-          <p role="alert" className="text-body-md text-error">
+          <p role="alert" className="text-base text-neg">
             {(create.error as Error).message}
           </p>
         )}
