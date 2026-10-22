@@ -53,3 +53,48 @@ export async function changerPrise(refId: string, ordre: number, generation: str
   });
   return res.ok ? null : lireErreur(res);
 }
+
+/**
+ * Replaces a photo of the board: the old one leaves the board (`ordre: null`,
+ * kept out of the table, never deleted here), then the new one takes its cell.
+ * If nothing took the cell, the old photo goes back to it. Resolves to null on
+ * success, "servie" when the API refuses (409: the photo gave a variant), or
+ * the message to show.
+ */
+export async function remplacerPhoto({
+  cle,
+  generation,
+  photo,
+  fichier,
+}: {
+  cle: string;
+  generation: string | null;
+  photo: { id: string; ordre: number };
+  fichier: File;
+}): Promise<null | "servie" | string> {
+  const p = await preparer(fichier);
+  if (!p.ok) return `${p.nom} : ${p.erreur}`;
+  const sortie = await fetch(`/api/studio/references/${photo.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ordre: null, generation }),
+  }).catch(() => null);
+  if (!sortie) return "Connexion perdue : la photo reste à sa place.";
+  if (sortie.status === 409) return "servie";
+  if (!sortie.ok) return `Remplacement impossible : ${await lireErreur(sortie)}`;
+
+  const form = new FormData();
+  form.set("origine", "studio");
+  form.set("cle", cle);
+  if (generation) form.set("generation", generation);
+  form.append("photo", p.jpeg, `${p.empreinte}.jpg`);
+  form.append("empreinte", p.empreinte);
+  form.append("ordre", String(photo.ordre));
+  const res = await fetch("/api/studio/references", { method: "POST", body: form }).catch(() => null);
+  const j = res?.ok ? ((await res.json().catch(() => null)) as { conservees?: number } | null) : null;
+  if (j?.conservees) return null;
+  // Nothing took the cell: the old photo goes back to it.
+  await changerPrise(photo.id, photo.ordre, generation).catch(() => null);
+  if (res?.ok) return "Cette photo est déjà sur la planche : l’ancienne reste à sa place.";
+  return `Remplacement impossible${res ? ` : ${await lireErreur(res)}` : " : connexion perdue"}. L’ancienne photo reste à sa place.`;
+}

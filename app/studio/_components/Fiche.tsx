@@ -1,221 +1,163 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, ChevronDown, Save } from "lucide-react";
-import { toast } from "sonner";
-import { Frame, Module } from "@/components/console";
-import { detailsEnLignes } from "@/lib/studioAngles";
+import { useEffect, useState } from "react";
+
+import { Frame } from "@/components/console";
+import { useMouvementReduit } from "@/lib/useMouvementReduit";
 import { MODELE_MANUEL } from "@/lib/studioFiche";
 import type { DonneesFiche } from "@/lib/studioServeur";
-import { BandeauSacbase, btn, champ } from "../_ui";
-import { lireErreur } from "./envoi";
+
+import { ETAPES, prochaineAction, type Etape } from "../_parcours";
+import { BandeauSacbase } from "../_ui";
+import ApercuPrompt from "./ApercuPrompt";
+import { CarteProchaineAction, EnTete } from "./EnTeteFiche";
 import FileAJuger from "./FileAJuger";
-import ImportPrises from "./ImportPrises";
-import { demanderAvis } from "./lancer";
-import TableauCases from "./TableauCases";
+import Generation from "./Generation";
+import Planche from "./Planche";
+import { idEtape } from "./SectionEtape";
+import TableauAngles from "./TableauAngles";
 import { useModeles } from "./useModeles";
+import { useAvisIA, useChoixCases, useDecisions } from "./useParcours";
+import Validees from "./Validees";
 
 type AvecDate<T> = Omit<T, "createdAt"> & { createdAt: string };
 export type FicheClient = Omit<DonneesFiche, "essais"> & { essais: AvecDate<DonneesFiche["essais"][number]>[] };
 export type EssaiClient = FicheClient["essais"][number];
 
-const STATUT_LIBELLE: Record<string, string> = {
-  "En stock": "photos à préparer",
-  "Photos prêtes": "photos prêtes",
-  "En vente": "en vente",
-  Vendu: "vendu",
-};
-
 /**
- * /studio/[cle] — piste B : la prochaine action en haut (les images à juger),
- * puis le tableau photo × prompt d'angle pour préparer le prochain sac.
+ * /studio/[cle] — the sheet opens on the NEXT ACTION, then the five steps in
+ * work order (photos → angles → generation → judging → validated). The step
+ * holding the next action is unfolded; the others show their state in one line.
  */
 export default function Fiche({ fiche }: { fiche: FicheClient }) {
-  const router = useRouter();
+  const reduit = useMouvementReduit();
   const modeles = useModeles();
   const { coloris } = fiche;
   const [cible, setCible] = useState<string | null>(fiche.cibles[0] ?? null);
   const cibleValide = cible && fiche.cibles.includes(cible) ? cible : fiche.cibles[0] ?? null;
+  const choix = useChoixCases(fiche, cibleValide);
+  const avis = useAvisIA();
+  const [courantId, setCourantId] = useState<string | null>(null);
+  const [apercu, setApercu] = useState<{ ouvert: boolean; angleId: string | null }>({ ouvert: false, angleId: null });
 
   const parId = new Map((modeles.catalogue?.modeles ?? []).map((m) => [m.id, m]));
   const nomDe = (id: string) => (id === MODELE_MANUEL ? "Dépôt manuel (Gemini)" : parId.get(id)?.nom ?? id);
 
-  // ── Avis IA : un à la fois, dans l'ordre d'arrivée ────────────────────────
-  const [avisEnCours, setAvisEnCours] = useState<Set<string>>(new Set());
-  const fileAvis = useRef<string[]>([]);
-  const enMarche = useRef(false);
-  async function pomper() {
-    if (enMarche.current) return;
-    enMarche.current = true;
-    while (fileAvis.current.length > 0) {
-      const id = fileAvis.current.shift()!;
-      setAvisEnCours((s) => new Set(s).add(id));
-      await demanderAvis(id, () => router.push("/compte"));
-      setAvisEnCours((s) => {
-        const n = new Set(s);
-        n.delete(id);
-        return n;
-      });
-      router.refresh();
-    }
-    enMarche.current = false;
-  }
-  const lancerAvis = (ids: string[]) => {
-    fileAvis.current.push(...ids.filter((id) => !fileAvis.current.includes(id)));
-    void pomper();
-  };
+  const decisions = useDecisions(fiche, (id) => {
+    setCourantId(id);
+    setOuvertes((o) => new Set(o).add("a-juger"));
+  });
 
   const file = fiche.essais
-    .filter((e) => e.decision === null && !e.purge)
+    .filter((e) => e.decision === null && !e.purge && !decisions.masquees.has(e.id))
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
-  // Un essai sans avis (avis échoué, page rechargée) : relancé une fois à l'ouverture.
-  const relances = useRef(false);
-  useEffect(() => {
-    if (relances.current) return;
-    relances.current = true;
-    const sansAvis = file.filter((e) => e.verifIA === null).map((e) => e.id);
-    if (sansAvis.length > 0) lancerAvis(sansAvis);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- une seule fois, à l'ouverture
-  }, []);
+  const action = prochaineAction({
+    photos: fiche.lignes.length,
+    angles: fiche.angles.length,
+    aJuger: file.length,
+    cible: cibleValide,
+    choisies: choix.choisies.length,
+    sansImage: choix.sansImage,
+    validees: choix.pretes,
+  });
 
-  const libres = Object.values(fiche.cases).filter((c) => c.kind === "libre").length;
-  const total = Object.keys(fiche.cases).length;
+  // The step of the next action is unfolded at opening; later changes of the
+  // next action do not fold anything (no layout jump while working).
+  const [ouvertes, setOuvertes] = useState<ReadonlySet<Etape>>(() => new Set([action.etape]));
+  const basculer = (e: Etape) =>
+    setOuvertes((o) => {
+      const n = new Set(o);
+      if (n.has(e)) n.delete(e);
+      else n.add(e);
+      return n;
+    });
+
+  const [aFaireDefiler, setAFaireDefiler] = useState<Etape | null>(null);
+  useEffect(() => {
+    if (!aFaireDefiler) return;
+    const el = document.getElementById(idEtape(aFaireDefiler));
+    el?.scrollIntoView({ behavior: reduit ? "auto" : "smooth", block: "start" });
+    el?.querySelector<HTMLButtonElement>("h2 button")?.focus({ preventScroll: true });
+    setAFaireDefiler(null);
+  }, [aFaireDefiler, reduit]);
+  const ouvrir = (e: Etape) => {
+    setOuvertes((o) => new Set(o).add(e));
+    setAFaireDefiler(e);
+  };
+
+  const validees = fiche.essais.filter((e) => (decisions.decisionDe(e.id) ?? e.decision) === "valide").length;
+  const resumes: Record<Etape, string> = {
+    photos: `${fiche.lignes.length} / 15`,
+    angles: cibleValide ? `${choix.choisies.length} choisies` : "—",
+    generation: cibleValide ? `pour ${cibleValide}` : "aucun sac",
+    "a-juger": String(file.length),
+    validees: String(validees),
+  };
+
+  const props = (e: Etape) => ({
+    numero: ETAPES.indexOf(e) + 1,
+    ouverte: ouvertes.has(e),
+    courante: action.etape === e,
+    onBasculer: () => basculer(e),
+  });
 
   return (
     <Frame>
       <BandeauSacbase etat={fiche.sacbase} />
 
-      <div>
-        <Link
-          href="/studio"
-          className="inline-flex h-10 items-center gap-2 rounded-full border border-line bg-surface pl-3 pr-4 text-base font-semibold text-ink transition-colors hover:border-line-strong"
-        >
-          <ArrowLeft size={17} aria-hidden /> Tous les coloris
-        </Link>
-      </div>
+      <EnTete
+        fiche={fiche}
+        cible={cibleValide}
+        onCible={setCible}
+        onApercu={() => setApercu({ ouvert: true, angleId: null })}
+      />
 
-      <Module className="p-[22px]">
-        <div className="flex flex-wrap items-center gap-5">
-          <div className="flex h-[92px] w-[92px] flex-none items-center justify-center overflow-hidden rounded-lg border border-line bg-surface">
-            {fiche.vignette ? (
-              // eslint-disable-next-line @next/next/no-img-element -- relais privé /api/studio/vignette
-              <img src={fiche.vignette} alt={`Vignette SacBase ${coloris.coloris}`} className="h-[84px] w-auto object-contain" />
-            ) : (
-              <span className="font-mono text-xs text-ink-2">{coloris.modele}</span>
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="font-mono text-xs tracking-[0.14em] text-ink-2">
-                {[fiche.generation, coloris.modele].filter(Boolean).join(" · ")}
-              </span>
-            </div>
-            <h1 className="mt-0.5 text-xl font-bold leading-tight tracking-[-0.02em]">{coloris.coloris || coloris.cle}</h1>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {fiche.sacs.length === 0 && <span className="text-sm text-warn">Hors catalogue SacBase</span>}
-              {fiche.sacs.map((s) => {
-                const estCible = s.sku === cibleValide;
-                const choisissable = fiche.cibles.includes(s.sku);
-                return (
-                  <button
-                    key={s.sku}
-                    type="button"
-                    disabled={!choisissable}
-                    aria-pressed={estCible}
-                    title={choisissable ? "Préparer les photos de ce sac" : s.statut}
-                    onClick={() => setCible(s.sku)}
-                    className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors disabled:cursor-default ${
-                      estCible
-                        ? "border-accent bg-accent-soft text-ink"
-                        : "border-line bg-surface text-ink-2 enabled:hover:border-line-strong"
-                    }`}
-                  >
-                    <span className="font-mono font-bold text-ink">{s.sku}</span>
-                    {STATUT_LIBELLE[s.statut] ?? s.statut.toLowerCase()}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div className="flex gap-2.5">
-            <Kpi titre="VRAIES PHOTOS" valeur={String(fiche.lignes.length)} />
-            <Kpi titre="VARIANTES LIBRES" valeur={String(libres)} suffixe={` / ${total}`} />
-            <Kpi titre="À JUGER" valeur={String(file.length)} alerte={file.length > 0} />
-          </div>
-        </div>
-        <DetailsVerifies cle={coloris.cle} details={coloris.details} />
-      </Module>
+      <CarteProchaineAction action={action} resumes={resumes} onOuvrir={ouvrir} />
 
-      <ImportPrises cle={coloris.cle} generation={fiche.generation} lignes={fiche.lignes} />
+      <Planche
+        {...props("photos")}
+        cle={coloris.cle}
+        generation={fiche.generation}
+        lignes={fiche.lignes}
+        servies={new Set(fiche.essais.map((e) => e.referenceId))}
+      />
+      <TableauAngles
+        {...props("angles")}
+        fiche={fiche}
+        cible={cibleValide}
+        choix={choix}
+        onApercu={(angleId) => setApercu({ ouvert: true, angleId })}
+      />
+      <Generation
+        {...props("generation")}
+        fiche={fiche}
+        cible={cibleValide}
+        choix={choix}
+        modeles={modeles}
+        onNouveaux={(ids) => avis.demander(ids)}
+        onVoirAngles={() => ouvrir("angles")}
+      />
+      <FileAJuger
+        {...props("a-juger")}
+        fiche={fiche}
+        file={file}
+        courantId={courantId}
+        onCourant={setCourantId}
+        nomDe={nomDe}
+        catalogue={parId}
+        avis={avis}
+        decisions={decisions}
+      />
+      <Validees {...props("validees")} fiche={fiche} cible={cibleValide} decisions={decisions} nomDe={nomDe} />
 
-      {file.length > 0 && (
-        <FileAJuger fiche={fiche} file={file} nomDe={nomDe} catalogue={parId} avisEnCours={avisEnCours} onAvis={(id) => lancerAvis([id])} />
-      )}
-
-      <TableauCases fiche={fiche} cible={cibleValide} modeles={modeles} onNouveaux={lancerAvis} />
+      <ApercuPrompt
+        open={apercu.ouvert}
+        onOpenChange={(ouvert) => setApercu((a) => ({ ...a, ouvert }))}
+        promptMaitre={fiche.promptMaitre}
+        angles={fiche.angles}
+        angleInitial={apercu.angleId}
+      />
     </Frame>
-  );
-}
-
-function Kpi({ titre, valeur, suffixe, alerte = false }: { titre: string; valeur: string; suffixe?: string; alerte?: boolean }) {
-  return (
-    <div className={`min-w-32 rounded-lg px-4 py-3 ${alerte ? "bg-warn-soft" : "bg-surface-2"}`}>
-      <div className="font-mono text-xs tracking-[0.14em] text-ink-2">{titre}</div>
-      <div className="mt-1 font-mono text-xl font-bold leading-none">
-        {valeur}
-        {suffixe && <span className="text-base font-medium text-ink-2">{suffixe}</span>}
-      </div>
-    </div>
-  );
-}
-
-/** Les détails que l'avis IA vérifie, un par ligne. Repliés : ils ne servent qu'au contrôle. */
-function DetailsVerifies({ cle, details }: { cle: string; details: string }) {
-  const router = useRouter();
-  const [ouvert, setOuvert] = useState(false);
-  const [texte, setTexte] = useState(details);
-  const [envoi, setEnvoi] = useState(false);
-  const n = detailsEnLignes(details).length;
-
-  async function enregistrer() {
-    if (texte === details || envoi) return;
-    setEnvoi(true);
-    const res = await fetch(`/api/studio/coloris/${encodeURIComponent(cle)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ details: texte }),
-    });
-    setEnvoi(false);
-    if (!res.ok) toast.error(await lireErreur(res));
-    router.refresh();
-  }
-
-  return (
-    <div className="mt-4 border-t border-line pt-3">
-      <button type="button" aria-expanded={ouvert} onClick={() => setOuvert((o) => !o)} className="inline-flex items-center gap-1.5 text-base font-semibold text-ink-2 hover:text-ink">
-        <ChevronDown size={15} className={`transition-transform ${ouvert ? "" : "-rotate-90"}`} />
-        Détails vérifiés par l’IA <span className="font-mono text-xs font-medium">{n}</span>
-      </button>
-      {ouvert && (
-        <div className="mt-2 flex flex-col gap-2">
-          <p className="text-sm text-ink-2">Un par ligne. L’avis IA contrôle chacun sur l’image générée ; ils ne partent pas dans le prompt.</p>
-          <textarea
-            value={texte}
-            onChange={(e) => setTexte(e.target.value)}
-            rows={4}
-            placeholder={"patch ELITE côté gauche\nswoosh blanc cassé\nzip noir mat"}
-            className={`${champ} font-mono text-sm`}
-          />
-          <div>
-            <button type="button" className={btn} disabled={texte === details || envoi} onClick={() => void enregistrer()}>
-              <Save size={14} /> {envoi ? "Enregistrement…" : "Enregistrer"}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
   );
 }

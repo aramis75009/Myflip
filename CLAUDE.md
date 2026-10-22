@@ -187,11 +187,35 @@ assoupli le 20/10), maquettes : projet Claude Design « Fiche coloris -
 lisibilite », tour 2. Desktop uniquement : les règles mobile de ce fichier ne
 s'appliquent pas à ces écrans.
 
-- **Écrans** : `/studio` (accueil : filtres V1/V2/V3, « Doublons chez moi »,
-  « À juger », « À photographier », vignettes via `/api/studio/vignette`),
-  `/studio/[cle]` (fiche : file « À juger », puis tableau **une ligne par vraie
-  photo × une colonne par prompt d'angle**), `/studio/bilan`, et l'onglet
-  « Studio » de `/parametres` (`?onglet=studio`, `components/parametres/PromptsStudio.tsx`).
+- **Écrans** : `/studio` (catalogue rangé par prochaine action : « Juger 3 images »,
+  « Photographier le sac », « Générer pour SDN3 », « Rien à préparer » ; filtres
+  génération / filtre / recherche **dans l'URL**, `?generation=V2&filtre=a_juger&q=…`),
+  `/studio/[cle]` (fiche, refaite le 22/10 : carte **« Prochaine action »** en haut,
+  puis cinq étapes repliables dans l'ordre du travail — Photos (planche), Angles
+  (tableau **une ligne par vraie photo × une colonne par prompt d'angle**, sans
+  sélecteur de prise), Génération, À juger, Validées ; seule l'étape de la
+  prochaine action est dépliée à l'ouverture), `/studio/bilan`, et l'onglet
+  « Studio » de `/parametres` (`?onglet=studio`, `components/parametres/PromptsStudio.tsx`),
+  joignable depuis la fiche (« Réglages du Studio ») et la sous-navigation.
+  Logique pure du parcours : `app/studio/_parcours.ts` (phrase d'action, prochaine
+  action, filtres d'URL, répartition d'un dépôt) et `app/studio/_decisions.ts`.
+- ⚠️ **V / R ne partent pas tout de suite** : l'image quitte la file, un toast
+  « Annuler » de 5 s s'affiche, et le `PATCH` n'est envoyé qu'après
+  (`DecisionsDifferees`) ; quitter la page envoie ce qui attend (`keepalive`).
+  Un « Annuler » après l'envoi remet la décision à `null`. Les tests e2e qui
+  pressent V ou R DOIVENT intercepter `/api/studio/essais/**`.
+- **Planche** : une seule façon de ranger (glisser ; au clavier, menu de la photo
+  « Déplacer vers… »). Un dépôt remplit les cases libres et nomme le surplus.
+  « Retirer » = `DELETE` ; « Remplacer » sort l'ancienne de la planche (`ordre: null`,
+  gardée hors tableau) puis dépose la nouvelle. Une photo qui a servi ne se retire ni
+  ne se remplace (409, et le menu le dit avant).
+- **Avis IA** : plus jamais lancé à l'ouverture d'une fiche (c'était payant) ;
+  seulement après une génération, ou par « Demander l'avis ». Un échec reste
+  affiché (« Avis IA en échec », distinct de « Pas encore d'avis ») le temps de la
+  session : la route ne l'enregistre pas encore.
+- **Sélecteur de modèles** : `app/studio/_components/ChoixModele.tsx` est
+  provisoire ; le vrai sélecteur se branche dans l'emplacement
+  `data-emplacement="selecteur-modeles"` de `Generation.tsx`.
 - **Prompts** : un **prompt maître** par compte (`StudioReglages`), collé une
   fois par conversation Gemini, placé en tête de chaque appel API ; des **prompts
   d'angle** courts (`StudioAngle`, « Angle: … »). Aucun amorçage : Aramis les
