@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getUserId, notFound, unauthorized } from "@/lib/apiAuth";
 import { detailsEnLignes } from "@/lib/studioAngles";
 import { lireImageEnBase64 } from "@/lib/studioBlob";
-import { referencesPourAngle } from "@/lib/studioFiche";
+import { referencesPourAngle, scoreVerif } from "@/lib/studioFiche";
 import { StudioVerifError, verifyGeneratedImage } from "@/lib/studioVerif";
 
 export const runtime = "nodejs";
@@ -13,10 +14,28 @@ export const maxDuration = 60;
 type Ctx = { params: Promise<{ id: string }> };
 
 /**
+ * Range l'échec dans `verifIA`, sauf si un avis lisible y est déjà : un échec
+ * ne fait pas oublier un avis obtenu. Best-effort : une base indisponible ne
+ * change pas la réponse d'erreur.
+ */
+async function rangerEchec(id: string, userId: string, code: string, message: string, actuel: unknown): Promise<void> {
+  if (scoreVerif(actuel) !== null) return;
+  const erreur = { erreur: { code, message: message.slice(0, 500) } } satisfies Prisma.InputJsonObject;
+  await prisma.studioEssai
+    .updateMany({ where: { id, coloris: { userId } }, data: { verifIA: erreur } })
+    .catch((e) => console.error("[studio] échec de vérification non rangé :", e instanceof Error ? e.name : "erreur"));
+}
+
+/**
  * POST /api/studio/essais/[id]/verifier — note l'essai avec le modèle de
  * vision (texte JSON, jamais de génération d'image) et range le résultat dans
  * `verifIA`. Les erreurs sortent avec leur `code` (missing_key, no_credits…)
  * pour que l'écran puisse renvoyer vers « Mon compte ».
+ *
+ * Un ÉCHEC de la vérification est rangé lui aussi dans `verifIA`, sous la forme
+ * `{ erreur: { code, message } }` (colonne Json, sans migration) : après un
+ * rechargement, l'écran distingue « Avis IA en échec » de « pas encore
+ * d'avis ». Un avis lisible déjà en place n'est jamais écrasé par un échec.
  */
 export async function POST(_req: NextRequest, { params }: Ctx) {
   const userId = await getUserId();
@@ -27,6 +46,7 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
     where: { id, coloris: { userId } },
     select: {
       urlImage: true,
+      verifIA: true,
       reference: { select: { id: true, role: true, createdAt: true, urlImage: true } },
       angle: { select: { angle: true, roleReference: true } },
       coloris: {
@@ -76,9 +96,11 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
   } catch (err) {
     if (err instanceof StudioVerifError) {
       const status = err.code === "missing_key" || err.code === "invalid_input" ? 400 : 502;
+      await rangerEchec(id, userId, err.code, err.message, essai.verifIA);
       return NextResponse.json({ error: err.message, code: err.code }, { status });
     }
     console.error("POST /api/studio/essais/[id]/verifier", err instanceof Error ? err.name + ": " + err.message : "erreur");
+    await rangerEchec(id, userId, "provider", "Vérification impossible.", essai.verifIA);
     return NextResponse.json({ error: "Vérification impossible.", code: "provider" }, { status: 500 });
   }
 }

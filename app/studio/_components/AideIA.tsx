@@ -18,8 +18,8 @@ function lireVerif(v: unknown): Verif | null {
 
 /**
  * A failure kept by the server inside `verifIA` (`{ erreur: { code, message } }`,
- * the shape proposed in docs/refonte/contrat-studio-api.md, question 3), once
- * the route stores one. Until then a failure only lives in this session.
+ * written by POST /api/studio/essais/[id]/verifier): after a reload, « Avis IA
+ * en échec » stays distinct from « pas encore d'avis ».
  */
 export function echecRange(v: unknown): string | null {
   if (typeof v !== "object" || v === null) return null;
