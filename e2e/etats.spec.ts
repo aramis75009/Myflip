@@ -1430,8 +1430,11 @@ const ETATS: DefEtat[] = [
       await cher.click();
       await expect(cher).toHaveAttribute("aria-pressed", "true");
       await c.capture("modele-cher");
-      const autre = page.getByRole("combobox", { name: "Autre modèle" });
-      await autre.selectOption({ index: 1 });
+      // Un second modèle, trouvé par la recherche : la sélection devient une comparaison.
+      await page.getByRole("searchbox", { name: "Rechercher un modèle" }).fill("seedream");
+      const seedream = page.getByRole("button", { name: /^ByteDance Seed: Seedream/ });
+      await seedream.click();
+      await expect(seedream).toHaveAttribute("aria-pressed", "true");
       await c.capture("autre-modele");
     },
   },

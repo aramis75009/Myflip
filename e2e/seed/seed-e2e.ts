@@ -26,8 +26,12 @@
  *    /calendrier (ventes sur le mois en cours et les mois précédents),
  *    /statistiques (7 et 30 jours glissants, cadence, jours de la semaine),
  *    marges négatives sur les polos Lacoste (commande B).
- *  - StudioReglages (prompt maître) : aperçu du prompt dans la fiche coloris,
- *    onglet Studio de /parametres avec sa date de modification.
+ *  - StudioReglages (prompt maître, budget par sac de 0,30 €) : aperçu du
+ *    prompt dans la fiche coloris, onglet Studio de /parametres avec sa date
+ *    de modification. Le PETIT budget fait exister les deux cas du devis :
+ *    « Qwen » tient un sac complet (0,24 €) et un lancement de quelques prises,
+ *    « E2E: Modèle cher » dépasse dès 3 prises (0,117 € l'image) et demande
+ *    la confirmation qui affiche le montant.
  *  - StudioAngle (4 actifs, 3 archivés) : 4 colonnes du tableau de la fiche,
  *    cases utilisées par angle dans /parametres?onglet=studio, angles archivés
  *    et versionnement dans /studio/bilan.
@@ -40,12 +44,15 @@
  *    rangées), prises V1 (black-pink, navy-orange) et V3 (elite-v3-black-gold),
  *    et 2 photos ORPHELINES (SDN11, hors catalogue) : bandeau « 2 photos non
  *    rattachées » de l'accueil, qui persiste d'un passage à l'autre.
- *  - StudioEssai (20) : file « À juger » de black-pink (3 images, les 3
+ *  - StudioEssai (24) : file « À juger » de black-pink (3 images, les 3
  *    verdicts IA : ok, à corriger, rejet), cases « vente », « validée »,
  *    « à juger » et « libre » (case libérée par un rejet), corrections via
  *    essaiParentId, images purgées (urlImage ""), coûts connus, estimés
  *    seulement et inconnus, essai « au jeton », plusieurs modèles sur un même
- *    lancementId, 2 essais du banc de test (angles archivés). Tout essai à juger
+ *    lancementId, 2 essais du banc de test (angles archivés), une COMPARAISON
+ *    à juger sur navy-orange (la même case par 3 modèles d'un même lancement,
+ *    dont Qwen et Seedream, du faux catalogue), et 2 essais Qwen décidés sur
+ *    elite (taux de réussite réel dans le sélecteur). Tout essai à juger
  *    porte un verifIA : sinon la fiche relance seule la vérification
  *    (POST /verifier, donc OpenRouter) à l'ouverture.
  *  - StudioEchec (3 : securite, no_image, incertain) et StudioModeleFavori (2) :
@@ -490,6 +497,9 @@ const MODELES = {
   GPT: "openai/gpt-5-image-mini",
   RIV: "sourceful/riverflow-v2-max-preview",
   KREA: "krea/k3-edit",
+  // Au faux catalogue OpenRouter (e2e/mocks/openrouter.mjs) : leur nom et leur prix s'affichent.
+  QWEN: "qwen/qwen-image-2.1-turbo",
+  SEED: "bytedance-seed/seedream-5-0-flash",
 } as const;
 
 const PROMPT_MAITRE = `You are a product photographer shooting second-hand Nike Elite backpacks for an online marketplace.
@@ -662,8 +672,10 @@ const ESSAIS: SpecEssai[] = [
   // ── black-pink, ancienne version de l'angle A1 ─────────────────────────────
   { id: "E13", coloris: "bp", ref: "bp01", angle: "A1v1", modele: MODELES.G25, numero: 1, decision: "rejete", purge: true, verif: verif([[DETAILS_BP[1], "derive", "Lettrage déformé."]], true, 47, "a_corriger"), estime: 0.039, reel: 0.0388, lancement: "lanc-00", jour: 15, heure: 10, minute: 0 },
   { id: "E14", coloris: "bp", ref: "bp01", angle: "A1v1", modele: MODELES.G25, numero: 2, decision: "valide", skuCible: "SDN1", parent: "E13", verif: verifOk(89), estime: 0.039, reel: 0.0388, lancement: "lanc-00", jour: 15, heure: 10, minute: 10 },
-  // ── navy-orange ────────────────────────────────────────────────────────────
+  // ── navy-orange : une comparaison à juger (même case, même lancement, 3 modèles) ──
   { id: "E20", coloris: "nv", ref: "nv01", angle: "A1", modele: MODELES.G25, numero: 1, decision: null, skuCible: "SDN7", verif: VERIF_OK_84_NAVY, estime: 0.039, reel: 0.0388, lancement: "lanc-04", jour: 2, heure: 10, minute: 0 },
+  { id: "E21", coloris: "nv", ref: "nv01", angle: "A1", modele: MODELES.QWEN, numero: 1, decision: null, skuCible: "SDN7", verif: verif([["Swoosh orange brodé sur la poche avant", "derive", "Swoosh trop pâle."]], true, 62, "a_corriger"), estime: 0.0184, reel: 0.0184, lancement: "lanc-04", jour: 2, heure: 10, minute: 1 },
+  { id: "E22", coloris: "nv", ref: "nv01", angle: "A1", modele: MODELES.SEED, numero: 1, decision: null, skuCible: "SDN7", verif: VERIF_OK_84_NAVY, estime: 0.03, reel: null, lancement: "lanc-04", jour: 2, heure: 10, minute: 2 },
   // ── elite-v3-black-gold : plusieurs modèles sur un même lancement ──────────
   { id: "E30", coloris: "el", ref: "el01", angle: "A1", modele: MODELES.G25, numero: 1, decision: "valide", skuCible: "SDN9", verif: verifOk(92), estime: 0.039, reel: 0.0388, lancement: "lanc-05", jour: 4, heure: 16, minute: 0 },
   { id: "E31", coloris: "el", ref: "el02", angle: "A1", modele: MODELES.G25, numero: 2, decision: "valide", skuCible: "SDN9", verif: verifOk(87), estime: 0.039, reel: 0.0388, lancement: "lanc-05", jour: 4, heure: 16, minute: 5 },
@@ -672,6 +684,9 @@ const ESSAIS: SpecEssai[] = [
   { id: "E34", coloris: "el", ref: "el06", angle: "A2", modele: MODELES.RIV, numero: 3, decision: "valide", skuCible: "SDN8", parent: "E33", verif: verifOk(85), estime: 0.275, reel: 0.203, lancement: "lanc-06", jour: 3, heure: 11, minute: 20 },
   // Coût réel absent : le total de la fiche devient un minimum.
   { id: "E35", coloris: "el", ref: "el13", angle: "A4", modele: MODELES.G3P, numero: 1, decision: "valide", skuCible: "SDN8", verif: verifOk(93), estime: 0.1351, reel: null, lancement: "lanc-06", jour: 3, heure: 11, minute: 30 },
+  // Qwen (au faux catalogue), deux premiers coups décidés : 50 % dans le sélecteur.
+  { id: "E36", coloris: "el", ref: "el12", angle: "A3", modele: MODELES.QWEN, numero: 1, decision: "valide", skuCible: "SDN8", verif: verifOk(88), estime: 0.0184, reel: 0.0184, lancement: "lanc-07", jour: 2, heure: 15, minute: 0 },
+  { id: "E37", coloris: "el", ref: "el01", angle: "A2", modele: MODELES.QWEN, numero: 1, decision: "rejete", skuCible: "SDN9", purge: true, verif: verif([["Swoosh doré brodé sur la poche avant", "absent", "Swoosh absent."]], true, 35, "rejet"), estime: 0.0184, reel: 0.0184, lancement: "lanc-07", jour: 2, heure: 15, minute: 5 },
 ];
 
 type SpecEchec = {
@@ -695,6 +710,9 @@ const ECHECS: SpecEchec[] = [
 ];
 
 const FAVORIS = [MODELES.G25, MODELES.G3P];
+
+/** Budget par sac du compte demo (StudioReglages.budgetParSacEur), taux par défaut 0,86. */
+export const BUDGET_E2E_EUR = 0.3;
 
 // ── Nettoyage idempotent ────────────────────────────────────────────────────
 
@@ -885,7 +903,8 @@ export async function seedE2E(prisma: PrismaClient, maintenant: Date): Promise<v
 
 /** Tout le Studio du compte demo. Voir l'en-tête pour l'écran que chaque bloc fait apparaître. */
 async function semerStudio(prisma: PrismaClient, userId: string, J: Calendrier["J"]): Promise<void> {
-  await prisma.studioReglages.create({ data: { userId, promptMaitre: PROMPT_MAITRE, updatedAt: J(1) } });
+  // Petit budget par sac : la confirmation « au-dessus du budget » se teste sans un lancement de 15 prises.
+  await prisma.studioReglages.create({ data: { userId, promptMaitre: PROMPT_MAITRE, budgetParSacEur: BUDGET_E2E_EUR, updatedAt: J(1) } });
 
   const idAngle = (cle: CleAngle) => `e2e-angle-${cle.toLowerCase()}`;
   for (const a of ANGLES) {
