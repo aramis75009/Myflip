@@ -331,15 +331,25 @@ export async function chargerPromptsStudio(userId: string) {
 
 export type DonneesPromptsStudio = Awaited<ReturnType<typeof chargerPromptsStudio>>;
 
-/** Les essais du compte, pour le bilan, avec les libellés des angles et des coloris. */
+/** Les essais du compte, pour le bilan (dates et corrections comprises), avec les libellés des angles et des coloris. */
 export async function chargerBilan(userId: string) {
   const [essais, echecs, angles, coloris] = await Promise.all([
     prisma.studioEssai.findMany({
       where: { coloris: { userId } },
-      select: { colorisId: true, angleId: true, numero: true, decision: true, verifIA: true, modele: true, coutReelUsd: true },
+      select: {
+        colorisId: true,
+        angleId: true,
+        numero: true,
+        decision: true,
+        verifIA: true,
+        modele: true,
+        coutReelUsd: true,
+        essaiParentId: true,
+        createdAt: true,
+      },
     }),
-    prisma.studioEchec.findMany({ where: { userId }, select: { modele: true, code: true, coutReelUsd: true } }),
-    prisma.studioAngle.findMany({ where: { userId }, select: { id: true, nom: true, ordre: true } }),
+    prisma.studioEchec.findMany({ where: { userId }, select: { modele: true, code: true, coutReelUsd: true, createdAt: true } }),
+    prisma.studioAngle.findMany({ where: { userId }, select: { id: true, nom: true, ordre: true, archiveLe: true } }),
     prisma.studioColoris.findMany({ where: { userId }, select: { id: true, cle: true, modele: true, coloris: true } }),
   ]);
   return { essais, echecs, angles, coloris };
