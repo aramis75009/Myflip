@@ -199,6 +199,10 @@ s'appliquent pas à ces écrans.
   joignable depuis la fiche (« Réglages du Studio ») et la sous-navigation.
   Logique pure du parcours : `app/studio/_parcours.ts` (phrase d'action, prochaine
   action, filtres d'URL, répartition d'un dépôt) et `app/studio/_decisions.ts`.
+  ⚠️ **Aucun `loading.tsx` dans `app/studio/` ni `app/studio/[cle]/`** : un
+  squelette de segment enveloppe la fiche, le statut part avec lui (200) et une
+  clé inconnue ne répond plus 404 (`[cle]/not-found.tsx`). Le squelette du
+  catalogue est un `<Suspense>` dans `app/studio/page.tsx`.
 - ⚠️ **V / R ne partent pas tout de suite** : l'image quitte la file, un toast
   « Annuler » de 5 s s'affiche, et le `PATCH` n'est envoyé qu'après
   (`DecisionsDifferees`) ; quitter la page envoie ce qui attend (`keepalive`).
@@ -210,12 +214,28 @@ s'appliquent pas à ces écrans.
   gardée hors tableau) puis dépose la nouvelle. Une photo qui a servi ne se retire ni
   ne se remplace (409, et le menu le dit avant).
 - **Avis IA** : plus jamais lancé à l'ouverture d'une fiche (c'était payant) ;
-  seulement après une génération, ou par « Demander l'avis ». Un échec reste
-  affiché (« Avis IA en échec », distinct de « Pas encore d'avis ») le temps de la
-  session : la route ne l'enregistre pas encore.
-- **Sélecteur de modèles** : `app/studio/_components/ChoixModele.tsx` est
-  provisoire ; le vrai sélecteur se branche dans l'emplacement
-  `data-emplacement="selecteur-modeles"` de `Generation.tsx`.
+  seulement après une génération, ou par « Demander l'avis ». Un échec est rangé
+  dans `verifIA` (`{ erreur: { code, message } }`, sans migration, jamais
+  par-dessus un avis lisible) : « Avis IA en échec » reste distinct de « Pas
+  encore d'avis » après un rechargement.
+- **Sélecteur de modèles** (`SelecteurModeles.tsx`, logique pure
+  `app/studio/_modeles.ts`) : recherche, favoris épinglés, filtres « dans le
+  budget » / « déjà testé », tri par coût du sac ou par réussite ; pour chaque
+  modèle, prix par image, coût d'un sac complet (15 prises) en € contre le
+  budget (« Hors budget », « 2,1 × le budget »), réussite du premier coup et coût
+  réel moyen (`agregats` de `GET /api/studio/modeles` ; « jamais essayé », jamais
+  0 % sans décision). 1 à 3 modèles, mémorisés dans le navigateur ; catalogue en
+  panne ⇒ dernier relevé (serveur, sinon ce navigateur) et « Rafraîchir »
+  (`?rafraichir=1`).
+- **Comparaison** : 2 ou 3 modèles sur les mêmes cases en un lancement (un
+  `lancementId`). Dans « À juger », les images d'une même case et d'un même
+  lancement se jugent côte à côte (`Comparaison.tsx`, `app/studio/_comparaison.ts`) :
+  « Retenir celle-ci » valide l'une et REJETTE les autres (touches 1 / 2 / 3),
+  « Aucune ne convient » les rejette toutes ; différé de 5 s comme V / R.
+- **Historique d'une prise** (`HistoriquePrise.tsx`, `GET /api/studio/historique`) :
+  toutes les tentatives, rejets purgés et échecs compris. « Retenir cette
+  version » = DEUX appels : rejeter l'image qui tient la case, puis valider
+  celle-ci (remise en l'état si le second échoue).
 - **Prompts** : un **prompt maître** par compte (`StudioReglages`), collé une
   fois par conversation Gemini, placé en tête de chaque appel API ; des **prompts
   d'angle** courts (`StudioAngle`, « Angle: … »). Aucun amorçage : Aramis les
@@ -234,16 +254,20 @@ s'appliquent pas à ces écrans.
 - **Génération par API (19/10)** : `POST /api/studio/generations`, **une requête
   par modèle** en parallèle (`maxDuration = 300`), regroupées par `lancementId`.
   Modules : `lib/studioModeles.ts` (pur, isomorphe : tarif, estimation, devis,
-  seuil), `lib/studioCatalogue.ts` (`/images/models` + `/images/models/{id}/endpoints`
+  budget), `lib/studioCatalogue.ts` (`/images/models` + `/images/models/{id}/endpoints`
   pour le prix par image, cache 10 min, dernière bonne réponse, ne lève jamais),
   `lib/studioGeneration.ts` (`/images`, repli `chat/completions` sur 404/405,
   erreurs typées), `lib/studioLancement.ts` (orchestration à dépendances
   injectées, testée sans réseau). Catalogue et favoris : `GET /api/studio/modeles`,
   `POST|DELETE /api/studio/modeles/favoris`.
-- ⚠️ **Seuil de 0,10 $ par lancement** (les cases choisies × le modèle, `nbCases`), **vérifié
-  côté serveur** : total estimé > 0,10 $ strict, ou un seul tarif inconnu (« au
-  jeton », au mégapixel, absent) ⇒ 409 `confirmation_requise` sans `confirme:
-  true`. **Jamais un prix inventé** : l'estimation est un majorant (max des
+- ⚠️ **Budget par sac** (`StudioReglages.budgetParSacEur`, 1 € par défaut, et
+  `tauxEurParUsd`, 0,86 : réglables dans l'onglet Studio de /parametres et depuis
+  l'étape Génération, `PUT /api/studio/reglages`). Le devis d'un lancement (cases ×
+  modèles, `devisDuLancement`) est en euros et **vérifié côté serveur** : total
+  estimé > budget strict, ou un seul tarif inconnu (« au jeton », au mégapixel,
+  absent) ⇒ 409 `confirmation_requise` avec le devis, sans `confirme: true`. Le
+  bouton de confirmation affiche le montant au centime supérieur (« Confirmer
+  1,34 € »). Le seuil fixe de 0,10 $ n'existe plus. **Jamais un prix inventé** : l'estimation est un majorant (max des
   fournisseurs et variantes, coût par référence `input_reference` compris — il
   atteint 0,20 $ sur riverflow). Le coût réel (`usage.cost`) est rangé sur
   l'essai, null s'il manque, **jamais compté zéro**.
