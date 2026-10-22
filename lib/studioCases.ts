@@ -115,6 +115,23 @@ export function etatCase(essais: readonly EssaiCase[], statutDe: (sku: string) =
   return { kind: "libre" };
 }
 
+/**
+ * Comparaison de modèles : les requêtes d'un même lancement (même `lancementId`)
+ * visent la MÊME case, chacune avec un modèle. Elles partent ensemble, mais une
+ * qui démarre en retard verrait la case « à juger » à cause de l'essai d'un
+ * frère et se ferait refuser (409 `case_prise`). On écarte donc, du calcul de
+ * l'état de la case, les essais d'un AUTRE modèle du même lancement. Le même
+ * modèle sur le même lancement n'est pas écarté : un doublon (double clic)
+ * reste refusé. Les essais sans lancement (dépôts manuels) ne sont jamais écartés.
+ */
+export function sansFreresDuLancement<T extends { lancementId?: string | null; modele?: string }>(
+  essais: readonly T[],
+  lancementId: string,
+  modele: string,
+): T[] {
+  return essais.filter((e) => !(e.lancementId != null && e.lancementId === lancementId && e.modele !== undefined && e.modele !== modele));
+}
+
 export const cleCase = (referenceId: string, angleId: string) => `${referenceId}:${angleId}`;
 
 /** Les états de toutes les cases du tableau, par `cleCase`. */

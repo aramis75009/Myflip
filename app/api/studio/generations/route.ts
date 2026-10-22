@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getUserId, unauthorized } from "@/lib/apiAuth";
 import { deposerImage, lireImageEnBase64 } from "@/lib/studioBlob";
 import { trouverModele } from "@/lib/studioCatalogue";
-import { etatCase } from "@/lib/studioCases";
+import { etatCase, sansFreresDuLancement } from "@/lib/studioCases";
 import { numeroSuivant } from "@/lib/studioFiche";
 import { cleDuCompte, genererImage } from "@/lib/studioGeneration";
 import {
@@ -14,7 +14,7 @@ import {
   type CorpsGeneration,
   type DepsGeneration,
 } from "@/lib/studioLancement";
-import { lirePromptMaitre, statutsDesSkus } from "@/lib/studioServeur";
+import { lireBudget, lirePromptMaitre, statutsDesSkus } from "@/lib/studioServeur";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,11 +51,17 @@ async function chargerContexte(userId: string, c: CorpsGeneration): Promise<Cont
     parent = { id: p.id, modele: p.modele, image: p.urlImage ? enDataUrl(await lireImageEnBase64(p.urlImage, "generees", userId)) : null };
   }
 
-  // La case est-elle encore libre ? Mêmes règles que l'écran (lib/studioCases).
-  const essaisCase = await prisma.studioEssai.findMany({
-    where: { colorisId: coloris.id, angleId: angle.id, referenceId: reference.id },
-    select: { referenceId: true, angleId: true, decision: true, skuCible: true },
-  });
+  // La case est-elle encore libre ? Mêmes règles que l'écran (lib/studioCases),
+  // sauf que les essais d'un AUTRE modèle du même lancement ne la verrouillent
+  // pas : c'est la comparaison, une requête par modèle sur la même case.
+  const essaisCase = sansFreresDuLancement(
+    await prisma.studioEssai.findMany({
+      where: { colorisId: coloris.id, angleId: angle.id, referenceId: reference.id },
+      select: { referenceId: true, angleId: true, decision: true, skuCible: true, lancementId: true, modele: true },
+    }),
+    c.lancementId,
+    c.modele,
+  );
   const statuts = await statutsDesSkus(userId, essaisCase.flatMap((e) => (e.skuCible ? [e.skuCible] : [])));
   const etat = etatCase(essaisCase, (sku) => statuts.get(sku) ?? null);
 
@@ -76,6 +82,9 @@ function dependances(userId: string): DepsGeneration {
   return {
     chargerContexte,
     catalogue: (id) => trouverModele(id),
+    // Le budget et le taux sont ceux du COMPTE, relus ici : le corps de la requête n'en porte aucun.
+    budget: (uid) => lireBudget(uid),
+    maintenant: () => Date.now(),
     cle: (uid) => cleDuCompte(uid),
     generer: (d, apiKey) => genererImage(d, apiKey),
     deposer: (uid, img) => deposerImage("generees", uid, img.octets, undefined, img.mime),
@@ -115,11 +124,15 @@ function dependances(userId: string): DepsGeneration {
  * POST /api/studio/generations — UNE génération : une case (photo × prompt
  * d'angle) d'un lancement, avec un modèle.
  *
- * L'écran envoie une requête par case choisie ; chacune porte `nbCases`, la
- * liste des modèles, `lancementId` et `confirme`. Le devis est recalculé ici
- * sur tout le lancement : au-delà de 0,10 $, ou avec un tarif inconnu, sans
- * `confirme: true` ⇒ 409 `confirmation_requise` avec le devis, et rien n'est
- * payé. Une case déjà prise ⇒ 409 `case_prise` (seule une correction y génère).
+ * L'écran envoie une requête par case et par modèle ; chacune porte `nbCases`,
+ * la liste des modèles (1 à 3), `lancementId` (le même pour tout le lancement,
+ * recopié sur chaque essai) et `confirme`. Le devis est recalculé ici sur tout
+ * le lancement, avec le BUDGET PAR SAC du compte : au-delà du budget (en euros,
+ * au taux du compte), ou avec un tarif inconnu, sans `confirme: true` ⇒ 409
+ * `confirmation_requise` avec le devis (montant en euros), et rien n'est payé.
+ * Une case déjà prise ⇒ 409 `case_prise` (seule une correction y génère ; les
+ * essais d'un autre modèle du même lancement ne la prennent pas). La durée de
+ * l'appel (`dureeMs`) est rangée sur l'essai, ou sur l'échec.
  *
  * Clé OpenRouter du compte uniquement (`missing_key` sinon). L'image va au Blob
  * sous `generees/<userId>/` et ne repart jamais dans la réponse : l'écran la lit

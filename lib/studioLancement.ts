@@ -2,7 +2,16 @@ import "server-only";
 import { compilerCorrection } from "@/lib/studioAngles";
 import { promptVariante } from "@/lib/studioCases";
 import { StudioGenerationError, type DemandeImage, type GenerationErrorCode, type ImageGeneree } from "@/lib/studioGeneration";
-import { RATIO_STUDIO, devisLancement, estimerEssai, formatUsd, type Devis, type Estimation, type ModeleImage } from "@/lib/studioModeles";
+import {
+  RATIO_STUDIO,
+  devisDuLancement,
+  entreesEnvoyees,
+  formatEur,
+  placesPourPhotos,
+  type BudgetCompte,
+  type DevisMultiModeles,
+  type ModeleImage,
+} from "@/lib/studioModeles";
 
 /**
  * Lancement d'une génération du Studio IA : lecture du corps, contrôle du devis
@@ -10,10 +19,12 @@ import { RATIO_STUDIO, devisLancement, estimerEssai, formatUsd, type Devis, type
  *
  * Écart assumé n° 5 du plan : l'écran envoie une requête par modèle coché, en
  * parallèle, et chacune porte la liste COMPLÈTE des modèles. Le serveur
- * recalcule donc le devis sur tout le lancement et refuse, avant le moindre
- * appel payant, si le seuil exige une confirmation absente. C'est ici que la
- * règle du seuil est tenue côté serveur : un appel direct à la route ne la
- * contourne pas.
+ * recalcule donc le devis sur tout le lancement, avec le BUDGET PAR SAC du
+ * compte (en euros, converti au taux du compte), et refuse, avant le moindre
+ * appel payant, si une confirmation est exigée et absente : estimation au-delà
+ * du budget, ou un seul prix inconnu. C'est ici que la règle est tenue côté
+ * serveur : un appel direct à la route ne la contourne pas. Les requêtes d'un
+ * même lancement partagent `lancementId`, copié sur chaque essai ou échec.
  *
  * Tout ce qui touche la base, le Blob ou OpenRouter est injecté (`DepsGeneration`),
  * la route câble les vrais : le module se teste sans `vi.mock`.
@@ -22,7 +33,8 @@ import { RATIO_STUDIO, devisLancement, estimerEssai, formatUsd, type Devis, type
  * la réponse ne porte que l'essai (id, numéro, modèle, coûts).
  */
 
-export const MAX_MODELES_PAR_LANCEMENT = 6;
+/** Comparaison côte à côte : 1 à 3 modèles sur une même prise (PRD du 20/10). */
+export const MAX_MODELES_PAR_LANCEMENT = 3;
 /** Cases d'un même lancement : une fiche compte au plus 15 photos × quelques angles. */
 export const MAX_CASES_PAR_LANCEMENT = 60;
 
@@ -76,6 +88,8 @@ export type NouvelEssai = {
   coutReelUsd: number | null;
   lancementId: string;
   essaiParentId: string | null;
+  /** Durée de l'appel de génération (ms), jamais inventée. */
+  dureeMs: number | null;
 };
 
 /** Colonnes de `StudioEchec`. `code` : un `GenerationErrorCode`, ou « stockage ». */
@@ -89,12 +103,18 @@ export type NouvelEchec = {
   message: string;
   lancementId: string;
   coutReelUsd: number | null;
+  /** Durée de l'appel avant l'échec (ms). */
+  dureeMs: number | null;
 };
 
 export type DepsGeneration = {
   /** null si le coloris, l'angle ou l'essai parent n'est pas à ce compte. */
   chargerContexte(userId: string, c: CorpsGeneration): Promise<ContexteGeneration | null>;
   catalogue(id: string): Promise<ModeleImage | null>;
+  /** Budget par sac et taux du compte (`StudioReglages`, défauts si aucune ligne). */
+  budget(userId: string): Promise<BudgetCompte>;
+  /** Horloge en millisecondes, pour mesurer la durée de l'appel de génération. */
+  maintenant(): number;
   /** Lève `StudioGenerationError("missing_key")` sans clé propre au compte. */
   cle(userId: string): Promise<string>;
   generer(d: DemandeImage, apiKey: string): Promise<ImageGeneree>;
@@ -194,12 +214,6 @@ export function lireCorpsGeneration(body: unknown): CorpsGeneration | { erreur: 
 
 // ── Références ──────────────────────────────────────────────────────────────
 
-/** Places pour de vraies photos : le maximum du modèle, moins une pour l'image ratée d'une correction. */
-function placesPourPhotos(maxReferences: number, avecImageRatee: boolean): number {
-  const max = Number.isFinite(maxReferences) ? Math.floor(maxReferences) : 0;
-  return Math.max(0, max - (avecImageRatee ? 1 : 0));
-}
-
 /**
  * Les vraies photos qui partent, tronquées au maximum du modèle (dans l'ordre :
  * les premières sont les mieux cadrées). L'image ratée d'une correction n'est
@@ -214,42 +228,44 @@ export function referencesAEnvoyer(
   return { envoyees, tronquees: refs.length - envoyees.length };
 }
 
-/** Nombre d'images d'entrée réellement envoyées à ce modèle (image ratée comprise) : la base du devis. */
-function imagesEnvoyees(m: ModeleImage, nbPhotos: number, avecImageRatee: boolean): { photos: number; total: number } {
-  const photos = Math.min(Math.max(0, nbPhotos), placesPourPhotos(m.maxReferences, avecImageRatee));
-  return { photos, total: photos + (avecImageRatee ? 1 : 0) };
-}
-
 // ── Contrôle du lancement ───────────────────────────────────────────────────
 
 export type ControleLancement =
-  | { ok: true; devis: Devis }
+  | { ok: true; devis: DevisMultiModeles }
   | {
       ok: false;
       status: 400 | 409;
       code: "modele_inconnu" | "confirmation_requise" | "sans_reference";
-      devis?: Devis;
+      devis?: DevisMultiModeles;
       message: string;
     };
 
-function phraseDevis(d: Devis): string {
+/**
+ * La phrase du 409 : le montant en EUROS (le budget est en euros), le budget
+ * du compte, et ce qui manque quand un prix est inconnu. Jamais un montant
+ * rond en dessous du réel : c'est le centime supérieur.
+ */
+function phraseDevis(d: DevisMultiModeles): string {
   const s = d.inconnus > 1 ? "s" : "";
   const inconnus = `${d.inconnus} tarif${s} inconnu${s}`;
-  if (d.inconnus > 0 && d.totalConnuUsd === 0) return `Ce lancement compte ${inconnus} : confirmation requise.`;
+  const budget = `budget par sac : ${formatEur(d.budgetEur)}`;
+  if (d.inconnus > 0 && d.totalConnuEur === 0) return `Ce lancement compte ${inconnus} (${budget}) : confirmation requise.`;
   const plus = d.inconnus > 0 ? `, plus ${inconnus}` : "";
-  return `Ce lancement est estimé à ${formatUsd(d.totalConnuUsd)}${plus} : confirmation requise.`;
+  return `Ce lancement est estimé à ${formatEur(d.montantConfirmationEur)}${plus} (${budget}) : confirmation requise.`;
 }
 
 /**
  * Contrôle d'un lancement AVANT tout appel payant. `nbReferences` : les vraies
  * photos disponibles ; `avecImageRatee` : une correction, dont l'image ratée
  * s'ajoute en entrée. Le devis compte, par modèle, les entrées réellement
- * envoyées (après troncature) : c'est ce qui sera facturé.
+ * envoyées (après troncature) : c'est ce qui sera facturé. `budget` : le budget
+ * par sac et le taux du COMPTE, lus par l'appelant, jamais fournis par le client.
  */
 export function controlerLancement(p: {
   modeles: (ModeleImage | null)[];
   nbReferences: number;
   confirme: boolean;
+  budget: BudgetCompte;
   avecImageRatee?: boolean;
   /** Cases du lancement : chaque modèle génère une image par case. Défaut 1. */
   nbCases?: number;
@@ -270,9 +286,8 @@ export function controlerLancement(p: {
     };
   }
 
-  const estimations: Estimation[] = [];
   for (const m of modeles) {
-    const { photos, total } = imagesEnvoyees(m, p.nbReferences, avecImageRatee);
+    const { photos, total } = entreesEnvoyees(m, p.nbReferences, avecImageRatee);
     if (photos === 0) {
       return {
         ok: false,
@@ -289,11 +304,9 @@ export function controlerLancement(p: {
         message: `${m.nom} exige au moins ${m.minReferences} images de référence.`,
       };
     }
-    const estimation = estimerEssai(m, total);
-    for (let i = 0; i < nbCases; i++) estimations.push(estimation);
   }
 
-  const devis = devisLancement(estimations);
+  const devis = devisDuLancement({ modeles, nbCases, nbPhotos: p.nbReferences, avecImageRatee, budget: p.budget });
   if (devis.confirmationRequise && !p.confirme) {
     return { ok: false, status: 409, code: "confirmation_requise", devis, message: phraseDevis(devis) };
   }
@@ -334,6 +347,12 @@ const refus = (status: number, error: string, code: string, extra: Record<string
   body: { error, code, ...extra },
 });
 
+/** Durée entière en ms, jamais négative ni illisible (horloge qui recule) : null plutôt qu'un zéro inventé. */
+function dureeEntre(debut: number, fin: number): number | null {
+  if (!Number.isFinite(debut) || !Number.isFinite(fin) || fin < debut) return null;
+  return Math.round(fin - debut);
+}
+
 /**
  * Une génération : un modèle d'un lancement. Ordre, et pourquoi :
  *  1. contexte (coloris, angle, photos, parent) scopé par compte — sinon 404 ;
@@ -367,11 +386,12 @@ export async function executerGeneration(deps: DepsGeneration, userId: string, c
     if (promptCorrection === null) return refus(400, "Choisis au moins un détail à corriger.", "sans_detail");
   }
 
-  const modeles = await Promise.all(c.modeles.map((id) => deps.catalogue(id)));
+  const [modeles, budget] = await Promise.all([Promise.all(c.modeles.map((id) => deps.catalogue(id))), deps.budget(userId)]);
   const controle = controlerLancement({
     modeles,
     nbReferences: ctx.references.length,
     confirme: c.confirme,
+    budget,
     avecImageRatee: parent !== null,
     nbCases: c.nbCases,
   });
@@ -385,14 +405,14 @@ export async function executerGeneration(deps: DepsGeneration, userId: string, c
 
   const index = c.modeles.indexOf(c.modele);
   const modele = modeles[index] as ModeleImage;
-  // Les lignes du devis vont par modèle, `nbCases` fois chacune : la première du modèle suffit.
-  const estimation = controle.devis.lignes[index * c.nbCases];
+  // Le devis garde l'ordre de `c.modeles` : la ligne de CE modèle donne son estimation par image.
+  const estimationUsd = controle.devis.parModele[index].usdParImage;
   const { envoyees, tronquees } = referencesAEnvoyer(ctx.references, modele.maxReferences, parent !== null);
   const promptUtilise = promptCorrection ?? promptBase;
 
   if (parent) await deps.rejeterParent(parent.id);
 
-  const echec = async (code: string, message: string, coutReelUsd: number | null) => {
+  const echec = async (code: string, message: string, coutReelUsd: number | null, dureeMs: number | null) => {
     try {
       await deps.creerEchec({
         userId,
@@ -404,6 +424,7 @@ export async function executerGeneration(deps: DepsGeneration, userId: string, c
         message: message.slice(0, LONGUEUR_MAX_MESSAGE),
         lancementId: c.lancementId,
         coutReelUsd,
+        dureeMs,
       });
     } catch (e) {
       // La réponse utile est l'erreur de génération : une ligne d'échec perdue ne la masque pas.
@@ -422,6 +443,9 @@ export async function executerGeneration(deps: DepsGeneration, userId: string, c
   }
 
   let img: ImageGeneree;
+  // La durée mesurée est celle de l'appel de génération, ni le contrôle du devis ni le dépôt.
+  const debut = deps.maintenant();
+  const duree = () => dureeEntre(debut, deps.maintenant());
   try {
     img = await deps.generer(
       {
@@ -434,9 +458,10 @@ export async function executerGeneration(deps: DepsGeneration, userId: string, c
     );
   } catch (e) {
     if (!(e instanceof StudioGenerationError)) throw e;
-    await echec(e.code, e.message, e.coutUsd);
+    await echec(e.code, e.message, e.coutUsd, duree());
     return refus(statutErreur(e.code), e.message, e.code);
   }
+  const dureeMs = duree();
 
   let urlImage: string;
   try {
@@ -445,7 +470,7 @@ export async function executerGeneration(deps: DepsGeneration, userId: string, c
     // L'image est PAYÉE mais perdue : son coût doit quand même entrer au bilan.
     console.error(`[studio] dépôt de l'image générée impossible — modèle=${c.modele} : ${e instanceof Error ? e.name : "erreur"}`);
     const message = "Image générée mais impossible à ranger : réessaie plus tard.";
-    await echec("stockage", message, img.coutUsd);
+    await echec("stockage", message, img.coutUsd, dureeMs);
     return refus(502, message, "stockage");
   }
 
@@ -458,16 +483,17 @@ export async function executerGeneration(deps: DepsGeneration, userId: string, c
     source: "api",
     promptUtilise,
     urlImage,
-    coutEstimeUsd: estimation.usd,
+    coutEstimeUsd: estimationUsd,
     coutReelUsd: img.coutUsd,
     lancementId: c.lancementId,
     essaiParentId: parent?.id ?? null,
+    dureeMs,
   });
 
   return {
     status: 200,
     body: {
-      essai: { id: essai.id, numero: essai.numero, modele: c.modele, coutEstimeUsd: estimation.usd, coutReelUsd: img.coutUsd },
+      essai: { id: essai.id, numero: essai.numero, modele: c.modele, coutEstimeUsd: estimationUsd, coutReelUsd: img.coutUsd, dureeMs },
       referencesEnvoyees: envoyees.length,
       referencesTronquees: tronquees,
     },

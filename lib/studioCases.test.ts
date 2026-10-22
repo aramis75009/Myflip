@@ -11,6 +11,7 @@ import {
   prisesPour,
   promptVariante,
   sacsCibles,
+  sansFreresDuLancement,
   usageAngles,
   type EssaiCase,
 } from "./studioCases";
@@ -157,5 +158,48 @@ describe("passeFiltres", () => {
     expect(passeFiltres(c, null, "a_photographier")).toBe(true);
     expect(passeFiltres({ ...c, prises: 14 }, null, "a_photographier")).toBe(false);
     expect(passeFiltres({ ...c, chezMoi: 0 }, null, "a_photographier")).toBe(false);
+  });
+});
+
+describe("sansFreresDuLancement (comparaison de modèles)", () => {
+  type EssaiLance = EssaiCase & { lancementId: string | null; modele: string };
+  const l = (modele: string, lancementId: string | null, decision: string | null = null): EssaiLance => ({
+    referenceId: "r1",
+    angleId: "a1",
+    decision,
+    skuCible: "SDN15",
+    lancementId,
+    modele,
+  });
+
+  it("sets aside the essays of ANOTHER model of the same launch, so a late sibling request still sees a free case", () => {
+    const essais = [l("a/x", "L1"), l("b/y", "L1")];
+    expect(etatCase(essais, statutDe).kind).toBe("a_juger");
+    const vus = sansFreresDuLancement(essais, "L1", "c/z");
+    expect(vus).toEqual([]);
+    expect(etatCase(vus, statutDe).kind).toBe("libre");
+  });
+
+  it("keeps the essays of the SAME model in the same launch: a double click is still refused", () => {
+    const vus = sansFreresDuLancement([l("a/x", "L1")], "L1", "a/x");
+    expect(vus).toHaveLength(1);
+    expect(etatCase(vus, statutDe).kind).toBe("a_juger");
+  });
+
+  it("keeps the essays of another launch: the case really is taken", () => {
+    const vus = sansFreresDuLancement([l("a/x", "L0", "valide")], "L1", "b/y");
+    expect(etatCase(vus, statutDe).kind).toBe("validee");
+  });
+
+  it("never sets aside an essay without a launch (manual deposit)", () => {
+    const vus = sansFreresDuLancement([l("manuel", null)], "L1", "b/y");
+    expect(vus).toHaveLength(1);
+  });
+
+  it("does not mutate its input and keeps the order", () => {
+    const essais = [l("a/x", "L0"), l("b/y", "L1"), l("c/z", "L0")];
+    const copie = [...essais];
+    expect(sansFreresDuLancement(essais, "L1", "a/x").map((x) => x.modele)).toEqual(["a/x", "c/z"]);
+    expect(essais).toEqual(copie);
   });
 });
