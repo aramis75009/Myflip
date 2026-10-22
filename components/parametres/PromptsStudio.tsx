@@ -7,7 +7,9 @@ import { Copy, Plus, SquarePen, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import Loader from "@/components/Loader";
 import { Module } from "@/components/console";
+import { promptVariante } from "@/lib/studioCases";
 import { LONGUEUR_MAX_ANGLE, LONGUEUR_MAX_MAITRE, LONGUEUR_MAX_NOM } from "@/lib/studioPrompts";
+import BudgetStudio from "./BudgetStudio";
 
 // Onglet « Studio » de /parametres : le prompt maître (envoyé une fois par
 // conversation Gemini, en tête de chaque génération par API) et les prompts
@@ -18,6 +20,9 @@ import { LONGUEUR_MAX_ANGLE, LONGUEUR_MAX_MAITRE, LONGUEUR_MAX_NOM } from "@/lib
 export type PromptsStudioDTO = {
   promptMaitre: string;
   modifieLe: string | null;
+  /** Budget d'un sac complet (€) et taux (€ pour 1 $) : GET /api/studio/reglages. */
+  budgetParSacEur: number;
+  tauxEurParUsd: number;
   angles: { id: string; nom: string; angle: string; ordre: number; cases: number; skus: string[] }[];
 };
 
@@ -112,6 +117,8 @@ export default function PromptsStudio() {
           <Plus size={16} strokeWidth={2.3} /> Nouveau prompt d’angle
         </button>
       </div>
+
+      <BudgetStudio budget={{ budgetParSacEur: data.budgetParSacEur, tauxEurParUsd: data.tauxEurParUsd }} />
 
       <Module className="p-[22px_24px]">
         <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2.5">
@@ -280,26 +287,32 @@ export default function PromptsStudio() {
               </div>
 
               <div className="mt-[22px] rounded-lg bg-surface-2 px-[18px] py-4">
-                <div className={microCls}>CE QUI PART POUR UNE PHOTO</div>
-                <ol className="mt-3 flex flex-col gap-2.5 text-base">
-                  <li className="flex items-center gap-3">
-                    <Rond n={1} />
-                    <span>
-                      <strong>Prompt maître</strong> <span className="text-ink-2">· une seule fois par conversation, Gemini répond OK</span>
-                    </span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <Rond n={2} />
-                    <span className="flex h-[52px] w-[39px] flex-none items-center justify-center rounded-md border border-line bg-surface font-mono text-xs text-ink-2">
-                      photo
-                    </span>
-                    <span className="min-w-0 rounded-lg bg-surface px-3 py-2 font-mono text-sm">{sel.angle}</span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <Rond n={3} />
-                    <span className="text-ink-2">Photo suivante, prompt d’angle suivant, dans la même conversation.</span>
-                  </li>
-                </ol>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className={microCls}>PROMPT ENVOYÉ PAR L’API</div>
+                  <button
+                    type="button"
+                    className={`${boutonCls} ml-auto`}
+                    onClick={() => void copier(promptVariante(data.promptMaitre, sel.angle), "Prompt envoyé")}
+                  >
+                    <Copy size={15} /> Copier le texte exact
+                  </button>
+                </div>
+                <p className="mt-1 text-sm text-ink-2">Mot pour mot, avec la vraie photo : le prompt maître, puis ce prompt d’angle.</p>
+                <div className="mt-3 overflow-hidden rounded-md border border-line-strong bg-surface">
+                  <div className="flex items-center gap-2 px-4 pt-3 text-sm font-semibold">
+                    <Rond n={1} /> Prompt maître
+                  </div>
+                  <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap break-words px-4 pb-3 pt-1.5 font-mono text-sm leading-relaxed text-ink">
+                    {data.promptMaitre.trim() || "(vide : seul le prompt d’angle part)"}
+                  </pre>
+                  <div className="flex items-center gap-2 border-t border-dashed border-line-strong px-4 pt-3 text-sm font-semibold">
+                    <Rond n={2} /> Prompt d’angle
+                  </div>
+                  <pre className="whitespace-pre-wrap break-words px-4 pb-3 pt-1.5 font-mono text-sm leading-relaxed text-ink">{sel.angle.trim()}</pre>
+                </div>
+                <p className="mt-3 text-sm text-ink-2">
+                  À la main dans Gemini : le prompt maître se colle une fois par conversation, puis chaque photo avec son prompt d’angle.
+                </p>
               </div>
             </>
           ) : (

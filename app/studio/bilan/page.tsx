@@ -2,85 +2,211 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { CardTitle, Eyebrow, Frame, Module } from "@/components/console";
+import { pluriel } from "@/lib/format";
 import { getCatalogue } from "@/lib/studioCatalogue";
-import { MODELE_MANUEL } from "@/lib/studioFiche";
-import { formatUsd } from "@/lib/studioModeles";
-import { chargerBilan } from "@/lib/studioServeur";
-import { computeStudioStats, type FirstTryStat, type GroupStat, type ModelStat } from "@/lib/studioStats";
+import { MODELE_MANUEL, modeleDe } from "@/lib/studioFiche";
+import { formatEur, formatUsd, usdEnEur } from "@/lib/studioModeles";
+import { chargerBilan, lireBudget } from "@/lib/studioServeur";
+import { computeStudioStats } from "@/lib/studioStats";
+
+import { depensesParSemaine, statsGlobales, statsParGroupe, type StatGroupe } from "../_bilan";
+import { Barre, ColonnesSemaines } from "./_graphiques";
 
 export const dynamic = "force-dynamic";
 
-// /studio/bilan — les mesures du test (spec §3 étape 8, §11). Calculées sur la
-// décision d'Aramis, jamais sur le verdict IA (spec §6).
+// /studio/bilan — what the Studio produced and cost. Rates come from
+// Aramis's DECISIONS only (never the AI opinion), with the same definition of
+// a first try as the model picker (app/studio/_bilan.ts). An unknown real cost
+// is never counted as zero: totals carry « ≥ » and say what they miss.
 
-const pct = (t: FirstTryStat) => (t.rate === null ? "—" : `${Math.round(t.rate * 100)} %`);
-const moy = (v: number | null) => (v === null ? "—" : v.toLocaleString("fr-FR", { maximumFractionDigits: 1 }));
+const pct = (t: number | null) => (t === null ? "—" : `${Math.round(t * 100)} %`);
 
 export default async function BilanPage() {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) redirect("/login");
 
-  const [{ essais, echecs, angles, coloris }, catalogue] = await Promise.all([chargerBilan(userId), getCatalogue()]);
-  const stats = computeStudioStats(essais, echecs);
+  const [{ essais, echecs, angles, coloris }, catalogue, budget] = await Promise.all([chargerBilan(userId), getCatalogue(), lireBudget(userId)]);
+  const taux = budget.tauxEurParUsd;
+  const enEur = (usd: number) => usdEnEur(usd, taux) ?? 0;
   const nomModele = new Map(catalogue.modeles.map((m) => [m.id, m.nom]));
-  // Le meilleur rapport qualité/prix d'abord : coût par image validée croissant,
-  // les modèles sans ce chiffre (aucun validé, ou coût inconnu) à la fin.
-  const byModel = [...stats.byModel].sort(
-    (a, b) => (a.coutParValideeUsd ?? Infinity) - (b.coutParValideeUsd ?? Infinity) || (a.id < b.id ? -1 : 1),
-  );
-  const nomAngle = new Map(angles.map((a) => [a.id, a.nom]));
-  const ordreAngle = new Map(angles.map((a) => [a.id, a.ordre]));
-  const parColoris = new Map(coloris.map((c) => [c.id, c]));
-  const decides = essais.filter((e) => e.decision === "valide" || e.decision === "rejete").length;
+  const libelleModele = (id: string) => (id === MODELE_MANUEL ? "Dépôt manuel (Gemini)" : (nomModele.get(id) ?? id));
 
-  const byAngle = [...stats.byAngle].sort((a, b) => (ordreAngle.get(a.id) ?? 0) - (ordreAngle.get(b.id) ?? 0));
+  const global = statsGlobales(essais);
+  const { depense, topDriftingDetails } = computeStudioStats(essais, echecs);
+  const semaines = depensesParSemaine(essais, echecs, new Date(), 12);
+
+  // Per model: the best value for money first (cost per validated image), then success.
+  const echecsParModele = new Map<string, { n: number; securite: number }>();
+  for (const x of echecs) {
+    const k = modeleDe(x.modele);
+    const v = echecsParModele.get(k) ?? { n: 0, securite: 0 };
+    v.n++;
+    if (x.code === "securite") v.securite++;
+    echecsParModele.set(k, v);
+  }
+  const parModele = statsParGroupe(essais, (e) => modeleDe(e.modele));
+  // A model with failures only keeps its row: it is the one to see blocked.
+  for (const id of echecsParModele.keys()) if (!parModele.some((g) => g.id === id)) parModele.push({ ...statsGlobales([]), id });
+  parModele.sort(
+    (a, b) =>
+      (a.coutParValideeUsd ?? Infinity) - (b.coutParValideeUsd ?? Infinity) ||
+      (b.taux ?? -1) - (a.taux ?? -1) ||
+      (a.id < b.id ? -1 : 1),
+  );
+  const maxParValidee = Math.max(0, ...parModele.map((g) => g.coutParValideeUsd ?? 0));
+
+  // Changing an angle's text archives the old version: both rows keep their own results, the old one says so.
+  const nomAngle = new Map(angles.map((a) => [a.id, a.archiveLe ? `${a.nom} · ancienne version` : a.nom]));
+  const ordreAngle = new Map(angles.map((a) => [a.id, a.ordre]));
+  const parAngle = statsParGroupe(essais, (e) => e.angleId).sort((a, b) => (ordreAngle.get(a.id) ?? 0) - (ordreAngle.get(b.id) ?? 0));
+  const parColorisId = new Map(coloris.map((c) => [c.id, c]));
+  const parColoris = statsParGroupe(essais, (e) => e.colorisId).sort((a, b) => b.images - a.images || (a.id < b.id ? -1 : 1));
+
+  const minimum = depense.essaisSansCout > 0 ? "≥ " : "";
+  const coutParValidee = global.valides > 0 && depense.totalUsd > 0 ? depense.totalUsd / global.valides : null;
 
   return (
     <Frame>
       <Module>
-        <div className="flex flex-wrap items-end gap-8">
-          <Chiffre libelle="RÉUSSITE AU 1ER ESSAI" valeur={pct(stats.global.firstTry)} sous={`${stats.global.firstTry.validated}/${stats.global.firstTry.decided} premiers essais décidés`} />
-          <Chiffre libelle="ESSAIS MOYENS PAR ANGLE" valeur={moy(stats.global.averageTries)} sous={`${stats.global.pairs} couple(s) coloris × angle`} />
-          <Chiffre libelle="ESSAIS" valeur={String(essais.length)} sous={`${decides} décidé(s) · ${echecs.length} échec(s)`} />
+        <div className="flex flex-wrap items-end gap-x-10 gap-y-5">
+          <div>
+            <Eyebrow>RÉUSSITE AU 1ER ESSAI</Eyebrow>
+            <div className="mt-1 text-2xl font-bold tracking-[-0.02em] text-ink">{pct(global.taux)}</div>
+            <div className="text-sm text-ink-2">
+              {global.premiersDecides > 0
+                ? `${global.premiersValides}/${global.premiersDecides} premiers coups validés`
+                : "aucun premier coup décidé"}
+            </div>
+          </div>
           <Chiffre
-            libelle="TOTAL DÉPENSÉ"
-            valeur={formatUsd(stats.depense.totalUsd)}
+            libelle="DÉPENSÉ"
+            valeur={`${minimum}${formatEur(enEur(depense.totalUsd))}`}
             sous={
-              stats.depense.essaisSansCout > 0
-                ? `au moins — ${stats.depense.essaisSansCout} essai(s) sans coût connu`
-                : "coût réel renvoyé par OpenRouter"
+              depense.essaisSansCout > 0
+                ? `${formatUsd(depense.totalUsd)} · ${pluriel(depense.essaisSansCout, "image sans coût connu", "images sans coût connu")}`
+                : `${formatUsd(depense.totalUsd)}, coût réel OpenRouter`
             }
           />
+          <Chiffre
+            libelle="COÛT PAR IMAGE VALIDÉE"
+            valeur={coutParValidee === null ? "—" : `${minimum}${formatEur(enEur(coutParValidee))}`}
+            sous={global.valides > 0 ? pluriel(global.valides, "image validée", "images validées") : "aucune image validée"}
+          />
+          <Chiffre
+            libelle="IMAGES"
+            valeur={String(global.images)}
+            sous={`${global.valides} validée${global.valides > 1 ? "s" : ""} · ${global.rejetes} rejetée${global.rejetes > 1 ? "s" : ""} · ${global.aJuger} à juger`}
+          />
+          <Chiffre
+            libelle="ÉCHECS"
+            valeur={String(echecs.length)}
+            sous={(() => {
+              const s = echecs.filter((x) => x.code === "securite").length;
+              return s > 0 ? pluriel(s, "blocage de sécurité", "blocages de sécurité") : "générations sans image";
+            })()}
+          />
         </div>
-        <p className="mt-3 text-sm text-ink-2">
-          Taux et moyennes comptent tes décisions (Valider / Rejeter), pas le verdict du modèle de vision. Un essai
-          sans décision n’entre dans aucun chiffre.
+        <p className="mt-4 max-w-[80ch] text-sm text-ink-2">
+          Les taux comptent tes décisions (Valider, Rejeter, ou ton choix dans une comparaison), jamais l’avis de l’IA. Un premier coup est
+          une image qui n’est pas une correction. Montants au taux de {String(taux).replace(".", ",")} € pour 1 $.
         </p>
       </Module>
 
       <Module>
+        <CardTitle aside="12 DERNIÈRES SEMAINES · COÛT RÉEL">Dépenses par semaine</CardTitle>
+        <ColonnesSemaines semaines={semaines} taux={taux} />
+      </Module>
+
+      <Module>
         <CardTitle aside="TRIÉ PAR COÛT PAR IMAGE VALIDÉE">Par modèle</CardTitle>
-        <TableModeles lignes={byModel} libelle={(id) => (id === MODELE_MANUEL ? "Dépôt manuel" : (nomModele.get(id) ?? id))} />
-        <p className="mt-2 text-xs text-ink-2">
-          « ≥ » : au moins un essai du modèle n’a pas de coût connu, le chiffre est un minimum. Un coût inconnu
-          n’est jamais compté zéro. Les échecs ne consomment pas de numéro d’essai.
+        {parModele.length === 0 ? (
+          <p className="text-sm text-ink-2">Aucun essai.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead>
+                <tr className="text-left text-xs text-ink-3">
+                  <th scope="col" className="pb-2 font-medium">
+                    Modèle
+                  </th>
+                  <th scope="col" className="w-[30%] pb-2 font-medium">
+                    Réussite du 1er coup
+                  </th>
+                  <th scope="col" className="w-[30%] pb-2 font-medium">
+                    Coût par image validée
+                  </th>
+                  <th scope="col" className="pb-2 text-right font-medium">
+                    Dépensé
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {parModele.map((g) => {
+                  const x = echecsParModele.get(g.id);
+                  const manuel = g.id === MODELE_MANUEL;
+                  return (
+                    <tr key={g.id} className="border-t border-line align-middle">
+                      <th scope="row" className="py-2.5 pr-4 text-left font-normal">
+                        <span className="block font-semibold text-ink">{libelleModele(g.id)}</span>
+                        <span className="block text-xs text-ink-2">
+                          {g.images === 0
+                            ? "aucune image"
+                            : `${pluriel(g.images, "image", "images")} · ${g.valides} validée${g.valides > 1 ? "s" : ""} · ${g.rejetes} rejetée${g.rejetes > 1 ? "s" : ""}`}
+                          {x ? ` · ${pluriel(x.n, "échec", "échecs")}${x.securite > 0 ? ` (${x.securite} sécurité)` : ""}` : ""}
+                        </span>
+                      </th>
+                      <td className="py-2.5 pr-4">
+                        <Barre
+                          part={g.taux}
+                          libelle={g.taux === null ? "non jugé" : `${pct(g.taux)} · ${g.premiersValides}/${g.premiersDecides}`}
+                          etiquette={g.taux === null ? "Aucun premier coup décidé" : `${pct(g.taux)} de réussite au premier coup`}
+                        />
+                      </td>
+                      <td className="py-2.5 pr-4">
+                        {manuel ? (
+                          <span className="text-xs text-ink-2">à la main, sans coût API</span>
+                        ) : (
+                          <Barre
+                            part={g.coutParValideeUsd === null || maxParValidee === 0 ? null : g.coutParValideeUsd / maxParValidee}
+                            libelle={
+                              g.coutParValideeUsd === null ? "—" : `${g.sansCout > 0 ? "≥ " : ""}${formatEur(enEur(g.coutParValideeUsd))}`
+                            }
+                            etiquette={
+                              g.coutParValideeUsd === null
+                                ? "Pas de coût par image validée : aucune validée ou aucun coût connu"
+                                : `${formatEur(enEur(g.coutParValideeUsd))} par image validée`
+                            }
+                          />
+                        )}
+                      </td>
+                      <td className="py-2.5 text-right font-mono tabular-nums text-ink">{depenseModele(g, manuel, enEur)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="mt-3 text-xs text-ink-2">
+          « ≥ » : au moins une image du modèle n’a pas de coût réel connu, le montant est un minimum. Barre en pointillé : pas encore de
+          valeur. Les échecs ne comptent pas dans les images.
         </p>
       </Module>
 
-      <div className="grid grid-cols-2 gap-3.5">
+      <div className="grid gap-3.5 min-[1100px]:grid-cols-2">
         <Module>
-          <CardTitle>Par angle</CardTitle>
-          <TableStats lignes={byAngle} libelle={(id) => nomAngle.get(id) ?? "Angle supprimé"} />
+          <CardTitle aside="RÉUSSITE DU 1ER COUP">Par angle</CardTitle>
+          <ListeTaux lignes={parAngle} libelle={(id) => nomAngle.get(id) ?? "Angle supprimé"} />
         </Module>
         <Module>
-          <CardTitle>Par coloris</CardTitle>
-          <TableStats
-            lignes={stats.byColoris}
+          <CardTitle aside="RÉUSSITE DU 1ER COUP">Par coloris</CardTitle>
+          <ListeTaux
+            lignes={parColoris}
             libelle={(id) => {
-              const c = parColoris.get(id);
+              const c = parColorisId.get(id);
               return c ? (
-                <Link href={`/studio/${encodeURIComponent(c.cle)}`} className="hover:underline">
+                <Link href={`/studio/${encodeURIComponent(c.cle)}`} className="rounded-xs hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus">
                   {c.modele} {c.coloris}
                 </Link>
               ) : (
@@ -92,16 +218,16 @@ export default async function BilanPage() {
       </div>
 
       <Module>
-        <CardTitle aside="SELON LE CONTRÔLE IA">Détails qui dérivent le plus</CardTitle>
-        {stats.topDriftingDetails.length === 0 ? (
+        <CardTitle aside="SELON L’AVIS DE L’IA">Détails qui dérivent le plus</CardTitle>
+        {topDriftingDetails.length === 0 ? (
           <p className="text-sm text-ink-2">Aucun détail marqué « dérive » pour l’instant.</p>
         ) : (
           <ol className="flex flex-col gap-1.5 text-base">
-            {stats.topDriftingDetails.map((d, i) => (
+            {topDriftingDetails.map((d, i) => (
               <li key={d.detail} className="flex gap-3">
                 <span className="font-mono text-ink-3">{i + 1}.</span>
-                <span className="font-semibold">{d.detail}</span>
-                <span className="text-ink-2">{d.count} essai(s)</span>
+                <span className="font-semibold text-ink">{d.detail}</span>
+                <span className="text-ink-2">{pluriel(d.count, "image", "images")}</span>
               </li>
             ))}
           </ol>
@@ -111,81 +237,43 @@ export default async function BilanPage() {
   );
 }
 
+/** What a model cost: « — » without image, « inconnu » when no real cost is known (never « 0,00 € »), « ≥ » when partial. */
+function depenseModele(g: StatGroupe, manuel: boolean, enEur: (usd: number) => number): string {
+  if (manuel || g.images === 0) return "—";
+  if (g.coutConnuUsd === 0 && g.sansCout > 0) return "inconnu";
+  return `${g.sansCout > 0 ? "≥ " : ""}${formatEur(enEur(g.coutConnuUsd))}`;
+}
+
 function Chiffre({ libelle, valeur, sous }: { libelle: string; valeur: string; sous: string }) {
   return (
     <div>
       <Eyebrow>{libelle}</Eyebrow>
-      <div className="mt-1 text-xl font-bold tracking-[-0.02em]">{valeur}</div>
-      <div className="text-xs text-ink-2">{sous}</div>
+      <div className="mt-1 text-xl font-bold tracking-[-0.02em] text-ink">{valeur}</div>
+      <div className="text-sm text-ink-2">{sous}</div>
     </div>
   );
 }
 
-function TableStats({ lignes, libelle }: { lignes: GroupStat[]; libelle: (id: string) => React.ReactNode }) {
+function ListeTaux({ lignes, libelle }: { lignes: StatGroupe[]; libelle: (id: string) => React.ReactNode }) {
   if (lignes.length === 0) return <p className="text-sm text-ink-2">Aucun essai.</p>;
   return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="text-left font-mono text-xs tracking-[0.1em] text-ink-3">
-          <th className="pb-2 font-normal"> </th>
-          <th className="pb-2 text-right font-normal">1ER ESSAI</th>
-          <th className="pb-2 text-right font-normal">ESSAIS MOY.</th>
-        </tr>
-      </thead>
-      <tbody>
-        {lignes.map((l) => (
-          <tr key={l.id} className="border-t border-line">
-            <td className="py-2 font-semibold">{libelle(l.id)}</td>
-            <td className="py-2 text-right font-mono">
-              {pct(l.firstTry)} <span className="text-ink-3">({l.firstTry.validated}/{l.firstTry.decided})</span>
-            </td>
-            <td className="py-2 text-right font-mono">{moy(l.averageTries)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-function TableModeles({ lignes, libelle }: { lignes: ModelStat[]; libelle: (id: string) => string }) {
-  if (lignes.length === 0) return <p className="text-sm text-ink-2">Aucun essai.</p>;
-  const cout = (v: number | null, incomplet: boolean) => (v === null ? "—" : `${incomplet ? "≥ " : ""}${formatUsd(v)}`);
-  return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="text-left font-mono text-xs tracking-[0.1em] text-ink-3">
-          <th className="pb-2 font-normal"> </th>
-          <th className="pb-2 text-right font-normal">1ER ESSAI</th>
-          <th className="pb-2 text-right font-normal">ESSAIS MOY.</th>
-          <th className="pb-2 text-right font-normal">COÛT MOY.</th>
-          <th className="pb-2 text-right font-normal">COÛT / VALIDÉE</th>
-          <th className="pb-2 text-right font-normal">SCORE IA</th>
-          <th className="pb-2 text-right font-normal">ÉCHECS</th>
-        </tr>
-      </thead>
-      <tbody>
-        {lignes.map((l) => (
-          <tr key={l.id} className="border-t border-line">
-            <td className="py-2 font-semibold">
-              {libelle(l.id)}
-              <span className="ml-2 font-mono text-xs font-normal text-ink-3">
-                {l.essais} essai(s) · {l.validated} validé(s)
-              </span>
-            </td>
-            <td className="py-2 text-right font-mono">
-              {pct(l.firstTry)} <span className="text-ink-3">({l.firstTry.validated}/{l.firstTry.decided})</span>
-            </td>
-            <td className="py-2 text-right font-mono">{moy(l.averageTries)}</td>
-            <td className="py-2 text-right font-mono">{cout(l.coutMoyenUsd, l.coutIncomplet)}</td>
-            <td className="py-2 text-right font-mono font-semibold">{cout(l.coutParValideeUsd, l.coutIncomplet)}</td>
-            <td className="py-2 text-right font-mono">{l.scoreMoyen ?? "—"}</td>
-            <td className="py-2 text-right font-mono">
-              {l.echecs}
-              {l.blocagesSecurite > 0 && <span className="text-neg"> · {l.blocagesSecurite} sécu.</span>}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <ul className="flex flex-col gap-2.5">
+      {lignes.map((l) => (
+        <li key={l.id} className="grid grid-cols-[minmax(0,12rem)_minmax(0,1fr)] items-center gap-3">
+          <span className="min-w-0 text-sm">
+            <span className="block truncate font-semibold text-ink">{libelle(l.id)}</span>
+            <span className="block text-xs text-ink-2">
+              {l.images} image{l.images > 1 ? "s" : ""}
+              {l.aJuger > 0 ? ` · ${l.aJuger} à juger` : ""}
+            </span>
+          </span>
+          <Barre
+            part={l.taux}
+            libelle={l.taux === null ? "non jugé" : `${pct(l.taux)} · ${l.premiersValides}/${l.premiersDecides}`}
+            etiquette={l.taux === null ? "Aucun premier coup décidé" : `${pct(l.taux)} de réussite au premier coup`}
+          />
+        </li>
+      ))}
+    </ul>
   );
 }

@@ -43,9 +43,10 @@ function declarer(r: EntreeRoute): void {
 
       for (const repere of r.attente(page)) await expect(repere).toBeVisible();
 
-      // Thème posé avant chargement (initScript) : <html data-theme="dark"> en sombre, rien en clair.
+      // Thème posé avant chargement (initScript + script de lib/themeMeta.ts) : depuis le lot L0 le script
+      // écrit TOUJOURS un data-theme explicite sur <html>, "light" comme "dark" (avant L0 : "dark" seulement).
       const html = page.locator("html");
-      const attendu = themeMyflip === "dark" ? "dark" : null;
+      const attendu = themeMyflip;
       const themeOk = await expect
         .poll(() => html.getAttribute("data-theme"), { timeout: 5_000 })
         .toBe(attendu)
@@ -53,7 +54,10 @@ function declarer(r: EntreeRoute): void {
         .catch(() => false);
       const constats: string[] = [];
       if (!themeOk) {
-        constats.push(`thème « ${themeMyflip} » demandé, non appliqué à <html>${r.themeInstable ? ` — ${r.themeInstable}` : ""}`);
+        const recu = await html.getAttribute("data-theme");
+        constats.push(
+          `thème « ${themeMyflip} » demandé, <html data-theme> vaut ${recu === null ? "(absent)" : `« ${recu} »`}${r.themeInstable ? ` — ${r.themeInstable}` : ""}`,
+        );
         test.info().annotations.push({ type: "constat", description: constats[0] });
       }
 

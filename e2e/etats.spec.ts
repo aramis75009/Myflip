@@ -147,7 +147,17 @@ async function cocher(c: Ctx, sku: string) {
 const FICHE = "/studio/5039-black-pink";
 async function attendreFiche(page: Page) {
   await expect(page.getByRole("heading", { level: 1, name: "Black Pink" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Générer \d+ images?/ })).toBeVisible();
+  await expect(page.getByText("PROCHAINE ACTION", { exact: true })).toBeVisible();
+}
+
+/**
+ * Déplie une étape de la fiche (Photos, Angles, Génération, À juger, Validées) : depuis le
+ * parcours du 22/10, seule l'étape de la prochaine action s'ouvre au chargement.
+ */
+async function ouvrirEtape(page: Page, nom: string) {
+  const bouton = page.getByRole("heading", { level: 2, name: new RegExp(`^${nom}`) }).getByRole("button");
+  if ((await bouton.getAttribute("aria-expanded")) !== "true") await bouton.click();
+  await expect(bouton).toHaveAttribute("aria-expanded", "true");
 }
 
 // Mise en vente : session de 2 annonces déjà rédigées (sessionStorage, format v2
@@ -1222,7 +1232,8 @@ const ETATS: DefEtat[] = [
       await c.capture("v3", { pleinePage: true });
       await generation.getByRole("button", { name: /^Toutes gén\./ }).click();
       await page.getByRole("searchbox").fill("zzz-aucun");
-      await expect(page.getByText("Aucun coloris ne correspond à ces filtres.")).toBeVisible();
+      await expect(page.getByText("Aucun coloris pour « zzz-aucun ».")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Effacer les filtres" })).toBeVisible();
       await c.capture("aucun-resultat", { pleinePage: true });
     },
   },
@@ -1265,14 +1276,20 @@ const ETATS: DefEtat[] = [
     executer: async (c) => {
       await aller(c.page, FICHE, "demo");
       await attendreFiche(c.page);
-      // Clic sur une photo : sélection locale. Ne JAMAIS cliquer une case ensuite (PATCH).
-      await c.page.getByRole("button", { name: "Photo rangée sous Face", exact: true }).click();
-      const bandeau = c.page.getByText(/sélectionnée : touche la case/);
-      await expect(bandeau).toBeVisible();
-      await bandeau.scrollIntoViewIfNeeded();
+      // Depuis le 22/10, une seule façon de ranger : glisser, ou au clavier le menu de la photo
+      // (« Déplacer vers… »). On ouvre le menu et son sous-menu, sans JAMAIS choisir (PATCH).
+      await ouvrirEtape(c.page, "Photos");
+      const actions = c.page.getByRole("button", { name: "Actions pour la photo Face", exact: true });
+      await actions.scrollIntoViewIfNeeded();
+      await actions.click();
+      const menu = c.page.getByRole("menu");
+      await expect(menu.getByRole("menuitem", { name: /Retirer de la planche/ })).toBeVisible();
+      await menu.getByRole("menuitem", { name: /Déplacer vers/ }).hover();
+      await expect(c.page.getByRole("menuitem", { name: /Dos/ }).first()).toBeVisible();
       await c.capture();
-      await c.page.getByRole("button", { name: "Annuler", exact: true }).click();
-      await expect(bandeau).toBeHidden();
+      await c.page.keyboard.press("Escape");
+      await c.page.keyboard.press("Escape");
+      await expect(menu).toHaveCount(0);
     },
   },
   {
@@ -1324,6 +1341,7 @@ const ETATS: DefEtat[] = [
       await attendreFiche(page);
       // Tarif inconnu : la confirmation est exigée avant toute requête. Si la
       // requête partait quand même, la garde d'écriture la bloquerait et le test échouerait.
+      await ouvrirEtape(page, "Génération");
       await page.getByRole("button", { name: /^E2E: Tarif inconnu/ }).click();
       await page.getByRole("button", { name: /^Générer \d+ images?/ }).click();
       const dialogue = page.getByRole("alertdialog", { name: "Confirmer la dépense" });
@@ -1343,6 +1361,7 @@ const ETATS: DefEtat[] = [
     executer: async (c) => {
       await aller(c.page, FICHE, "demo");
       await attendreFiche(c.page);
+      await ouvrirEtape(c.page, "Génération");
       const onglet = c.page.getByRole("tab", { name: "À la main, dans Gemini" });
       await onglet.click();
       await expect(onglet).toHaveAttribute("aria-selected", "true");
@@ -1360,6 +1379,7 @@ const ETATS: DefEtat[] = [
       const { page } = c;
       await aller(page, FICHE, "demo");
       await attendreFiche(page);
+      await ouvrirEtape(page, "Angles");
       const tableau = page.getByRole("table", { name: /Photos × prompts d.angle/ });
       await tableau.scrollIntoViewIfNeeded();
       await page.getByRole("button", { name: "Tout décocher" }).click();
@@ -1382,6 +1402,7 @@ const ETATS: DefEtat[] = [
       c.simule("GET /api/studio/modeles retenue, puis 500");
       await aller(page, FICHE, "demo");
       await r.vue;
+      await ouvrirEtape(page, "Génération");
       const chargement = page.getByText("Chargement du catalogue…");
       await expect(chargement).toBeVisible();
       await calme(page, "catalogue des modèles en chargement");
@@ -1403,13 +1424,17 @@ const ETATS: DefEtat[] = [
       const { page } = c;
       await aller(page, FICHE, "demo");
       await attendreFiche(page);
+      await ouvrirEtape(page, "Génération");
       const cher = page.getByRole("button", { name: /^E2E: Modèle cher/ });
       await cher.scrollIntoViewIfNeeded();
       await cher.click();
       await expect(cher).toHaveAttribute("aria-pressed", "true");
       await c.capture("modele-cher");
-      const autre = page.getByRole("combobox", { name: "Autre modèle" });
-      await autre.selectOption({ index: 1 });
+      // Un second modèle, trouvé par la recherche : la sélection devient une comparaison.
+      await page.getByRole("searchbox", { name: "Rechercher un modèle" }).fill("seedream");
+      const seedream = page.getByRole("button", { name: /^ByteDance Seed: Seedream/ });
+      await seedream.click();
+      await expect(seedream).toHaveAttribute("aria-pressed", "true");
       await c.capture("autre-modele");
     },
   },

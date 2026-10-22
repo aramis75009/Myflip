@@ -282,6 +282,8 @@ describe("cloisonnement : le Studio n'atteint jamais la vente ni l'export", () =
         "app/api/studio/reglages/route.ts",
         "app/api/studio/vignette/route.ts",
         "app/api/studio/annonce/route.ts",
+        // Refonte du 22/10 : historique des tentatives d'une case.
+        "app/api/studio/historique/route.ts",
       ]),
     );
     expect(fichiersStudioLib()).toEqual(
@@ -294,6 +296,10 @@ describe("cloisonnement : le Studio n'atteint jamais la vente ni l'export", () =
         "lib/studioLancement.ts",
         "lib/studioCases.ts",
         "lib/studioPrompts.ts",
+        // Refonte du 22/10 : résultats par modèle, règles de décision, historique.
+        "lib/studioAgregats.ts",
+        "lib/studioDecision.ts",
+        "lib/studioHistorique.ts",
       ]),
     );
   });

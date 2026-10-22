@@ -3,7 +3,7 @@
 // /api/studio/image.
 
 import { toast } from "sonner";
-import type { Devis } from "@/lib/studioModeles";
+import type { DevisMultiModeles, LigneModeleDevis } from "@/lib/studioModeles";
 
 export async function copier(texte: string, quoi = "Prompt") {
   try {
@@ -21,15 +21,57 @@ const PEUT_ETRE_FACTUREE = "elle a peut-être été facturée, vérifie ton acti
 
 export type ReponseGeneration =
   | { kind: "ok"; essaiId: string }
-  | { kind: "confirmation"; devis: Devis | null }
+  | { kind: "confirmation"; devis: DevisMultiModeles | null; message: string | null }
   | { kind: "erreur"; code: string | null; message: string };
 
-/** Le devis d'un 409, s'il a la bonne forme. */
-function lireDevis(v: unknown): Devis | null {
+const estNombre = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+const nombreOuNull = (v: unknown): number | null => (estNombre(v) ? v : null);
+
+/**
+ * The quote of a 409 (`DevisMultiModeles`, computed by the server with the
+ * account budget), if it has the right shape; null otherwise, and the screen
+ * then shows the server's sentence alone. Never a zero for a missing amount.
+ */
+export function lireDevis(v: unknown): DevisMultiModeles | null {
   if (typeof v !== "object" || v === null) return null;
-  const d = v as Partial<Devis>;
-  if (!Array.isArray(d.lignes) || typeof d.totalConnuUsd !== "number" || typeof d.inconnus !== "number") return null;
-  return { lignes: d.lignes, totalConnuUsd: d.totalConnuUsd, inconnus: d.inconnus, confirmationRequise: d.confirmationRequise !== false };
+  const d = v as Record<string, unknown>;
+  if (!Array.isArray(d.lignes) || !estNombre(d.totalConnuUsd) || !estNombre(d.inconnus)) return null;
+  if (!estNombre(d.totalConnuEur) || !estNombre(d.budgetEur) || !estNombre(d.tauxEurParUsd) || !estNombre(d.montantConfirmationEur)) return null;
+  if (!Array.isArray(d.parModele)) return null;
+  const parModele: LigneModeleDevis[] = [];
+  for (const brut of d.parModele) {
+    if (typeof brut !== "object" || brut === null) return null;
+    const l = brut as Record<string, unknown>;
+    if (typeof l.modele !== "string" || !estNombre(l.images)) return null;
+    parModele.push({
+      modele: l.modele,
+      nom: typeof l.nom === "string" && l.nom ? l.nom : l.modele,
+      images: l.images,
+      raison: l.raison === "image" || l.raison === "jeton" ? l.raison : "inconnu",
+      usdParImage: nombreOuNull(l.usdParImage),
+      eurParImage: nombreOuNull(l.eurParImage),
+      usd: nombreOuNull(l.usd),
+      eur: nombreOuNull(l.eur),
+    });
+  }
+  const raisons = ["budget", "prix_inconnu", "budget_et_prix_inconnu"] as const;
+  const raison = raisons.find((r) => r === d.raisonConfirmation) ?? (d.inconnus > 0 ? "prix_inconnu" : "budget");
+  return {
+    lignes: d.lignes as DevisMultiModeles["lignes"],
+    totalConnuUsd: d.totalConnuUsd,
+    inconnus: d.inconnus,
+    // A 409 always asks: in doubt, the window stays a confirmation.
+    confirmationRequise: true,
+    budgetEur: d.budgetEur,
+    tauxEurParUsd: d.tauxEurParUsd,
+    totalConnuEur: d.totalConnuEur,
+    depasseBudget: d.depasseBudget === true,
+    raisonConfirmation: raison,
+    montantConfirmationEur: d.montantConfirmationEur,
+    montantMinimum: d.inconnus > 0,
+    parModele,
+    images: estNombre(d.images) ? d.images : d.lignes.length,
+  };
 }
 
 /** Une génération = une case = une requête. */
@@ -46,7 +88,9 @@ export async function envoyerGeneration(corps: Record<string, unknown>): Promise
   }
   const j = (await res.json().catch(() => null)) as { essai?: { id?: unknown }; error?: unknown; code?: unknown; devis?: unknown } | null;
   if (res.ok && j?.essai && typeof j.essai.id === "string") return { kind: "ok", essaiId: j.essai.id };
-  if (res.status === 409 && j?.code === "confirmation_requise") return { kind: "confirmation", devis: lireDevis(j.devis) };
+  if (res.status === 409 && j?.code === "confirmation_requise") {
+    return { kind: "confirmation", devis: lireDevis(j.devis), message: typeof j.error === "string" && j.error ? j.error : null };
+  }
   if (!j) {
     // Pas de JSON : une coupure de la plateforme (délai de la fonction dépassé…), pas une erreur de la route.
     const delai = res.status === 504 || res.status === 502;
@@ -59,16 +103,24 @@ export async function envoyerGeneration(corps: Record<string, unknown>): Promise
   };
 }
 
-/** Lance l'avis IA d'un essai. Rend vrai si l'avis est rangé ; une erreur est montrée en toast. */
-export async function demanderAvis(essaiId: string, versCompte: () => void): Promise<boolean> {
+export type ResultatAvis = { ok: true } | { ok: false; message: string; code: string | null };
+
+/**
+ * Lance l'avis IA d'un essai. En échec, la raison est RENDUE (l'écran la garde
+ * à côté de l'image : « Avis IA en échec », distinct de « pas encore d'avis »)
+ * et montrée en toast, avec « Mon compte » quand c'est la clé qui manque.
+ */
+export async function demanderAvis(essaiId: string, versCompte: () => void): Promise<ResultatAvis> {
   const res = await fetch(`/api/studio/essais/${essaiId}/verifier`, { method: "POST" }).catch(() => null);
-  if (res?.ok) return true;
+  if (res?.ok) return { ok: true };
   const j = (await res?.json().catch(() => null)) as { error?: string; code?: string } | null;
-  toast.error(j?.error ?? `Avis IA impossible (${res?.status ?? "réseau"}).`, {
+  const message = j?.error ?? (res ? `réponse ${res.status}` : "connexion perdue");
+  const code = typeof j?.code === "string" ? j.code : null;
+  toast.error(`Avis IA en échec : ${message}`, {
     duration: 10000,
-    action: CODES_COMPTE.has(j?.code ?? "") ? { label: "Mon compte", onClick: versCompte } : undefined,
+    action: CODES_COMPTE.has(code ?? "") ? { label: "Mon compte", onClick: versCompte } : undefined,
   });
-  return false;
+  return { ok: false, message, code };
 }
 
 /** Exécute `taches` au plus `n` à la fois, dans l'ordre de départ. */

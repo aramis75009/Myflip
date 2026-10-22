@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { cleCase, etatsDesCases, nomPrise, sacsCibles, usageAngles, type EtatCase } from "@/lib/studioCases";
 import { buildSkuIndex, getColoris, type SacbaseCatalogue, type SacbaseColoris, type SacbaseColorisSource } from "@/lib/studioColoris";
 import { planRattachement } from "@/lib/studioFiche";
+import { BUDGET_PAR_DEFAUT, type BudgetCompte } from "@/lib/studioModeles";
 
 /**
  * Lectures et écritures du Studio en base. Toutes scopées par userId.
@@ -31,9 +32,38 @@ export function anglesActifs(userId: string) {
   });
 }
 
+/** Un réglage numérique de la base, ou sa valeur par défaut s'il est illisible (NaN, ≤ 0) : jamais un budget absurde. */
+const positifOuDefaut = (v: number | null | undefined, defaut: number): number =>
+  typeof v === "number" && Number.isFinite(v) && v > 0 ? v : defaut;
+
+/**
+ * Les réglages du Studio du compte : prompt maître, budget par sac (€) et taux
+ * (€ pour 1 $). Sans ligne en base, les défauts (1 €, 0,86) : aucune écriture à la lecture.
+ */
+export async function lireReglages(
+  userId: string,
+): Promise<{ texte: string; modifieLe: Date | null } & BudgetCompte> {
+  const r = await prisma.studioReglages.findUnique({
+    where: { userId },
+    select: { promptMaitre: true, updatedAt: true, budgetParSacEur: true, tauxEurParUsd: true },
+  });
+  return {
+    texte: r?.promptMaitre ?? "",
+    modifieLe: r?.updatedAt ?? null,
+    budgetParSacEur: positifOuDefaut(r?.budgetParSacEur, BUDGET_PAR_DEFAUT.budgetParSacEur),
+    tauxEurParUsd: positifOuDefaut(r?.tauxEurParUsd, BUDGET_PAR_DEFAUT.tauxEurParUsd),
+  };
+}
+
 export async function lirePromptMaitre(userId: string): Promise<{ texte: string; modifieLe: Date | null }> {
-  const r = await prisma.studioReglages.findUnique({ where: { userId }, select: { promptMaitre: true, updatedAt: true } });
-  return { texte: r?.promptMaitre ?? "", modifieLe: r?.updatedAt ?? null };
+  const { texte, modifieLe } = await lireReglages(userId);
+  return { texte, modifieLe };
+}
+
+/** Budget par sac et taux du compte : ce que le serveur compare à chaque lancement. */
+export async function lireBudget(userId: string): Promise<BudgetCompte> {
+  const { budgetParSacEur, tauxEurParUsd } = await lireReglages(userId);
+  return { budgetParSacEur, tauxEurParUsd };
 }
 
 /** Crée le coloris à la première référence ou à la première ouverture (spec §4). */
@@ -205,7 +235,7 @@ export async function chargerFiche(userId: string, cle: string) {
   if (!coloris && duCatalogue) coloris = await assurerColoris(userId, duCatalogue);
   if (!coloris) return null;
 
-  const [lignes, angles, essais, promptMaitre] = await Promise.all([
+  const [lignes, angles, essais, reglages] = await Promise.all([
     prisma.studioReference.findMany({
       where: { userId, colorisId: coloris.id, ordre: { not: null } },
       orderBy: [{ ordre: "asc" }, { createdAt: "asc" }],
@@ -224,6 +254,8 @@ export async function chargerFiche(userId: string, cle: string) {
         modele: true,
         coutEstimeUsd: true,
         coutReelUsd: true,
+        dureeMs: true,
+        lancementId: true,
         essaiParentId: true,
         promptUtilise: true,
         verifIA: true,
@@ -233,7 +265,7 @@ export async function chargerFiche(userId: string, cle: string) {
         urlImage: true,
       },
     }),
-    lirePromptMaitre(userId),
+    lireReglages(userId),
   ]);
 
   // Les noms de prise dépendent de la génération (les V3 ont leur liste) : une
@@ -267,7 +299,9 @@ export async function chargerFiche(userId: string, cle: string) {
     lignes: lignes.map((l) => ({ id: l.id, ordre: l.ordre as number, prise: l.prise })),
     angles,
     cases,
-    promptMaitre: promptMaitre.texte,
+    promptMaitre: reglages.texte,
+    /** Budget par sac (€) et taux (€ pour 1 $) du compte : le devis de l'écran en a besoin, comme le serveur. */
+    budget: { budgetParSacEur: reglages.budgetParSacEur, tauxEurParUsd: reglages.tauxEurParUsd } satisfies BudgetCompte,
     // L'URL privée du blob ne sort pas du serveur : l'écran passe par /api/studio/image.
     essais: essais.map(({ urlImage, referenceId, ...e }) => ({ ...e, referenceId: referenceId as string, purge: !urlImage })),
   };
@@ -278,7 +312,7 @@ export type DonneesFiche = NonNullable<Awaited<ReturnType<typeof chargerFiche>>>
 /** L'onglet Studio de /parametres : prompt maître, prompts d'angle actifs et leur utilisation. */
 export async function chargerPromptsStudio(userId: string) {
   const [maitre, angles, essais] = await Promise.all([
-    lirePromptMaitre(userId),
+    lireReglages(userId),
     anglesActifs(userId),
     prisma.studioEssai.findMany({
       where: { coloris: { userId }, angle: { archiveLe: null } },
@@ -289,21 +323,33 @@ export async function chargerPromptsStudio(userId: string) {
   return {
     promptMaitre: maitre.texte,
     modifieLe: maitre.modifieLe?.toISOString() ?? null,
+    budgetParSacEur: maitre.budgetParSacEur,
+    tauxEurParUsd: maitre.tauxEurParUsd,
     angles: angles.map((a) => ({ ...a, cases: usage.get(a.id)?.cases ?? 0, skus: usage.get(a.id)?.skus ?? [] })),
   };
 }
 
 export type DonneesPromptsStudio = Awaited<ReturnType<typeof chargerPromptsStudio>>;
 
-/** Les essais du compte, pour le bilan, avec les libellés des angles et des coloris. */
+/** Les essais du compte, pour le bilan (dates et corrections comprises), avec les libellés des angles et des coloris. */
 export async function chargerBilan(userId: string) {
   const [essais, echecs, angles, coloris] = await Promise.all([
     prisma.studioEssai.findMany({
       where: { coloris: { userId } },
-      select: { colorisId: true, angleId: true, numero: true, decision: true, verifIA: true, modele: true, coutReelUsd: true },
+      select: {
+        colorisId: true,
+        angleId: true,
+        numero: true,
+        decision: true,
+        verifIA: true,
+        modele: true,
+        coutReelUsd: true,
+        essaiParentId: true,
+        createdAt: true,
+      },
     }),
-    prisma.studioEchec.findMany({ where: { userId }, select: { modele: true, code: true, coutReelUsd: true } }),
-    prisma.studioAngle.findMany({ where: { userId }, select: { id: true, nom: true, ordre: true } }),
+    prisma.studioEchec.findMany({ where: { userId }, select: { modele: true, code: true, coutReelUsd: true, createdAt: true } }),
+    prisma.studioAngle.findMany({ where: { userId }, select: { id: true, nom: true, ordre: true, archiveLe: true } }),
     prisma.studioColoris.findMany({ where: { userId }, select: { id: true, cle: true, modele: true, coloris: true } }),
   ]);
   return { essais, echecs, angles, coloris };
