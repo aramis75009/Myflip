@@ -311,7 +311,7 @@ export const ROUTES: EntreeRoute[] = [
   },
   {
     id: "studio.fiche.black-pink",
-    ...fiche("5039-black-pink", "Black Pink", (p) => [p.getByRole("heading", { name: "À juger" }), texte(p, /^1 \/ 3$/), p.getByRole("button", { name: /^Générer \d+ images?/ })]),
+    ...fiche("5039-black-pink", "Black Pink", (p) => [p.getByRole("heading", { name: /^À juger/ }), texte(p, /^1 \/ 3$/), p.getByRole("heading", { name: /^Génération/ })]),
     description: "Fiche la plus remplie : 9/15 prises avec trous, file « À juger » 3 images, tableau des cases.",
   },
   {
@@ -321,7 +321,7 @@ export const ROUTES: EntreeRoute[] = [
   },
   {
     id: "studio.fiche.navy-orange",
-    ...fiche("5040-navy-orange", "Navy Orange", (p) => [p.getByRole("heading", { name: "À juger" })]),
+    ...fiche("5040-navy-orange", "Navy Orange", (p) => [p.getByRole("heading", { name: /^À juger/ })]),
     description: "Fiche V2 : 5 prises, 1 image à juger.",
   },
   {
