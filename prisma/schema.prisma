@@ -398,6 +398,9 @@ model StudioEssai {
   coutEstimeUsd Float?
   /// `usage.cost` d'OpenRouter, null s'il ne l'a pas renvoyé (jamais compté zéro).
   coutReelUsd   Float?
+  /// Durée de l'appel de génération, en millisecondes. null : essai déposé à la
+  /// main, ou antérieur à cette colonne (jamais compté zéro).
+  dureeMs       Int?
   /// Regroupe les essais d'un même clic « Générer ».
   lancementId   String?
   /// L'essai raté dont celui-ci est la correction.
@@ -436,6 +439,12 @@ model StudioReglages {
   /// Envoyé une fois en tête de conversation Gemini, placé en tête de chaque
   /// génération par API, suivi du prompt d'angle.
   promptMaitre String   @db.Text @default("")
+  /// Budget d'un sac complet (15 prises), en euros. Un lancement estimé au-delà,
+  /// ou dont un prix est inconnu, demande confirmation (vérifié côté serveur).
+  budgetParSacEur Float @default(1)
+  /// Euros pour 1 dollar : OpenRouter facture en dollars, le budget est en euros.
+  /// Affiché et réglable ; jamais lu d'un service de change.
+  tauxEurParUsd   Float @default(0.86)
   updatedAt    DateTime @default(now()) @updatedAt
 
   userId String @unique
@@ -469,6 +478,8 @@ model StudioEchec {
   message     String        @db.Text
   lancementId String?
   coutReelUsd Float?
+  /// Durée de l'appel avant l'échec, en millisecondes (null si non mesurée).
+  dureeMs     Int?
   referenceId String?
   reference   StudioReference? @relation(fields: [referenceId], references: [id], onDelete: SetNull)
 
