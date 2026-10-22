@@ -68,3 +68,44 @@ export const MenuLabel = forwardRef<
     />
   );
 });
+
+/** Submenu (« Déplacer vers… »): opens with → or Enter, closes with ←. */
+export const MenuSub = DropdownMenu.Sub;
+
+export const MenuSubTrigger = forwardRef<
+  ElementRef<typeof DropdownMenu.SubTrigger>,
+  ComponentPropsWithoutRef<typeof DropdownMenu.SubTrigger>
+>(function MenuSubTrigger({ className, ...props }, ref) {
+  return (
+    <DropdownMenu.SubTrigger
+      ref={ref}
+      className={cn(
+        "flex h-11 cursor-pointer select-none items-center gap-2 rounded-sm px-2.5 text-base text-ink md:h-9",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus",
+        "data-[highlighted]:bg-surface-2 data-[state=open]:bg-surface-2 data-[disabled]:pointer-events-none data-[disabled]:text-ink-3",
+        className,
+      )}
+      {...props}
+    />
+  );
+});
+
+export const MenuSubContent = forwardRef<
+  ElementRef<typeof DropdownMenu.SubContent>,
+  ComponentPropsWithoutRef<typeof DropdownMenu.SubContent>
+>(function MenuSubContent({ className, sideOffset = 4, collisionPadding = 8, ...props }, ref) {
+  return (
+    <DropdownMenu.Portal>
+      <DropdownMenu.SubContent
+        ref={ref}
+        sideOffset={sideOffset}
+        collisionPadding={collisionPadding}
+        className={cn(
+          "z-popover max-h-[min(28rem,var(--radix-dropdown-menu-content-available-height))] min-w-56 overflow-y-auto rounded-md border border-line bg-surface p-1 text-ink shadow-pop motion-safe:animate-fondu",
+          className,
+        )}
+        {...props}
+      />
+    </DropdownMenu.Portal>
+  );
+});
