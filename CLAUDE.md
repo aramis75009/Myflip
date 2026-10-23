@@ -297,15 +297,23 @@ s'appliquent pas à ces écrans.
   `StudioReference` (vraie photo ; `colorisId` null = pas encore rattachée),
   `StudioAngle` (prompts d'angle, `StudioEssai.angleId` en `RESTRICT`), `StudioEssai` (`source` manuel | api).
   Aucune contrainte vers `Article`.
-- **Vercel Blob, store `myflip-studio`, privé** (`lib/studioBlob.ts`). Deux
+- **Supabase Storage, bucket `myflip-studio`, privé** (`lib/studioBlob.ts`, nom
+  gardé de l'époque Vercel Blob ; migré le 24/10/2026). Deux
   préfixes et seulement deux : `references/<userId>/<sha256>.jpg` (vraies
   photos, l'empreinte du fichier d'origine dédoublonne) et
   `generees/<userId>/<uuid>.(jpg|png|webp)` (l'extension suit le type renvoyé par
   le modèle). Une image générée ne transite jamais par une réponse JSON. Le chemin est toujours construit par le module ;
   à la lecture et à la suppression l'URL en base est revérifiée contre le
-  préfixe. Le store étant privé, les écrans lisent par
+  préfixe. Le bucket étant privé, les écrans lisent par
   `GET /api/studio/image?ref=|essai=` (ligne relue en base, scopée par userId).
   Le client compresse en JPEG 1600 px avant tout envoi (limite de 4,5 Mo).
+  ⚠️ Accès par `fetch` sur l'API REST de Supabase avec `SUPABASE_SECRET_KEY` (pas
+  de SDK). **Lecture et suppression se font par le chemin, jamais en suivant
+  l'hôte de l'URL en base** : les lignes d'avant la migration portent encore des
+  adresses `*.blob.vercel-storage.com`, lues sans réécriture parce que leurs
+  fichiers ont été copiés au même chemin. Nouvelles images : adresse
+  `<SUPABASE_URL>/storage/v1/object/myflip-studio/<chemin>`. L'ancien store Vercel
+  Blob est gardé en sauvegarde, plus lu ni écrit.
 - **Coloris : SacBase**, `GET <SACBASE_URL>/api/studio/coloris`
   (`lib/studioColoris.ts` : 4 s, cache 60 s, dernière bonne réponse, ne lève
   jamais). Les pages et la route des références l'appellent **une fois** puis
@@ -527,14 +535,16 @@ OPENROUTER_BASE_URL     # e2e seulement : serveur factice local ; absente = http
 TRELLO_API_KEY          # clé de l'APPLICATION MyFlip (trello.com/power-ups/admin)
 TRELLO_API_SECRET       # « OAuth Secret » : signe l'OAuth et valide les webhooks
 RESEND_API_KEY
-DATABASE_URL            # Neon PostgreSQL (dans .env, géré par Vercel/Prisma)
+DATABASE_URL            # PostgreSQL : Supabase en Production depuis le 24/10/2026 ; Neon pour dev et Preview
 HERMES_API_TOKEN        # API Hermes : jeton porteur. Absente = /api/hermes/* répond 503
 HERMES_USER_EMAIL       # API Hermes : compte MyFlip sur lequel l'agent écrit
 SACBASE_API_TOKEN       # API SacBase (lecture seule) : jeton porteur. Absente = /api/sacbase/stock répond 503
 SACBASE_USER_EMAIL      # API SacBase : compte MyFlip dont SacBase lit les sacs Hipobuy
 SACBASE_URL             # Studio IA : URL de SacBase (https, ou http://localhost en dev). Absente = Studio sans catalogue
 SACBASE_STUDIO_TOKEN    # Studio IA : jeton de GET /api/studio/coloris (= SACSBASE_STUDIO_TOKEN côté SacBase, avec le S)
-BLOB_READ_WRITE_TOKEN   # Studio IA : store Vercel Blob privé `myflip-studio` (références et essais)
+SUPABASE_URL           # Studio IA : https://<projet>.supabase.co (stockage des images). Absente = dépôt et lecture d'images échouent
+SUPABASE_SECRET_KEY    # Studio IA : clé secrète `sb_secret_…` du projet, serveur uniquement (jamais NEXT_PUBLIC_*)
+BLOB_READ_WRITE_TOKEN   # PLUS LU depuis le 24/10/2026 (ancien store Vercel Blob `myflip-studio`, gardé comme sauvegarde)
 ```
 
 ⚠️ **`ENCRYPTION_KEY` perdue = tous les secrets de `UserSettings` illisibles.** La

@@ -1,10 +1,10 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { del, get, put } from "@vercel/blob";
 
 /**
- * Stockage des images du Studio IA dans Vercel Blob (store `myflip-studio`,
- * privé). Deux préfixes, et seulement deux (spec §8) :
+ * Stockage des images du Studio IA dans Supabase Storage (bucket `myflip-studio`,
+ * privé ; elles étaient dans Vercel Blob jusqu'au 24/10/2026). Deux préfixes, et
+ * seulement deux (spec §8) :
  *
  *   references/<userId>/…  vraies photos (mise en vente ou import manuel)
  *   generees/<userId>/…    images générées dans Gemini et déposées au Studio
@@ -19,15 +19,26 @@ import { del, get, put } from "@vercel/blob";
  * l'existant), `.png` ou `.webp` (images générées par l'API, qui rend ce que le
  * modèle produit).
  *
- * Le store est privé : une URL de blob n'est pas affichable telle quelle. Les
- * écrans passent par GET /api/studio/image, qui relit la ligne en base (scopée
- * par userId) puis appelle `lireImage`.
+ * Le bucket est privé : une URL de stockage n'est pas affichable telle quelle.
+ * Les écrans passent par GET /api/studio/image, qui relit la ligne en base
+ * (scopée par userId) puis appelle `lireImage`.
  *
- * Variable : BLOB_READ_WRITE_TOKEN (lue par @vercel/blob).
+ * ⚠️ On lit et on supprime TOUJOURS par le chemin, jamais en suivant l'hôte de
+ * l'URL stockée : l'hôte est celui de `SUPABASE_URL`. C'est ce qui permet aux
+ * lignes d'avant la migration (adresses `*.blob.vercel-storage.com`) de se lire
+ * sans réécriture : leurs fichiers ont été copiés au même chemin.
+ *
+ * Variables : SUPABASE_URL (https://<projet>.supabase.co) et SUPABASE_SECRET_KEY
+ * (clé secrète `sb_secret_…`, serveur uniquement, jamais en NEXT_PUBLIC_*).
  */
 
 export const PREFIXES_BLOB = ["references", "generees"] as const;
 export type PrefixeBlob = (typeof PREFIXES_BLOB)[number];
+
+/** Le bucket Supabase. Un seul : l'isolation entre comptes est dans le chemin. */
+export const BUCKET = "myflip-studio";
+const CHEMIN_API = `/storage/v1/object/${BUCKET}/`;
+const CHEMIN_API_LECTURE = `/storage/v1/object/authenticated/${BUCKET}/`;
 
 /** Taille maximale acceptée à l'envoi. Le client compresse à ~1600 px avant. */
 export const TAILLE_MAX_OCTETS = 4 * 1024 * 1024;
@@ -113,8 +124,10 @@ export function cheminImage(
 }
 
 /**
- * Le chemin d'une URL de blob, ou null si l'URL n'est pas une URL de blob
- * exploitable. `https` exigé, hôte en `.blob.vercel-storage.com`.
+ * Le chemin d'une URL d'image, ou null si l'URL n'est pas exploitable. `https`
+ * exigé. Deux formes : Supabase (`https://<projet>.supabase.co/storage/v1/object/
+ * myflip-studio/<chemin>`, la forme actuelle) et Vercel Blob (`*.blob.vercel-
+ * storage.com/<chemin>`, les lignes d'avant le 24/10/2026).
  */
 export function cheminDepuisUrl(url: string): string | null {
   let u: URL;
@@ -123,8 +136,18 @@ export function cheminDepuisUrl(url: string): string | null {
   } catch {
     return null;
   }
-  if (u.protocol !== "https:" || !u.hostname.endsWith(".blob.vercel-storage.com")) return null;
-  return decodeURIComponent(u.pathname.replace(/^\/+/, ""));
+  if (u.protocol !== "https:") return null;
+  let chemin: string;
+  try {
+    chemin = decodeURIComponent(u.pathname.replace(/^\/+/, ""));
+  } catch {
+    return null;
+  }
+  if (u.hostname.endsWith(".blob.vercel-storage.com")) return chemin;
+  if (u.hostname.endsWith(".supabase.co") && u.pathname.startsWith(CHEMIN_API)) {
+    return chemin.slice(CHEMIN_API.length - 1);
+  }
+  return null;
 }
 
 /**
@@ -148,6 +171,28 @@ export function erreurFichier(f: { type: string; size: number }): string | null 
   return null;
 }
 
+/** Hôte et clé du projet Supabase. Lève si le stockage n'est pas configuré. */
+function configStockage(): { base: string; entetes: Record<string, string> } {
+  const base = (process.env.SUPABASE_URL ?? "").trim().replace(/\/+$/, "");
+  const cle = (process.env.SUPABASE_SECRET_KEY ?? "").trim();
+  if (!base || !cle) throw new StudioBlobError("Stockage d'images non configuré.");
+  let u: URL;
+  try {
+    u = new URL(base);
+  } catch {
+    throw new StudioBlobError("Stockage d'images mal configuré.");
+  }
+  if (u.protocol !== "https:" && u.hostname !== "localhost" && u.hostname !== "127.0.0.1") {
+    throw new StudioBlobError("Stockage d'images mal configuré.");
+  }
+  return { base, entetes: { apikey: cle, Authorization: `Bearer ${cle}` } };
+}
+
+/** Un échec de stockage : le statut seulement, jamais la réponse (elle peut citer la clé ou le chemin). */
+function echec(action: string, statut: number): StudioBlobError {
+  return new StudioBlobError(`Stockage d'images : ${action} refusé (${statut}).`);
+}
+
 /**
  * Envoie une image. Rend l'URL (privée) à ranger dans `urlImage`. `id` : une
  * empreinte SHA-256 pour une référence, rien (uuid tiré ici) pour un essai.
@@ -162,21 +207,28 @@ export async function deposerImage(
   mime: MimeImage = "image/jpeg",
 ): Promise<string> {
   const chemin = cheminImage(prefixe, userId, id, extensionDepuisMime(mime));
-  const res = await put(chemin, corps, {
-    access: "private",
-    contentType: mime,
-    addRandomSuffix: false,
-    // Même empreinte = même photo : réécrire le fichier est sans effet visible.
-    allowOverwrite: true,
+  const { base, entetes } = configStockage();
+  const res = await fetch(`${base}${CHEMIN_API}${chemin}`, {
+    method: "POST",
+    headers: {
+      ...entetes,
+      "Content-Type": mime,
+      // Même empreinte = même photo : réécrire le fichier est sans effet visible.
+      "x-upsert": "true",
+    },
+    body: new Blob([corps as BlobPart], { type: mime }),
   });
-  return res.url;
+  if (!res.ok) throw echec("dépôt", res.status);
+  return `${base}${CHEMIN_API}${chemin}`;
 }
 
-function assurerAppartenance(url: string, prefixe: PrefixeBlob, userId: string): void {
+function assurerAppartenance(url: string, prefixe: PrefixeBlob, userId: string): string {
   if (!urlAppartientA(url, prefixe, userId)) {
     // Ni l'URL ni le userId dans le message : il peut finir dans un log.
     throw new StudioBlobError("Image hors du préfixe attendu.");
   }
+  // urlAppartientA vient de valider l'URL : le chemin existe.
+  return cheminDepuisUrl(url) as string;
 }
 
 /** Lit une image privée. null si elle n'existe plus. */
@@ -185,10 +237,17 @@ export async function lireImage(
   prefixe: PrefixeBlob,
   userId: string,
 ): Promise<{ stream: ReadableStream<Uint8Array>; contentType: string } | null> {
-  assurerAppartenance(url, prefixe, userId);
-  const res = await get(url, { access: "private" });
-  if (!res || res.statusCode !== 200 || !res.stream) return null;
-  return { stream: res.stream, contentType: res.blob.contentType || "image/jpeg" };
+  const chemin = assurerAppartenance(url, prefixe, userId);
+  const { base, entetes } = configStockage();
+  const res = await fetch(`${base}${CHEMIN_API_LECTURE}${chemin}`, { headers: entetes });
+  if (!res.ok) {
+    // Supabase répond tantôt 404, tantôt 400 + « not found » pour un objet absent.
+    if (res.status === 404) return null;
+    if (res.status === 400 && /not.?found/i.test(await res.text().catch(() => ""))) return null;
+    throw echec("lecture", res.status);
+  }
+  if (!res.body) return null;
+  return { stream: res.body, contentType: res.headers.get("content-type") || "image/jpeg" };
 }
 
 /**
@@ -209,6 +268,9 @@ export async function lireImageEnBase64(
 
 /** Supprime une image (purge manuelle d'un essai, ou d'une référence retirée). */
 export async function supprimerImage(url: string, prefixe: PrefixeBlob, userId: string): Promise<void> {
-  assurerAppartenance(url, prefixe, userId);
-  await del(url);
+  const chemin = assurerAppartenance(url, prefixe, userId);
+  const { base, entetes } = configStockage();
+  const res = await fetch(`${base}${CHEMIN_API}${chemin}`, { method: "DELETE", headers: entetes });
+  // Déjà absente = rien à faire (même effet qu'avant avec `del`).
+  if (!res.ok && res.status !== 404) throw echec("suppression", res.status);
 }

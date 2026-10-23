@@ -1,11 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   TAILLE_MAX_OCTETS,
   cheminDepuisUrl,
   cheminImage,
   erreurFichier,
+  deposerImage,
   extensionDepuisMime,
+  lireImage,
   mimeDepuisContentType,
+  supprimerImage,
   urlAppartientA,
 } from "./studioBlob";
 
@@ -179,5 +182,104 @@ describe("mimeDepuisContentType", () => {
   it("defaults to JPEG when neither says anything usable (files written before png/webp existed)", () => {
     expect(mimeDepuisContentType(undefined, "pas une url")).toBe("image/jpeg");
     expect(mimeDepuisContentType("text/html", u("gif"))).toBe("image/jpeg");
+  });
+});
+
+const PROJET = "https://abcdefgh.supabase.co";
+const SB = (chemin: string) => `${PROJET}/storage/v1/object/myflip-studio/${chemin}`;
+
+describe("adresses Supabase", () => {
+  it("reads the path of a Supabase Storage url", () => {
+    expect(cheminDepuisUrl(SB(`references/${USER}/${ID}.jpg`))).toBe(`references/${USER}/${ID}.jpg`);
+  });
+
+  it("rejects another bucket, another endpoint, another host and non-https", () => {
+    expect(cheminDepuisUrl(`${PROJET}/storage/v1/object/autre-bucket/references/${USER}/${ID}.jpg`)).toBeNull();
+    expect(cheminDepuisUrl(`${PROJET}/rest/v1/references/${USER}/${ID}.jpg`)).toBeNull();
+    expect(cheminDepuisUrl(`https://evil.example.com/storage/v1/object/myflip-studio/references/${USER}/${ID}.jpg`)).toBeNull();
+    expect(cheminDepuisUrl(SB(`references/${USER}/${ID}.jpg`).replace("https:", "http:"))).toBeNull();
+  });
+
+  it("applies the same ownership rules as for the old Blob urls", () => {
+    expect(urlAppartientA(SB(`generees/${USER}/${ID}.png`), "generees", USER)).toBe(true);
+    expect(urlAppartientA(SB(`generees/${AUTRE}/${ID}.png`), "generees", USER)).toBe(false);
+    expect(urlAppartientA(SB(`generees/${USER}/${ID}.png`), "references", USER)).toBe(false);
+    expect(urlAppartientA(SB(`references/${USER}/../${AUTRE}/${ID}.jpg`), "references", USER)).toBe(false);
+  });
+});
+
+describe("accès au stockage (réseau simulé)", () => {
+  const fetchSim = vi.fn();
+
+  beforeEach(() => {
+    vi.stubEnv("SUPABASE_URL", PROJET);
+    vi.stubEnv("SUPABASE_SECRET_KEY", "sb_secret_cle_de_test");
+    fetchSim.mockReset();
+    vi.stubGlobal("fetch", fetchSim);
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it("deposerImage posts to the bucket, upserts, and returns the Supabase url", async () => {
+    fetchSim.mockResolvedValue(new Response("{}", { status: 200 }));
+    const url = await deposerImage("generees", USER, Buffer.from([1, 2, 3]), ID, "image/png");
+    expect(url).toBe(SB(`generees/${USER}/${ID}.png`));
+    const [appele, init] = fetchSim.mock.calls[0];
+    expect(appele).toBe(SB(`generees/${USER}/${ID}.png`));
+    expect(init.method).toBe("POST");
+    expect(init.headers["Content-Type"]).toBe("image/png");
+    expect(init.headers["x-upsert"]).toBe("true");
+    expect(init.headers.Authorization).toBe("Bearer sb_secret_cle_de_test");
+  });
+
+  it("deposerImage reports the status but never the answer or the key", async () => {
+    fetchSim.mockResolvedValue(new Response("sb_secret_cle_de_test refusée", { status: 403 }));
+    const e = await deposerImage("references", USER, Buffer.from([1]), "a".repeat(64)).catch((x) => x);
+    expect(e.message).toContain("403");
+    expect(e.message).not.toContain("sb_secret");
+  });
+
+  it("lireImage reads by path on the configured host, even for an old Vercel url", async () => {
+    fetchSim.mockResolvedValue(new Response("octets", { status: 200, headers: { "content-type": "image/webp" } }));
+    const ancienne = `${HOTE}/generees/${USER}/${ID}.webp`;
+    const img = await lireImage(ancienne, "generees", USER);
+    expect(fetchSim.mock.calls[0][0]).toBe(`${PROJET}/storage/v1/object/authenticated/myflip-studio/generees/${USER}/${ID}.webp`);
+    expect(img?.contentType).toBe("image/webp");
+  });
+
+  it("lireImage returns null for a missing object (404, or 400 + not found)", async () => {
+    const url = SB(`references/${USER}/${ID}.jpg`);
+    fetchSim.mockResolvedValueOnce(new Response("", { status: 404 }));
+    expect(await lireImage(url, "references", USER)).toBeNull();
+    fetchSim.mockResolvedValueOnce(new Response('{"error":"not_found","statusCode":"404"}', { status: 400 }));
+    expect(await lireImage(url, "references", USER)).toBeNull();
+  });
+
+  it("lireImage throws on a real failure instead of hiding it as « missing »", async () => {
+    fetchSim.mockResolvedValue(new Response("boom", { status: 500 }));
+    await expect(lireImage(SB(`references/${USER}/${ID}.jpg`), "references", USER)).rejects.toThrow("500");
+  });
+
+  it("lireImage refuses a url outside the prefix without any network call", async () => {
+    await expect(lireImage(SB(`generees/${USER}/${ID}.jpg`), "references", USER)).rejects.toThrow();
+    expect(fetchSim).not.toHaveBeenCalled();
+  });
+
+  it("supprimerImage deletes by path and tolerates an already-missing file", async () => {
+    fetchSim.mockResolvedValue(new Response("", { status: 404 }));
+    await supprimerImage(SB(`references/${USER}/${ID}.jpg`), "references", USER);
+    const [appele, init] = fetchSim.mock.calls[0];
+    expect(appele).toBe(SB(`references/${USER}/${ID}.jpg`));
+    expect(init.method).toBe("DELETE");
+    fetchSim.mockResolvedValue(new Response("", { status: 500 }));
+    await expect(supprimerImage(SB(`references/${USER}/${ID}.jpg`), "references", USER)).rejects.toThrow("500");
+  });
+
+  it("fails clearly, with no network call, when the storage is not configured", async () => {
+    vi.stubEnv("SUPABASE_SECRET_KEY", "");
+    await expect(deposerImage("references", USER, Buffer.from([1]))).rejects.toThrow("non configuré");
+    expect(fetchSim).not.toHaveBeenCalled();
   });
 });

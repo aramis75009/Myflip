@@ -79,16 +79,17 @@ La seule couture dans le code de l'app : `OPENROUTER_BASE_URL`, lue par
 `lib/openrouterBase.ts` (défaut `https://openrouter.ai/api/v1`, seule une adresse
 locale acceptée sinon) et utilisée par les six modules qui appellent OpenRouter.
 
-### Images (Blob « niveau 0 »)
+### Images (stockage « niveau 0 »)
 
-`BLOB_READ_WRITE_TOKEN` et `VERCEL_OIDC_TOKEN` sont vides : le serveur ne lit ni
+`SUPABASE_URL` et `SUPABASE_SECRET_KEY` sont vides (comme les anciens
+`BLOB_READ_WRITE_TOKEN` et `VERCEL_OIDC_TOKEN`) : le serveur ne lit ni
 n'écrit aucune image. Le **navigateur** intercepte `GET /api/studio/image` et
 sert un SVG synthétique (silhouette de sac et libellé, `e2e/outils/image-studio.ts`).
 Pour libeller une image : `imagesStudio.libelles.set("ref:<id>", "Face")`. Les
 vignettes `/api/studio/vignette` passent par le serveur, qui les relaie au faux
 SacBase (`/img/*` → PNG synthétique). Jamais de vraie photo ni d'image générée
 par IA. Conséquence connue : l'import de photos et la génération échouent côté
-serveur à ce niveau (ils lisent le Blob) ; il faut intercepter leurs routes.
+serveur à ce niveau (ils passent par le stockage) ; il faut intercepter leurs routes.
 
 ### Projets
 
