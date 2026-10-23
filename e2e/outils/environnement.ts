@@ -115,7 +115,9 @@ export function envServeur(): Record<string, string> {
     SACBASE_STUDIO_TOKEN: SACBASE_JETON_E2E,
     RESEND_BASE_URL: URL_RESEND,
     RESEND_API_KEY: "re_e2e_factice",
-    // ── Blob « niveau 0 » : aucun jeton, le navigateur sert les images ──
+    // ── Stockage d'images « niveau 0 » : aucune clé, le navigateur sert les images ──
+    SUPABASE_URL: "",
+    SUPABASE_SECRET_KEY: "",
     BLOB_READ_WRITE_TOKEN: "",
     VERCEL_OIDC_TOKEN: "",
     VERCEL_BLOB_API_URL: "",
@@ -203,8 +205,8 @@ export function controlerPreparation(env: Record<string, string> = envServeur())
   if (env.VERCEL_BLOB_API_URL && !estUrlLocale(env.VERCEL_BLOB_API_URL)) {
     erreurs.push("VERCEL_BLOB_API_URL n'est pas une adresse locale.");
   }
-  for (const nom of ["BLOB_READ_WRITE_TOKEN", "VERCEL_OIDC_TOKEN", "OPENROUTER_API_KEY"]) {
-    if (env[nom] !== "") erreurs.push(`${nom} doit être vide (Blob niveau 0, aucune clé de repli).`);
+  for (const nom of ["SUPABASE_URL", "SUPABASE_SECRET_KEY", "BLOB_READ_WRITE_TOKEN", "VERCEL_OIDC_TOKEN", "OPENROUTER_API_KEY"]) {
+    if (env[nom] !== "") erreurs.push(`${nom} doit être vide (stockage niveau 0, aucune clé de repli).`);
   }
 
   const nonSurcharges: string[] = [];
