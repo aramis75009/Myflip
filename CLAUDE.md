@@ -166,7 +166,7 @@ SacBase n'ouvre aucune route d'écriture. Code : `lib/sacbaseAuth.ts`,
 ### Comptes de vente et date de mise en vente
 
 - `lib/comptesVente.ts` est la **seule** source des libellés : `VINTED_PRO` =
-  « Fripandtrend », `VINTED_SECOND` = « Enorab18 ». Le compte se choisit AVANT la
+  « Fripandtrend », `VINTED_SECOND` = « Enorab18 », `VINTED_AXL` = « axl_cldr » (3e compte, 23/10/2026, sacs vintage). Le compte se choisit AVANT la
   vente (colonne « Compte » du Stock, fiche de mise en vente) ; la comptabilisation
   garde le compte choisi, `VINTED_PRO` seulement s'il n'y en a aucun.
 - `Article.dateMiseEnVente` (29/09/2026) : posée par `lib/dateMiseEnVente.ts` au

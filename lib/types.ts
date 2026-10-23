@@ -2,7 +2,7 @@
 
 /** Compte sur lequel la vente a été encaissée. */
 export type CompteVente =
-  "VINTED_PRO" | "VINTED_SECOND" | "VESTIAIRE_COLLECTIVE";
+  "VINTED_PRO" | "VINTED_SECOND" | "VINTED_AXL" | "VESTIAIRE_COLLECTIVE";
 
 export type ArticleDTO = {
   id: string;

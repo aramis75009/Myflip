@@ -64,6 +64,7 @@ describe("reponseSacbase", () => {
     expect(r.comptes).toEqual([
       { id: "VINTED_PRO", label: "Fripandtrend" },
       { id: "VINTED_SECOND", label: "Enorab18" },
+      { id: "VINTED_AXL", label: "axl_cldr" },
       { id: "VESTIAIRE_COLLECTIVE", label: "Vestiaire Collective" },
     ]);
   });

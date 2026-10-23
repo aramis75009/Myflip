@@ -8,6 +8,7 @@ generator client {
 enum CompteVente {
   VINTED_PRO
   VINTED_SECOND
+  VINTED_AXL
   VESTIAIRE_COLLECTIVE
 }
 

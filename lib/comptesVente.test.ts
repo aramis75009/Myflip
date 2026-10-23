@@ -14,11 +14,12 @@ describe("COMPTES_VENTE", () => {
     expect(COMPTES_VENTE).toEqual([
       { id: "VINTED_PRO", label: "Fripandtrend" },
       { id: "VINTED_SECOND", label: "Enorab18" },
+      { id: "VINTED_AXL", label: "axl_cldr" },
       { id: "VESTIAIRE_COLLECTIVE", label: "Vestiaire Collective" },
     ]);
   });
 
-  it("isCompteVente n'accepte que les trois valeurs de l'enum", () => {
+  it("isCompteVente n'accepte que les quatre valeurs de l'enum", () => {
     expect(isCompteVente("VINTED_SECOND")).toBe(true);
     expect(isCompteVente("vinted_second")).toBe(false);
     expect(isCompteVente("FOO")).toBe(false);

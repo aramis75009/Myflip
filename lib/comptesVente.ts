@@ -10,6 +10,7 @@ import type { CompteVente } from "@/lib/types";
 export const COMPTES_VENTE: ReadonlyArray<{ id: CompteVente; label: string }> = [
   { id: "VINTED_PRO", label: "Fripandtrend" },
   { id: "VINTED_SECOND", label: "Enorab18" },
+  { id: "VINTED_AXL", label: "axl_cldr" },
   { id: "VESTIAIRE_COLLECTIVE", label: "Vestiaire Collective" },
 ];
 
