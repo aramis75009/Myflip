@@ -11,6 +11,7 @@
 import { prisma } from "@/lib/prisma";
 import { dechiffrerOuNull } from "@/lib/crypto";
 import { credentialsApp } from "@/lib/trelloOAuth";
+import { estFournisseurIA, type FournisseurIA } from "@/lib/modelesIA";
 import type { UserSettings } from "@prisma/client";
 
 /** D'où vient l'accès Trello réellement utilisé. */
@@ -55,15 +56,28 @@ export type ReglagesTrelloBruts = {
 
 export type ReglagesResolus = {
   openrouterKey: string | null;
+  /** Clé Ollama Cloud : celle du compte, sinon `OLLAMA_API_KEY` (même cascade qu'OpenRouter). */
+  ollamaKey: string | null;
   trello: TrelloContexte | null;
+  /**
+   * Fournisseur choisi par le compte, `null` = rien de choisi. Le défaut
+   * (Ollama Cloud) s'applique dans `modeleChoisi` / `choisirIA`, pas ici : cette
+   * valeur reste le CHOIX du compte, pas sa résolution.
+   */
+  fournisseurIA: FournisseurIA | null;
   /** Identifiant OpenRouter du modèle qui rédige les annonces. */
   modeleIA: string | null;
   /** Identifiant OpenRouter du modèle de l'assistant conversationnel. */
   modeleChatIA: string | null;
+  /** Identifiant Ollama Cloud du modèle qui rédige les annonces. */
+  modeleOllamaIA: string | null;
+  /** Identifiant Ollama Cloud du modèle de l'assistant conversationnel. */
+  modeleOllamaChatIA: string | null;
   objectifMensuel: number | null;
   /** Pour la clé IA : la valeur vient-elle du compte ou de l'application ? */
   source: {
     openrouter: "utilisateur" | "app" | "absente";
+    ollama: "utilisateur" | "app" | "absente";
     trello: SourceTrello;
   };
 };
@@ -136,6 +150,10 @@ export async function resoudreReglages(userId: string): Promise<ReglagesResolus>
     dechiffrerOuNull(s?.openrouterKey),
     process.env.OPENROUTER_API_KEY,
   );
+  const [ollama, srcOllama] = cascade(
+    dechiffrerOuNull(s?.ollamaKey),
+    process.env.OLLAMA_API_KEY,
+  );
 
   const trello = contexteDepuisReglages(
     {
@@ -152,12 +170,18 @@ export async function resoudreReglages(userId: string): Promise<ReglagesResolus>
 
   return {
     openrouterKey: openrouter,
+    ollamaKey: ollama,
     trello,
+    // Une valeur périmée en base (fournisseur retiré) vaut « rien de choisi ».
+    fournisseurIA: estFournisseurIA(s?.fournisseurIA) ? s.fournisseurIA : null,
     modeleIA: vide(s?.modeleIA),
     modeleChatIA: vide(s?.modeleChatIA),
+    modeleOllamaIA: vide(s?.modeleOllamaIA),
+    modeleOllamaChatIA: vide(s?.modeleOllamaChatIA),
     objectifMensuel: s?.objectifMensuel ?? null,
     source: {
       openrouter: srcOpenrouter,
+      ollama: srcOllama,
       trello: trello?.source ?? "absente",
     },
   };

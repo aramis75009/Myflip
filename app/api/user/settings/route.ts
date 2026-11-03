@@ -8,6 +8,7 @@ import {
   dechiffrerOuNull,
 } from "@/lib/crypto";
 import { contexteTrello, reglagesBruts, resoudreReglages } from "@/lib/settings";
+import { estFournisseurIA } from "@/lib/modelesIA";
 import { createWebhook } from "@/lib/trello";
 import { origineDe } from "@/lib/hosts";
 import type { UserSettingsDTO } from "@/lib/types";
@@ -21,7 +22,10 @@ export const dynamic = "force-dynamic";
 // (/api/trello/connect), plus par saisie. Les colonnes existent toujours pour
 // les connexions héritées, mais plus rien ne doit pouvoir les ÉCRIRE — un
 // formulaire qui les repose contournerait tout le contrôle d'autorisation.
-const SECRETS = ["openrouterKey"] as const;
+//
+// `ollamaKey` (03/11/2026) est traitée EXACTEMENT comme `openrouterKey` : mêmes
+// garde-fous, même chiffrement, jamais renvoyée en clair.
+const SECRETS = ["openrouterKey", "ollamaKey"] as const;
 
 /**
  * Enregistre le webhook Trello sur le board du compte, si possible.
@@ -72,6 +76,9 @@ const CLAIRS = [
   "trelloComptabiliseLabelId",
   "modeleIA",
   "modeleChatIA",
+  "fournisseurIA",
+  "modeleOllamaIA",
+  "modeleOllamaChatIA",
 ] as const;
 
 type Body = Partial<
@@ -108,6 +115,7 @@ export async function GET() {
 
     const dto: UserSettingsDTO = {
       openrouter: etatSecret(s?.openrouterKey),
+      ollama: etatSecret(s?.ollamaKey),
       trello: {
         connecte: resolus.trello !== null,
         source: resolus.source.trello,
@@ -117,8 +125,11 @@ export async function GET() {
         comptabiliseLabelId: s?.trelloComptabiliseLabelId ?? null,
         webhookActif: Boolean(s?.trelloWebhookId),
       },
+      fournisseurIA: resolus.fournisseurIA,
       modeleIA: s?.modeleIA ?? null,
       modeleChatIA: s?.modeleChatIA ?? null,
+      modeleOllamaIA: s?.modeleOllamaIA ?? null,
+      modeleOllamaChatIA: s?.modeleOllamaChatIA ?? null,
       objectifMensuel: s?.objectifMensuel ?? null,
       onboardingEtape: s?.onboardingEtape ?? 1,
       onboardingTermine: s?.onboardingTermine ?? false,
@@ -170,6 +181,12 @@ export async function PUT(req: NextRequest) {
     for (const champ of CLAIRS) {
       if (!(champ in body)) continue;
       const valeur = body[champ]?.trim() ?? "";
+      // Le fournisseur est une liste fermée : toute autre valeur serait lue par
+      // `fournisseurEffectif` comme « rien de choisi » et passerait pour un
+      // enregistrement réussi. Vide = effacer, donc retour au défaut.
+      if (champ === "fournisseurIA" && valeur && !estFournisseurIA(valeur)) {
+        return NextResponse.json({ error: "Fournisseur IA inconnu." }, { status: 400 });
+      }
       data[champ] = valeur || null;
     }
 

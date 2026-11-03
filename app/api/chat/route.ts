@@ -4,10 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { getUserId, unauthorized } from "@/lib/apiAuth";
 import { deriveVente, euros, STATUT_VENDU, STATUTS } from "@/lib/calc";
 import { resoudreReglages } from "@/lib/settings";
+import { choisirIA, creerAppelChat, messageCleManquante } from "@/lib/fournisseurIA";
 import {
-  appelerChat,
   appelsOutils,
-  construireCorpsChat,
   ErreurAssistant,
   messageAssistantBrut,
   texteAssistant,
@@ -373,17 +372,13 @@ export async function POST(req: NextRequest) {
   if (!userId) return unauthorized();
 
   try {
-    // Clé du compte si l'utilisateur en a saisi une, sinon celle de l'app.
-    const { openrouterKey, modeleChatIA } = await resoudreReglages(userId);
-    if (!openrouterKey) {
-      return NextResponse.json(
-        {
-          error:
-            "Aucune clé OpenRouter : renseigne la tienne dans Mon compte, ou configure celle de l'application.",
-        },
-        { status: 500 },
-      );
+    // Fournisseur du compte (Ollama Cloud par défaut, OpenRouter en secours),
+    // avec SA clé : celle de l'utilisateur si elle existe, sinon celle de l'app.
+    const choix = choisirIA("chat", await resoudreReglages(userId));
+    if (!choix.cle) {
+      return NextResponse.json({ error: messageCleManquante(choix.fournisseur) }, { status: 500 });
     }
+    const appeler = creerAppelChat(choix, SYSTEM, tools);
 
     const body = (await req.json()) as Body;
 
@@ -407,10 +402,7 @@ export async function POST(req: NextRequest) {
 
     const historique: MessageChat[] = [{ role: "user", content: message }];
 
-    let reponse = await appelerChat(
-      construireCorpsChat(SYSTEM, tools, historique, modeleChatIA),
-      openrouterKey,
-    );
+    let reponse = await appeler(historique);
 
     // Boucle : on exécute les outils de LECTURE et on relance le modèle ;
     // dès qu'un outil de MUTATION apparaît, on s'arrête et on attend confirmation.
@@ -441,10 +433,7 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      reponse = await appelerChat(
-        construireCorpsChat(SYSTEM, tools, historique, modeleChatIA),
-        openrouterKey,
-      );
+      reponse = await appeler(historique);
     }
 
     return NextResponse.json({
@@ -453,7 +442,8 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("POST /api/chat", err);
     // Seule une `ErreurAssistant` porte un message SÛR à renvoyer tel quel
-    // (clé refusée, crédits épuisés, modèle inconnu…) — cf. lib/openrouterChat.ts.
+    // (clé refusée, crédits épuisés, modèle inconnu…) — cf. lib/openrouterChat.ts
+    // et lib/ollamaChat.ts.
     // Toute autre erreur (Prisma, bug interne) reste générique.
     if (err instanceof ErreurAssistant) {
       return NextResponse.json({ error: err.message }, { status: 502 });

@@ -1070,7 +1070,7 @@ const ETATS: DefEtat[] = [
       const { page } = c;
       await aller(page, "/compte", "demo");
       await expect(page.getByPlaceholder(/••••0000/)).toBeVisible();
-      await page.getByRole("button", { name: "Enregistrer ma clé" }).click();
+      await page.getByRole("button", { name: "Enregistrer mes clés" }).click();
       await expect(toast(page, "Aucune clé saisie.")).toBeVisible();
       await c.capture("cle-vide", IMMEDIAT);
 
@@ -1084,7 +1084,8 @@ const ETATS: DefEtat[] = [
       await c.capture("mots-de-passe-differents", IMMEDIAT);
 
       await page.getByRole("combobox", { name: "Modèle qui rédige les annonces" }).selectOption({ label: "Autre…" });
-      const libre = page.getByPlaceholder("fournisseur/modele");
+      // Le compte de test n'a rien choisi : Ollama Cloud, dont les modèles s'écrivent sans préfixe.
+      const libre = page.getByPlaceholder("nom-du-modele");
       await expect(libre).toBeVisible();
       await libre.scrollIntoViewIfNeeded();
       await c.capture("autre-modele");
@@ -1171,7 +1172,8 @@ const ETATS: DefEtat[] = [
       c.simule("POST /api/user/settings/test → { ok: true } (aucun appel OpenRouter)");
       await aller(c.page, "/compte", "demo");
       await expect(c.page.getByPlaceholder(/••••0000/)).toBeVisible();
-      await c.page.getByRole("button", { name: "Tester" }).click();
+      // Deux boutons « Tester » : Ollama Cloud (par défaut) puis OpenRouter (secours, seul à porter une clé de test).
+      await c.page.getByRole("button", { name: "Tester" }).last().click();
       await expect(toast(c.page, "Clé OpenRouter valide.")).toBeVisible();
       await c.capture(undefined, IMMEDIAT);
     },

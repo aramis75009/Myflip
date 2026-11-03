@@ -4,7 +4,8 @@
 // ⚠️ Ce texte décrit un CONTRAT TECHNIQUE réel. S'il diverge de ce que
 // l'application attend, il produit des prompts qui échouent en production :
 //   • les variables sont celles de `compilePrompt` (lib/promptSelect.ts) ;
-//   • le format de sortie est imposé par le `response_format` de lib/openrouter.ts ;
+//   • le format de sortie est imposé par le `response_format` de lib/openrouter.ts
+//     et de lib/ollama.ts (qui le redit aussi à la suite du prompt) ;
 //   • la génération est multimodale — les photos accompagnent le prompt
 //     (app/api/listings/generate/route.ts refuse une requête sans image).
 // Toute modification de l'un de ces trois points doit être répercutée ici.

@@ -3,11 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { getUserId, unauthorized } from "@/lib/apiAuth";
 import { ensureDefaultPrompt, toPromptDTO } from "@/lib/promptsServer";
 import { compilePrompt, pickPrompt } from "@/lib/promptSelect";
-import { generateListing, type ImageAnnonce } from "@/lib/openrouter";
+import type { ImageAnnonce } from "@/lib/openrouter";
+import { choisirIA, genererAnnonce } from "@/lib/fournisseurIA";
 import { resoudreReglages } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60; // la génération peut être longue
+// La génération peut être longue, et Ollama Cloud en refait UNE si la première
+// réponse est inutilisable (cf. lib/ollama.ts) : de 60 s à 120 s pour que la
+// relance ne soit pas coupée en vol.
+export const maxDuration = 120;
 
 type Body = {
   sku?: string;
@@ -30,8 +34,8 @@ function parseImage(raw: string): ImageAnnonce {
 
 // POST /api/listings/generate
 export async function POST(req: NextRequest) {
-  // Cette route consomme la clé OpenRouter du serveur : sans garde, n'importe
-  // qui pouvait générer des annonces aux frais du déploiement.
+  // Cette route consomme la clé IA du serveur (repli de l'application) : sans
+  // garde, n'importe qui pouvait générer des annonces aux frais du déploiement.
   const userId = await getUserId();
   if (!userId) return unauthorized();
 
@@ -39,6 +43,7 @@ export async function POST(req: NextRequest) {
   let sku: string | undefined;
   let promptNom: string | undefined;
   let nbImages = 0;
+  let fournisseurLog: string | undefined;
 
   try {
     const body = (await req.json()) as Body;
@@ -91,23 +96,21 @@ export async function POST(req: NextRequest) {
       details: body.details,
     });
 
-    // Clé de l'utilisateur si elle existe, sinon celle de l'application. Le
-    // modèle, lui, n'a pas de repli d'environnement : `generateListing` retombe
-    // sur MODELE_PAR_DEFAUT quand le compte n'a rien choisi.
+    // Fournisseur du compte (Ollama Cloud par défaut, OpenRouter en secours),
+    // avec SA clé : celle de l'utilisateur si elle existe, sinon celle de
+    // l'application. Le modèle n'a pas de repli d'environnement : `choisirIA`
+    // applique le défaut du fournisseur quand le compte n'a rien choisi.
     const reglages = await resoudreReglages(userId);
-    const result = await generateListing(
-      compiled,
-      images.map(parseImage),
-      reglages.openrouterKey,
-      reglages.modeleIA,
-    );
+    const choix = choisirIA("annonce", reglages);
+    fournisseurLog = `${choix.fournisseur}/${choix.modele}`;
+    const result = await genererAnnonce(choix, compiled, images.map(parseImage));
 
     return NextResponse.json({ ...result, promptNom: tmpl.nom });
   } catch (err) {
     // Le SKU et le prompt dans le log : sans eux, une génération ratée parmi
     // plusieurs ne se rattache à aucun article, et le log ne sert à rien.
     console.error(
-      `POST /api/listings/generate sku=${sku ?? "?"} prompt=${promptNom ?? "?"} images=${nbImages}`,
+      `POST /api/listings/generate sku=${sku ?? "?"} prompt=${promptNom ?? "?"} images=${nbImages} modele=${fournisseurLog ?? "?"}`,
       err,
     );
     const message =

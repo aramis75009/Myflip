@@ -1,11 +1,15 @@
-// Catalogue des modèles proposés pour la génération d'annonces.
+// Catalogue des modèles proposés pour la génération d'annonces et l'assistant,
+// pour chaque fournisseur : Ollama Cloud (par défaut depuis le 03/11/2026, section
+// « Ollama Cloud » en bas de fichier) et OpenRouter (secours, tout ce qui suit
+// jusqu'à elle). Les deux passent par `modeleChoisi`, qui dit quel fournisseur et
+// quel modèle un compte utilise.
 //
 // Module PARTAGÉ client/serveur, et volontairement sans dépendance : il est
 // importé par `components/compte/Integrations.tsx` (composant client) autant que
 // par la route de génération. Y ajouter un import serveur ferait entrer le SDK
 // et les secrets dans le bundle navigateur.
 //
-// ⚠️ Deux capacités sont NON NÉGOCIABLES pour figurer ici :
+// ⚠️ Pour OpenRouter, deux capacités sont NON NÉGOCIABLES pour figurer ici :
 //   • lecture d'image en entrée  — l'annonce est écrite à partir des photos ;
 //   • sortie JSON structurée     — la réponse est parsée, pas lue par un humain.
 // Un modèle qui n'a pas les deux échoue à CHAQUE génération, pas une fois sur
@@ -14,13 +18,75 @@
 // structured_outputs` — refaire ce filtrage avant d'y ajouter une ligne.
 
 export type ModelePropose = {
-  /** Identifiant OpenRouter, tel qu'attendu par le champ `model` de l'API. */
+  /** Identifiant du modèle, tel qu'attendu par le champ `model` de l'API du fournisseur. */
   id: string;
   libelle: string;
-  /** Repère de coût affiché à côté du nom, en $ par million de tokens. */
-  prix: string;
+  /**
+   * Repère de coût affiché à côté du nom, en $ par million de tokens. `null` =
+   * pas de prix au jeton (Ollama Cloud se paie au forfait) : rien n'est affiché
+   * plutôt qu'un prix inventé.
+   */
+  prix: string | null;
   note: string;
+  /** Lit des images en entrée. Renseigné pour le catalogue Ollama. */
+  vision?: boolean;
+  /** Sait appeler des outils (function calling). Renseigné pour le catalogue Ollama. */
+  tools?: boolean;
+  /**
+   * Niveau de `reasoning_effort` à envoyer, par usage ; `null` = ne rien envoyer.
+   * Absent = ne rien envoyer non plus. Ollama refuse le paramètre sur un modèle
+   * qui ne sait pas réfléchir : on n'en pose que là où c'est connu.
+   */
+  reflexion?: { annonce: EffortReflexion | null; chat: EffortReflexion | null };
 };
+
+/** Valeurs de `reasoning_effort` que nous envoyons à Ollama Cloud. */
+export type EffortReflexion = "low" | "medium" | "high";
+
+// ── Fournisseurs ────────────────────────────────────────────────────────────
+
+/**
+ * Qui sert les annonces et l'assistant.
+ *
+ * Ollama Cloud est le défaut depuis le 03/11/2026 (plus de crédit OpenRouter).
+ * OpenRouter reste en secours : son code, son catalogue et sa clé sont intacts,
+ * et un compte le choisit dans « Mon compte ». Le Studio IA (génération et avis
+ * sur les images, `lib/studio*`) n'est PAS concerné : Ollama Cloud ne génère pas
+ * d'images, il reste sur OpenRouter quel que soit ce réglage.
+ */
+export type FournisseurIA = "ollama" | "openrouter";
+
+export const FOURNISSEUR_PAR_DEFAUT: FournisseurIA = "ollama";
+
+export const FOURNISSEURS_IA: { id: FournisseurIA; libelle: string; note: string }[] = [
+  {
+    id: "ollama",
+    libelle: "Ollama Cloud",
+    note: "Le fournisseur par défaut. Forfait Ollama, pas de crédit à recharger.",
+  },
+  {
+    id: "openrouter",
+    libelle: "OpenRouter",
+    note: "Le secours : un crédit à recharger, un très large choix de modèles.",
+  },
+];
+
+/** Vrai si la valeur est un fournisseur connu (une valeur en base peut être périmée). */
+export function estFournisseurIA(v: unknown): v is FournisseurIA {
+  return v === "ollama" || v === "openrouter";
+}
+
+/** Fournisseur effectif d'un compte : son choix, sinon Ollama Cloud. */
+export function fournisseurEffectif(choisi: string | null | undefined): FournisseurIA {
+  return estFournisseurIA(choisi) ? choisi : FOURNISSEUR_PAR_DEFAUT;
+}
+
+export function libelleFournisseur(f: FournisseurIA): string {
+  return FOURNISSEURS_IA.find((x) => x.id === f)?.libelle ?? f;
+}
+
+/** Ce que le modèle doit faire : rédiger une annonce d'après des photos, ou tenir l'assistant. */
+export type UsageIA = "annonce" | "chat";
 
 /**
  * Modèle utilisé quand le compte n'a rien choisi.
@@ -32,6 +98,10 @@ export type ModelePropose = {
  * ~80 mots-clés sur 7 langues) sur le comportement de ce modèle-là.
  */
 export const MODELE_PAR_DEFAUT = "google/gemini-3.6-flash";
+// ⚠️ « Par défaut » = défaut du fournisseur OpenRouter. Le fournisseur par défaut
+// de l'application est Ollama Cloud (`MODELE_OLLAMA_PAR_DEFAUT`, plus bas) ;
+// celui-ci reste lu par `lib/studioVerif.ts` (avis IA du Studio, qui lit des
+// images via OpenRouter) : ne pas le remplacer par un identifiant Ollama.
 
 export const MODELES_PROPOSES: ModelePropose[] = [
   {
@@ -143,4 +213,138 @@ export function estModeleLibre(id: string | null): boolean {
 export function libelleModele(id: string | null): string {
   const cible = id?.trim() || MODELE_PAR_DEFAUT;
   return MODELES_PROPOSES.find((m) => m.id === cible)?.libelle ?? cible;
+}
+
+// ── Ollama Cloud ────────────────────────────────────────────────────────────
+//
+// Noms relevés sur `https://ollama.com/api/tags` (03/11/2026). Ollama Cloud se
+// paie au forfait : aucun prix au jeton à afficher (`prix: null`).
+//
+// Mêmes exigences que pour OpenRouter, appliquées sur les capacités déclarées
+// de chaque modèle :
+//   • annonces → `vision` (l'annonce est écrite d'après les photos) ;
+//   • assistant → `tools` (il appelle des outils pour lire et agir).
+// Le JSON structuré n'est PAS une exigence ici : le cloud ne tient pas
+// `response_format` de façon fiable, `lib/ollama.ts` décrit le schéma dans le
+// prompt et valide la réponse lui-même.
+
+/** Modèle des annonces quand le compte, sur Ollama Cloud, n'a rien choisi. */
+export const MODELE_OLLAMA_PAR_DEFAUT = "deepseek-v4.1-flash";
+
+/** Modèle de l'assistant quand le compte, sur Ollama Cloud, n'a rien choisi. */
+export const MODELE_CHAT_OLLAMA_PAR_DEFAUT = "deepseek-v4.1-flash";
+
+const CATALOGUE_OLLAMA: ModelePropose[] = [
+  {
+    id: "deepseek-v4.1-flash",
+    libelle: "DeepSeek V4.1 Flash",
+    prix: null,
+    note: "Le choix par défaut : lit les photos, réfléchit avant d'écrire, appelle les outils.",
+    vision: true,
+    tools: true,
+    // Les prompts demandent de saturer un titre à 100 caractères et ~80
+    // mots-clés sur 7 langues : un passage de réflexion les tient (même raison
+    // que le budget de 1024 jetons de `lib/openrouter.ts`). L'assistant, lui,
+    // n'a qu'à enchaîner des outils : réflexion minimale.
+    reflexion: { annonce: "medium", chat: "low" },
+  },
+  {
+    id: "gemma4:31b",
+    libelle: "Gemma 4 31B",
+    prix: null,
+    note: "Lit les photos et pèse moins lourd sur le forfait.",
+    vision: true,
+    tools: true,
+    // Capacité de réflexion non vérifiée : on n'envoie rien (Ollama refuse
+    // `reasoning_effort` sur un modèle qui ne réfléchit pas).
+    reflexion: { annonce: null, chat: null },
+  },
+  {
+    id: "glm-5.3-flash",
+    libelle: "GLM 5.3 Flash",
+    prix: null,
+    note: "Autre famille, lit aussi les photos.",
+    vision: true,
+    tools: true,
+    reflexion: { annonce: null, chat: null },
+  },
+];
+
+export const MODELES_OLLAMA_PROPOSES: ModelePropose[] = CATALOGUE_OLLAMA.filter((m) => m.vision);
+
+export const MODELES_CHAT_OLLAMA_PROPOSES: ModelePropose[] = CATALOGUE_OLLAMA.filter((m) => m.tools);
+
+// ── Accès générique, quel que soit le fournisseur ───────────────────────────
+
+/** Le catalogue à proposer pour ce fournisseur et cet usage. */
+export function modelesProposes(f: FournisseurIA, usage: UsageIA): ModelePropose[] {
+  if (f === "ollama") return usage === "annonce" ? MODELES_OLLAMA_PROPOSES : MODELES_CHAT_OLLAMA_PROPOSES;
+  return usage === "annonce" ? MODELES_PROPOSES : MODELES_CHAT_PROPOSES;
+}
+
+/** Le modèle utilisé quand le compte n'a rien choisi pour ce fournisseur et cet usage. */
+export function modeleParDefaut(f: FournisseurIA, usage: UsageIA): string {
+  if (f === "ollama") return usage === "annonce" ? MODELE_OLLAMA_PAR_DEFAUT : MODELE_CHAT_OLLAMA_PAR_DEFAUT;
+  return usage === "annonce" ? MODELE_PAR_DEFAUT : MODELE_CHAT_PAR_DEFAUT;
+}
+
+/** Vrai si l'identifiant (saisi à la main) ne figure pas dans le catalogue de ce fournisseur. */
+export function estModeleHorsCatalogue(f: FournisseurIA, usage: UsageIA, id: string | null): boolean {
+  if (!id) return false;
+  return !modelesProposes(f, usage).some((m) => m.id === id);
+}
+
+/** « Nom — prix $/M », ou le nom seul quand il n'y a pas de prix au jeton. */
+export function libelleOption(m: ModelePropose): string {
+  return m.prix ? `${m.libelle} — ${m.prix} $/M` : m.libelle;
+}
+
+/**
+ * Niveau de `reasoning_effort` à envoyer à Ollama Cloud pour ce modèle, ou
+ * `null` pour ne rien envoyer (modèle inconnu, saisi à la main, ou sans
+ * réflexion connue).
+ */
+export function effortReflexion(modele: string, usage: UsageIA): EffortReflexion | null {
+  return CATALOGUE_OLLAMA.find((m) => m.id === modele)?.reflexion?.[usage] ?? null;
+}
+
+/** Le champ de `UserSettings` qui porte le modèle de ce fournisseur et de cet usage. */
+export function champModele(
+  f: FournisseurIA,
+  usage: UsageIA,
+): "modeleIA" | "modeleChatIA" | "modeleOllamaIA" | "modeleOllamaChatIA" {
+  if (f === "ollama") return usage === "annonce" ? "modeleOllamaIA" : "modeleOllamaChatIA";
+  return usage === "annonce" ? "modeleIA" : "modeleChatIA";
+}
+
+/** Les champs de `UserSettings` qui décident du fournisseur et du modèle. */
+export type ChoixModeleBrut = {
+  fournisseurIA?: string | null;
+  modeleIA?: string | null;
+  modeleChatIA?: string | null;
+  modeleOllamaIA?: string | null;
+  modeleOllamaChatIA?: string | null;
+};
+
+/**
+ * Fournisseur et modèle réellement utilisés par un compte.
+ *
+ * Un modèle n'a de sens que chez SON fournisseur : chaque fournisseur a donc sa
+ * propre colonne (`modeleIA` reste celle d'OpenRouter). Changer de fournisseur
+ * ne fait jamais envoyer un identifiant OpenRouter à Ollama, ni l'inverse.
+ * Rien de choisi pour ce couple = le défaut du fournisseur.
+ */
+export function modeleChoisi(
+  brut: ChoixModeleBrut,
+  usage: UsageIA,
+): { fournisseur: FournisseurIA; modele: string } {
+  const fournisseur = fournisseurEffectif(brut.fournisseurIA);
+  const stocke = brut[champModele(fournisseur, usage)]?.trim();
+  return { fournisseur, modele: stocke || modeleParDefaut(fournisseur, usage) };
+}
+
+/** Nom lisible du modèle d'un fournisseur ; un identifiant hors catalogue est rendu tel quel. */
+export function libelleModeleIA(f: FournisseurIA, usage: UsageIA, id: string | null): string {
+  const cible = id?.trim() || modeleParDefaut(f, usage);
+  return modelesProposes(f, usage).find((m) => m.id === cible)?.libelle ?? cible;
 }

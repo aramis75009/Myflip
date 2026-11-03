@@ -111,6 +111,12 @@ export function envServeur(): Record<string, string> {
     INVITE_CODES: "E2E-INVITE",
     // ── Faux serveurs ──
     OPENROUTER_BASE_URL: URL_OPENROUTER,
+    // Ollama Cloud (fournisseur IA par défaut depuis le 03/11/2026) parle le même
+    // format OpenAI : pointé sur le même faux serveur local, aucun appel ne peut
+    // partir vers ollama.com. Le compte e2e n'a pas de clé Ollama : aucune
+    // génération réelle n'est faite côté serveur (elles sont simulées dans le
+    // navigateur).
+    OLLAMA_BASE_URL: URL_OPENROUTER,
     SACBASE_URL: URL_SACBASE,
     SACBASE_STUDIO_TOKEN: SACBASE_JETON_E2E,
     RESEND_BASE_URL: URL_RESEND,
@@ -126,6 +132,7 @@ export function envServeur(): Record<string, string> {
     BLOB_STORE_ID: "",
     // ── À vider : de vraies valeurs vivent dans .env.local ──
     OPENROUTER_API_KEY: "",
+    OLLAMA_API_KEY: "",
     TRELLO_API_KEY: "",
     TRELLO_API_SECRET: "",
     TRELLO_TOKEN: "",
@@ -199,13 +206,13 @@ export function controlerPreparation(env: Record<string, string> = envServeur())
   const db = env.DATABASE_URL ?? "";
   if (!estUrlLocale(db)) erreurs.push("DATABASE_URL ne vise pas localhost.");
   if (/neon\.tech|ep-curly-haze|ep-autumn-morning/i.test(db)) erreurs.push("DATABASE_URL vise Neon.");
-  for (const nom of ["OPENROUTER_BASE_URL", "SACBASE_URL", "RESEND_BASE_URL", "NEXTAUTH_URL", "AUTH_URL"]) {
+  for (const nom of ["OPENROUTER_BASE_URL", "OLLAMA_BASE_URL", "SACBASE_URL", "RESEND_BASE_URL", "NEXTAUTH_URL", "AUTH_URL"]) {
     if (!estUrlLocale(env[nom] ?? "")) erreurs.push(`${nom} n'est pas une adresse locale.`);
   }
   if (env.VERCEL_BLOB_API_URL && !estUrlLocale(env.VERCEL_BLOB_API_URL)) {
     erreurs.push("VERCEL_BLOB_API_URL n'est pas une adresse locale.");
   }
-  for (const nom of ["SUPABASE_URL", "SUPABASE_SECRET_KEY", "BLOB_READ_WRITE_TOKEN", "VERCEL_OIDC_TOKEN", "OPENROUTER_API_KEY"]) {
+  for (const nom of ["SUPABASE_URL", "SUPABASE_SECRET_KEY", "BLOB_READ_WRITE_TOKEN", "VERCEL_OIDC_TOKEN", "OPENROUTER_API_KEY", "OLLAMA_API_KEY"]) {
     if (env[nom] !== "") erreurs.push(`${nom} doit être vide (stockage niveau 0, aucune clé de repli).`);
   }
 
