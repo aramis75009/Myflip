@@ -456,3 +456,30 @@ ce que la T8 doit faire.
 **Quand ça deviendra nécessaire.** Si `/mise-en-vente` finit par résoudre les
 coloris photo par photo, ou si une page du Studio appelle SacBase à chaque
 rendu.
+
+---
+
+## P1 · Ollama Cloud — premier appel réel (écrit le 03/11/2026, jamais testé)
+
+**Quoi.** Aucun appel réel n'a été fait lors de l'écriture de `lib/ollama.ts`,
+`lib/ollamaChat.ts` et du test de clé (`lib/aiTest.ts`) : pas de clé disponible. À
+l'activation, avec la clé dans `/compte` :
+
+1. **« Tester »** (clé Ollama) : doit répondre « Clé Ollama Cloud valide. » ; sinon lire
+   `console.error` côté serveur (le test envoie une requête d'un jeton sur
+   `deepseek-v4.1-flash`).
+2. **Une annonce avec photos** (`/mise-en-vente`) : si Ollama refuse les images, passer
+   `FORME_IMAGE_URL` à `"chaine"` dans `lib/ollama.ts` (l'exemple Ollama écrit `image_url` en
+   chaîne, la forme OpenAI est un objet). Regarder aussi si la relance (« nouvel essai ») se
+   déclenche souvent : c'est le signe que `response_format` n'est pas tenu.
+3. **Une question à l'assistant qui appelle un outil** (« combien de CA ce mois-ci ? ») : vérifie
+   `tool_calls` et le rejeu du tour d'outil.
+4. **`reasoning_effort`** : si les journaux montrent « champ facultatif refusé », la valeur ou le
+   modèle ne l'accepte pas ; ajuster `reflexion` dans `lib/modelesIA.ts` (`CATALOGUE_OLLAMA`).
+   `gemma4:31b` et `glm-5.3-flash` n'en envoient aucun : on n'a pas vérifié qu'ils réfléchissent.
+
+**Aussi.** `e2e/etats.spec.ts` a été adapté sans être lancé (bouton « Enregistrer mes clés »,
+deux boutons « Tester », placeholder `nom-du-modele`) : lancer la suite e2e une fois.
+
+**Contexte.** Chantier `feat/ollama-cloud` (plus de crédit OpenRouter). Détail dans `CLAUDE.md`,
+section « Fournisseur IA ».

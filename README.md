@@ -141,7 +141,8 @@ bienvenue. Il est volontairement non versionné.
 | `AUTH_SECRET` | Secret NextAuth — `npx auth secret` |
 | `AUTH_TRUST_HOST` | `true` en dev et derrière un proxy |
 | `NEXTAUTH_URL` | URL de l'app (`http://localhost:3000` en dev) |
-| `OPENROUTER_API_KEY` | Génération d'annonces + chatbot |
+| `OLLAMA_API_KEY` | Génération d'annonces + chatbot via Ollama Cloud (fournisseur par défaut) : repli quand le compte n'a pas saisi sa clé dans `/compte` |
+| `OPENROUTER_API_KEY` | Génération d'annonces + chatbot quand le compte choisit OpenRouter (secours) |
 | `RESEND_API_KEY` | Emails transactionnels |
 | `TRELLO_API_KEY`, `TRELLO_API_SECRET` | Identifiants de l'application Trello (parcours OAuth). Les utilisateurs ne saisissent aucune clé. |
 | `NEXT_PUBLIC_USER_NAME` | Prénom affiché dans le dashboard |
