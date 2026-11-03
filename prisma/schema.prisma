@@ -68,6 +68,9 @@ model UserSettings {
   geminiKey     String? @db.Text
   anthropicKey  String? @db.Text
   openrouterKey String? @db.Text
+  // Clé Ollama Cloud (03/11/2026), chiffrée exactement comme `openrouterKey`
+  // (AES-256-GCM, `lib/crypto.ts`). Absente = on retombe sur `OLLAMA_API_KEY`.
+  ollamaKey String? @db.Text
 
   // Accès Trello HÉRITÉ : clé, jeton et secret saisis à la main avant le
   // 15/08/2026. Toujours lus — ils portent les connexions d'avant l'OAuth.
@@ -112,6 +115,18 @@ model UserSettings {
   // modeleIA : l'assistant n'a besoin que de l'appel d'outils, pas d'image ni
   // de JSON forcé — cf. `lib/modelesIA.ts`. Null = modèle par défaut de l'app.
   modeleChatIA String?
+
+  // Fournisseur IA des annonces et de l'assistant (03/11/2026) : 'ollama' ou
+  // 'openrouter'. Null = Ollama Cloud, le défaut. Le Studio IA n'en dépend pas :
+  // il génère ses images via OpenRouter quoi qu'il arrive.
+  fournisseurIA String?
+
+  // Modèles CHEZ OLLAMA CLOUD. Colonnes à part de `modeleIA` / `modeleChatIA`,
+  // qui gardent leur sens (identifiants OpenRouter) : un modèle n'existe que chez
+  // son fournisseur, et changer de fournisseur ne doit jamais envoyer
+  // `google/gemini-…` à Ollama. Null = modèle par défaut du fournisseur.
+  modeleOllamaIA     String?
+  modeleOllamaChatIA String?
 
   // Objectif de chiffre d'affaires mensuel. Vivait dans le localStorage
   // (`lib/objectif.ts`), donc perdu d'un appareil à l'autre.

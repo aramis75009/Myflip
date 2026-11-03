@@ -13,12 +13,15 @@ import { KeyRound, SquareKanban } from "lucide-react";
 import { toast } from "sonner";
 import { CardTitle, Module } from "@/components/console";
 import {
-  estModeleChatLibre,
-  estModeleLibre,
-  MODELE_CHAT_PAR_DEFAUT,
-  MODELE_PAR_DEFAUT,
-  MODELES_CHAT_PROPOSES,
-  MODELES_PROPOSES,
+  champModele,
+  estModeleHorsCatalogue,
+  FOURNISSEUR_PAR_DEFAUT,
+  FOURNISSEURS_IA,
+  fournisseurEffectif,
+  libelleOption,
+  modeleParDefaut,
+  modelesProposes,
+  type FournisseurIA,
 } from "@/lib/modelesIA";
 import { type CodeErreurTrello, messageErreur } from "@/lib/trelloErreurs";
 import type {
@@ -41,12 +44,18 @@ const boutonSecondaireCls =
 /** Valeur du menu qui ouvre la saisie manuelle. Jamais enregistrée telle quelle. */
 const AUTRE_MODELE = "__autre__";
 
-/** Pastille d'origine de la valeur utilisée à l'exécution. */
-function Origine({ source }: { source: SourceReglage }) {
+/**
+ * Pastille d'origine de la valeur utilisée à l'exécution.
+ *
+ * `actif` : ce fournisseur est-il celui qui sert les annonces ? Une clé absente
+ * ne fait échouer la génération que s'il l'est ; sinon c'est un secours non
+ * configuré, ce qui n'a rien d'alarmant.
+ */
+function Origine({ source, actif = true }: { source: SourceReglage; actif?: boolean }) {
   const libelle = {
     utilisateur: "Ta clé",
     app: "Tu utilises celle de MyFlip",
-    absente: "Aucune clé : la génération échouera",
+    absente: actif ? "Aucune clé : la génération échouera" : "Aucune clé (non utilisé)",
   }[source];
   const couleur = {
     utilisateur: "text-pos",
@@ -67,6 +76,7 @@ function ChampSecret({
   aide,
   etat,
   source,
+  actif,
   valeur,
   onChange,
   onTest,
@@ -76,6 +86,8 @@ function ChampSecret({
   aide: string;
   etat: SecretEtat;
   source?: SourceReglage;
+  /** Voir `Origine`. */
+  actif?: boolean;
   valeur: string;
   onChange: (v: string) => void;
   onTest?: () => void;
@@ -85,7 +97,7 @@ function ChampSecret({
     <div className="flex flex-col gap-1.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <label className={labelCls}>{titre}</label>
-        {source ? <Origine source={source} /> : null}
+        {source ? <Origine source={source} actif={actif} /> : null}
       </div>
       <input
         type="password"
@@ -183,18 +195,27 @@ export default function Integrations() {
   const [enCours, setEnCours] = useState(false);
 
   // Saisie en cours. Vide = « ne rien changer », jamais « effacer ».
+  const [ollama, setOllama] = useState("");
   const [openrouter, setOpenrouter] = useState("");
 
   // Modèle de rédaction. Deux états et non un : `choix` porte la valeur du menu
   // (un id, ou la sentinelle AUTRE), `libre` porte la saisie manuelle. Les
   // fondre en un seul champ ferait disparaître la saisie dès que le menu
   // reprend la main, et l'utilisateur perdrait ce qu'il vient de taper.
-  const [choixModele, setChoixModele] = useState<string>(MODELE_PAR_DEFAUT);
+  //
+  // Le modèle affiché est celui du FOURNISSEUR enregistré : chaque fournisseur a
+  // sa propre colonne (`champModele`), un identifiant OpenRouter n'a aucun sens
+  // chez Ollama Cloud et inversement.
+  const [choixModele, setChoixModele] = useState<string>(
+    modeleParDefaut(FOURNISSEUR_PAR_DEFAUT, "annonce"),
+  );
   const [modeleLibre, setModeleLibre] = useState("");
 
   // Même logique, pour le modèle de l'assistant (catalogue séparé : pas
   // d'exigence d'image, cf. lib/modelesIA.ts).
-  const [choixModeleChat, setChoixModeleChat] = useState<string>(MODELE_CHAT_PAR_DEFAUT);
+  const [choixModeleChat, setChoixModeleChat] = useState<string>(
+    modeleParDefaut(FOURNISSEUR_PAR_DEFAUT, "chat"),
+  );
   const [modeleChatLibre, setModeleChatLibre] = useState("");
 
   const [boards, setBoards] = useState<TrelloBoardDTO[] | null>(null);
@@ -211,18 +232,21 @@ export default function Integrations() {
     // Un modèle enregistré hors de la liste courte rouvre le champ libre :
     // sinon le menu affichait le défaut et donnait à croire que le choix
     // manuel avait été perdu.
-    if (estModeleLibre(json.modeleIA)) {
+    const f = fournisseurEffectif(json.fournisseurIA);
+    const annonce = json[champModele(f, "annonce")];
+    if (estModeleHorsCatalogue(f, "annonce", annonce)) {
       setChoixModele(AUTRE_MODELE);
-      setModeleLibre(json.modeleIA ?? "");
+      setModeleLibre(annonce ?? "");
     } else {
-      setChoixModele(json.modeleIA ?? MODELE_PAR_DEFAUT);
+      setChoixModele(annonce ?? modeleParDefaut(f, "annonce"));
       setModeleLibre("");
     }
-    if (estModeleChatLibre(json.modeleChatIA)) {
+    const chat = json[champModele(f, "chat")];
+    if (estModeleHorsCatalogue(f, "chat", chat)) {
       setChoixModeleChat(AUTRE_MODELE);
-      setModeleChatLibre(json.modeleChatIA ?? "");
+      setModeleChatLibre(chat ?? "");
     } else {
-      setChoixModeleChat(json.modeleChatIA ?? MODELE_CHAT_PAR_DEFAUT);
+      setChoixModeleChat(chat ?? modeleParDefaut(f, "chat"));
       setModeleChatLibre("");
     }
     setBoardId(json.trello.boardId ?? "");
@@ -384,16 +408,50 @@ export default function Integrations() {
       name: l.name || `(sans nom · ${l.color ?? "couleur inconnue"})`,
     })) ?? null;
 
+  // Fournisseur réellement utilisé (rien d'enregistré = Ollama Cloud) et, pour
+  // lui, les catalogues et les textes d'aide. Le menu des modèles suit le
+  // fournisseur ENREGISTRÉ, pas un choix en cours : changer de fournisseur
+  // s'enregistre tout de suite (cf. le menu ci-dessous).
+  const fournisseur = fournisseurEffectif(dto.fournisseurIA);
+  const catalogueAnnonce = modelesProposes(fournisseur, "annonce");
+  const catalogueChat = modelesProposes(fournisseur, "chat");
+  const aideModele =
+    fournisseur === "ollama"
+      ? {
+          annonce:
+            "Nom exact d'un modèle Ollama Cloud (liste : ollama.com/api/tags), par exemple glm-5.3-flash. Il doit savoir lire des images, sinon chaque génération échouera.",
+          chat: "Nom exact d'un modèle Ollama Cloud (liste : ollama.com/api/tags), par exemple gemma4:31b. Il doit savoir appeler des outils (tool calling), sinon l'assistant ne pourra ni lire tes données ni agir.",
+          placeholder: "nom-du-modele",
+        }
+      : {
+          annonce:
+            "Identifiant OpenRouter exact, par exemple mistralai/mistral-medium-3.1. Il doit savoir lire des images et rendre du JSON structuré, sinon chaque génération échouera.",
+          chat: "Identifiant OpenRouter exact, par exemple deepseek/deepseek-v4-pro-0813. Il doit savoir appeler des outils (tool calling), sinon l'assistant ne pourra ni lire tes données ni agir.",
+          placeholder: "fournisseur/modele",
+        };
+
   const secretsIA = [
     {
+      cle: "ollamaKey",
+      fournisseur: "ollama",
+      titre: "Clé Ollama Cloud",
+      valeur: ollama,
+      set: setOllama,
+      etat: dto.ollama,
+      source: dto.source.ollama,
+      test: "ollama",
+      aide: "Le fournisseur par défaut : elle rédige tes annonces à partir des photos et fait tourner l'assistant (la bulle en bas à droite). Où la trouver : ollama.com/settings/keys. Le test envoie une requête d'un seul jeton.",
+    },
+    {
       cle: "openrouterKey",
-      titre: "Clé OpenRouter",
+      fournisseur: "openrouter",
+      titre: "Clé OpenRouter (secours)",
       valeur: openrouter,
       set: setOpenrouter,
       etat: dto.openrouter,
       source: dto.source.openrouter,
       test: "openrouter",
-      aide: "Elle rédige tes annonces à partir des photos et fait tourner l'assistant (la bulle en bas à droite), selon les modèles choisis ci-dessous. Où la trouver : openrouter.ai/keys.",
+      aide: "Sert quand tu choisis OpenRouter ci-dessous, et pour la génération d'images du Studio (Ollama Cloud ne génère pas d'images). Où la trouver : openrouter.ai/keys.",
     },
   ] as const;
 
@@ -431,6 +489,7 @@ export default function Integrations() {
               aide={c.aide}
               etat={c.etat}
               source={c.source}
+              actif={c.fournisseur === fournisseur}
               valeur={c.valeur}
               onChange={c.set}
               onTest={() => tester(c.test)}
@@ -441,19 +500,57 @@ export default function Integrations() {
             type="button"
             disabled={enCours || !dto.chiffrementDisponible}
             onClick={async () => {
-              const cle = openrouter.trim();
-              if (!cle) {
+              // Seules les clés réellement saisies partent : un champ vide ne
+              // modifie rien (jamais « effacer »).
+              const patch: Record<string, string> = {};
+              if (ollama.trim()) patch.ollamaKey = ollama.trim();
+              if (openrouter.trim()) patch.openrouterKey = openrouter.trim();
+              if (Object.keys(patch).length === 0) {
                 toast.error("Aucune clé saisie.");
                 return;
               }
-              if (await enregistrer({ openrouterKey: cle })) {
+              if (await enregistrer(patch)) {
+                setOllama("");
                 setOpenrouter("");
               }
             }}
             className={boutonCls}
           >
-            Enregistrer ma clé
+            Enregistrer mes clés
           </button>
+
+          <div className="h-px bg-line" />
+
+          {/* ── Fournisseur ─────────────────────────────────────────────── */}
+          <div className="flex flex-col gap-1.5">
+            <label className={labelCls} htmlFor="fournisseur-ia">
+              Fournisseur IA
+            </label>
+            <select
+              id="fournisseur-ia"
+              value={fournisseur}
+              disabled={enCours}
+              // Enregistré dès le choix : le menu des modèles juste dessous suit
+              // le fournisseur enregistré, il ne doit pas montrer un fournisseur
+              // que le serveur n'utilise pas encore.
+              onChange={(e) =>
+                enregistrer({ fournisseurIA: e.target.value as FournisseurIA })
+              }
+              className={inputCls}
+            >
+              {FOURNISSEURS_IA.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.libelle}
+                  {f.id === FOURNISSEUR_PAR_DEFAUT ? " (par défaut)" : ""}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs leading-snug text-ink-3">
+              {FOURNISSEURS_IA.find((f) => f.id === fournisseur)?.note} Il sert
+              aux annonces et à l&apos;assistant ; le Studio d&apos;images reste
+              sur OpenRouter.
+            </p>
+          </div>
 
           <div className="h-px bg-line" />
 
@@ -468,10 +565,12 @@ export default function Integrations() {
               onChange={(e) => setChoixModele(e.target.value)}
               className={inputCls}
             >
-              {MODELES_PROPOSES.map((m) => (
+              {catalogueAnnonce.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.libelle} — {m.prix} $/M
-                  {m.id === MODELE_PAR_DEFAUT ? " (par défaut)" : ""}
+                  {libelleOption(m)}
+                  {m.id === modeleParDefaut(fournisseur, "annonce")
+                    ? " (par défaut)"
+                    : ""}
                 </option>
               ))}
               <option value={AUTRE_MODELE}>Autre…</option>
@@ -479,8 +578,8 @@ export default function Integrations() {
 
             <p className="text-xs leading-snug text-ink-3">
               {choixModele === AUTRE_MODELE
-                ? "Identifiant OpenRouter exact, par exemple mistralai/mistral-medium-3.1. Il doit savoir lire des images et rendre du JSON structuré, sinon chaque génération échouera."
-                : (MODELES_PROPOSES.find((m) => m.id === choixModele)?.note ??
+                ? aideModele.annonce
+                : (catalogueAnnonce.find((m) => m.id === choixModele)?.note ??
                   "")}
             </p>
 
@@ -488,7 +587,7 @@ export default function Integrations() {
               <input
                 value={modeleLibre}
                 onChange={(e) => setModeleLibre(e.target.value)}
-                placeholder="fournisseur/modele"
+                placeholder={aideModele.placeholder}
                 autoComplete="off"
                 spellCheck={false}
                 className={inputCls}
@@ -507,7 +606,7 @@ export default function Integrations() {
                   toast.error("Saisis un identifiant de modèle.");
                   return;
                 }
-                enregistrer({ modeleIA: id });
+                enregistrer({ [champModele(fournisseur, "annonce")]: id });
               }}
               className={`${boutonSecondaireCls} self-start`}
             >
@@ -528,10 +627,12 @@ export default function Integrations() {
               onChange={(e) => setChoixModeleChat(e.target.value)}
               className={inputCls}
             >
-              {MODELES_CHAT_PROPOSES.map((m) => (
+              {catalogueChat.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.libelle} — {m.prix} $/M
-                  {m.id === MODELE_CHAT_PAR_DEFAUT ? " (par défaut)" : ""}
+                  {libelleOption(m)}
+                  {m.id === modeleParDefaut(fournisseur, "chat")
+                    ? " (par défaut)"
+                    : ""}
                 </option>
               ))}
               <option value={AUTRE_MODELE}>Autre…</option>
@@ -539,16 +640,16 @@ export default function Integrations() {
 
             <p className="text-xs leading-snug text-ink-3">
               {choixModeleChat === AUTRE_MODELE
-                ? "Identifiant OpenRouter exact, par exemple deepseek/deepseek-v4-pro-0813. Il doit savoir appeler des outils (tool calling), sinon l'assistant ne pourra ni lire tes données ni agir."
-                : (MODELES_CHAT_PROPOSES.find((m) => m.id === choixModeleChat)
-                    ?.note ?? "")}
+                ? aideModele.chat
+                : (catalogueChat.find((m) => m.id === choixModeleChat)?.note ??
+                  "")}
             </p>
 
             {choixModeleChat === AUTRE_MODELE && (
               <input
                 value={modeleChatLibre}
                 onChange={(e) => setModeleChatLibre(e.target.value)}
-                placeholder="fournisseur/modele"
+                placeholder={aideModele.placeholder}
                 autoComplete="off"
                 spellCheck={false}
                 className={inputCls}
@@ -567,7 +668,7 @@ export default function Integrations() {
                   toast.error("Saisis un identifiant de modèle.");
                   return;
                 }
-                enregistrer({ modeleChatIA: id });
+                enregistrer({ [champModele(fournisseur, "chat")]: id });
               }}
               className={`${boutonSecondaireCls} self-start`}
             >

@@ -75,9 +75,14 @@ jamais dans le `.next` du `npm run dev` habituel. Son environnement complet est
 (une variable déjà dans l'environnement n'est jamais écrasée par les fichiers
 `.env` de Next ; une chaîne vide suffit à neutraliser un vrai secret).
 
-La seule couture dans le code de l'app : `OPENROUTER_BASE_URL`, lue par
+Les coutures dans le code de l'app : `OPENROUTER_BASE_URL`, lue par
 `lib/openrouterBase.ts` (défaut `https://openrouter.ai/api/v1`, seule une adresse
-locale acceptée sinon) et utilisée par les six modules qui appellent OpenRouter.
+locale acceptée sinon) et utilisée par les six modules qui appellent OpenRouter ;
+et `OLLAMA_BASE_URL`, lue par `lib/ollamaBase.ts` (défaut `https://ollama.com/v1`,
+même règle), qui pointe ici sur le **même** faux serveur (format OpenAI commun).
+Ollama Cloud est le fournisseur IA par défaut depuis le 03/11/2026, mais le compte
+de test n'a pas de clé Ollama : la suite ne couvre aucune génération réelle côté
+serveur (elles sont simulées dans le navigateur), donc pas de second faux serveur.
 
 ### Images (stockage « niveau 0 »)
 
@@ -139,7 +144,8 @@ test.describe("stock", () => {
 1. **Préparation** (au chargement de la config, avant `next dev`) : refus si
    `DATABASE_URL` n'est pas locale ou ressemble à Neon, si `OPENROUTER_BASE_URL`,
    `SACBASE_URL`, `RESEND_BASE_URL`, `NEXTAUTH_URL` ou `AUTH_URL` ne sont pas
-   locales, si un jeton Blob ou `OPENROUTER_API_KEY` n'est pas vide, et si **un
+   locales (`OLLAMA_BASE_URL` comprise), si un jeton Blob, `OPENROUTER_API_KEY` ou
+   `OLLAMA_API_KEY` n'est pas vide, et si **un
    seul nom** de `.env`, `.env.local`, `.env.development(.local)` n'est pas fixé
    dans l'env du serveur (la liste des noms en cause s'affiche, jamais les valeurs).
    Une nouvelle variable dans `.env.local` bloque donc la suite tant qu'elle n'est
@@ -152,7 +158,7 @@ test.describe("stock", () => {
    `fonts.googleapis.com` et `fonts.gstatic.com` (polices de `next/font`). Chaque
    refus va dans `e2e/rapports/<serie>/reseau-serveur.jsonl`. Le globalSetup
    échoue si la garde ne s'est pas chargée dans Next ; le globalTeardown échoue
-   si un refus vise openrouter.ai. Le contrôle de version de `next dev`
+   si un refus vise openrouter.ai ou ollama.com. Le contrôle de version de `next dev`
    (`registry.npmjs.org`) y apparaît à chaque lancement : c'est la preuve que la
    garde voit bien les `fetch` de Next.
    Limites : elle ne couvre ni undici appelé directement (put/del de

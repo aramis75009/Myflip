@@ -17,7 +17,7 @@ import {
 import type { PromptTemplateDTO } from "@/lib/types";
 import { prixReferenceDepuisSaisie } from "@/lib/promptSelect";
 import { euros } from "@/lib/calc";
-import { libelleModele } from "@/lib/modelesIA";
+import { libelleModeleIA, modeleChoisi } from "@/lib/modelesIA";
 import { useIdentite } from "@/lib/useIdentite";
 import Modal from "@/components/Modal";
 import MetaPrompt from "@/components/parametres/MetaPrompt";
@@ -172,6 +172,9 @@ export default function PromptsPage() {
   // La tuile « Modèle IA » lisait « Gemini Flash » en dur. Depuis que le modèle
   // se choisit dans /compte, une valeur figée y serait simplement fausse.
   const { data: reglages } = useReglages();
+  // Le modèle du fournisseur réellement utilisé (Ollama Cloud par défaut).
+  const choixIA = modeleChoisi(reglages ?? {}, "annonce");
+  const modeleAffiche = libelleModeleIA(choixIA.fournisseur, "annonce", choixIA.modele);
   const create = useCreatePrompt();
   const update = useUpdatePrompt();
   const del = useDeletePrompt();
@@ -315,7 +318,7 @@ export default function PromptsPage() {
             MODÈLE IA
           </div>
           <div className="mt-2 truncate text-xl font-bold tracking-[-0.02em]">
-            {libelleModele(reglages?.modeleIA ?? null)}
+            {modeleAffiche}
           </div>
         </Module>
         <Module className="p-5">

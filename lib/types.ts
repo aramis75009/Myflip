@@ -1,5 +1,7 @@
 // Types DTO échangés entre les API routes et le client.
 
+import type { FournisseurIA } from "@/lib/modelesIA";
+
 /** Compte sur lequel la vente a été encaissée. */
 export type CompteVente =
   "VINTED_PRO" | "VINTED_SECOND" | "VINTED_AXL" | "VESTIAIRE_COLLECTIVE";
@@ -365,17 +367,29 @@ export type TrelloEtatDTO = {
 
 export type UserSettingsDTO = {
   openrouter: SecretEtat;
+  /** Clé Ollama Cloud, même traitement qu'OpenRouter : jamais en clair, seulement son état. */
+  ollama: SecretEtat;
   trello: TrelloEtatDTO;
+  /**
+   * Fournisseur IA choisi par le compte ; `null` = rien de choisi, donc le
+   * défaut de l'application (Ollama Cloud, cf. `fournisseurEffectif`).
+   */
+  fournisseurIA: FournisseurIA | null;
   /** Identifiant OpenRouter du modèle qui rédige les annonces. */
   modeleIA: string | null;
   /** Identifiant OpenRouter du modèle de l'assistant conversationnel. */
   modeleChatIA: string | null;
+  /** Identifiant Ollama Cloud du modèle qui rédige les annonces. */
+  modeleOllamaIA: string | null;
+  /** Identifiant Ollama Cloud du modèle de l'assistant conversationnel. */
+  modeleOllamaChatIA: string | null;
   objectifMensuel: number | null;
   /** Étape en cours du parcours de démarrage (1 à 3). */
   onboardingEtape: number;
   onboardingTermine: boolean;
   source: {
     openrouter: SourceReglage;
+    ollama: SourceReglage;
     trello: SourceTrello;
   };
   /** Faux si ENCRYPTION_KEY manque : aucun secret ne peut être enregistré. */

@@ -104,7 +104,9 @@ SDK Resend, expéditeur `onboarding@resend.dev`. Requiert `RESEND_API_KEY` dans 
   « renseigné » + 4 derniers caractères. Champ absent du corps = inchangé, champ vide =
   effacé. **N'accepte plus aucun secret Trello** : l'accès passe par l'OAuth.
   Enregistrer un board y déclenche la création du webhook.
-- `/api/user/settings/test` — teste la clé IA réellement utilisée (lecture seule)
+- `/api/user/settings/test` — teste la clé IA réellement utilisée : `?fournisseur=ollama|openrouter`.
+  OpenRouter = lecture seule (`/key`) ; **Ollama Cloud = une requête d'UN jeton** (sa liste de
+  modèles est publique, elle validerait une clé fausse), seulement au clic sur « Tester »
 - `/api/user/settings/trello` — liste boards et étiquettes ; POST (re)crée le webhook
 - `/api/trello/connect` — démarre l'autorisation OAuth (302 vers Trello)
 - `/api/trello/callback` — retour de Trello : vérifie l'appartenance, échange et stocke
@@ -113,8 +115,9 @@ SDK Resend, expéditeur `onboarding@resend.dev`. Requiert `RESEND_API_KEY` dans 
 - `/api/commandes`, `/api/commandes/[id]` — CRUD commandes
 - `/api/dashboard`, `/api/stats`, `/api/calendar` — données agrégées
 - `/api/prompts`, `/api/prompts/[id]` — CRUD prompts IA
-- `/api/listings/generate` — génération d'annonces (OpenRouter, modèle au choix)
-- `/api/chat` — chatbot IA
+- `/api/listings/generate` — génération d'annonces (**Ollama Cloud par défaut, OpenRouter en
+  secours** ; fournisseur et modèle au choix du compte, cf. « Fournisseur IA » plus bas)
+- `/api/chat` — chatbot IA (même fournisseur que les annonces)
 - `/api/webhooks/trello` — intégration Trello
 
 ### API Hermes — `/api/hermes/*`
@@ -480,6 +483,58 @@ Les IDs d'étiquettes se listent avec :
 
 ---
 
+## 🤖 Fournisseur IA — Ollama Cloud par défaut (03/11/2026)
+
+Plus de crédit OpenRouter : **Ollama Cloud sert les annonces et l'assistant par défaut**,
+OpenRouter reste en secours (code, catalogues et clé intacts). Un compte choisit son
+fournisseur et ses modèles dans `/compte` (`components/compte/Integrations.tsx`).
+
+- **Aiguillage** : `lib/fournisseurIA.ts` est la seule couture entre les routes
+  (`/api/listings/generate`, `/api/chat`) et les deux clients. `choisirIA(usage, reglages)`
+  (pur, testé) rend `{ fournisseur, modele, cle, source }` : rien de choisi ⇒ Ollama Cloud +
+  `deepseek-v4.1-flash`. **La clé suit toujours le fournisseur retenu** : une clé OpenRouter
+  n'est jamais envoyée à Ollama, ni l'inverse.
+- **Clients** : `lib/ollama.ts` (annonces : requête, lecture tolérante, relance unique,
+  `posterOllama` partagé), `lib/ollamaChat.ts` (assistant ; les lecteurs `texteAssistant` /
+  `appelsOutils` / `messageAssistantBrut` sont ceux d'`openrouterChat.ts`, format OpenAI commun),
+  `lib/ollamaBase.ts` (adresse `https://ollama.com/v1`, `OLLAMA_BASE_URL` acceptée **seulement
+  si locale**, comme OpenRouter).
+- **Colonnes `UserSettings`** (migration `20261103120000_ollama_cloud`, 4 colonnes nullables,
+  aucun DROP) : `ollamaKey` (chiffrée comme `openrouterKey`, jamais renvoyée en clair),
+  `fournisseurIA` (`ollama` | `openrouter`, null = Ollama), `modeleOllamaIA`,
+  `modeleOllamaChatIA`. ⚠️ **`modeleIA` / `modeleChatIA` restent les modèles OPENROUTER** : un
+  modèle n'existe que chez son fournisseur, donc une colonne par fournisseur
+  (`champModele`, `modeleChoisi` dans `lib/modelesIA.ts`). Sans cela, `google/gemini-…`
+  partirait chez Ollama pour tout compte qui avait choisi un modèle avant le 03/11.
+- **Catalogues** (`lib/modelesIA.ts`) : `MODELES_OLLAMA_PROPOSES` (annonces, exige `vision`) et
+  `MODELES_CHAT_OLLAMA_PROPOSES` (assistant, exige `tools`) : `deepseek-v4.1-flash` (défaut),
+  `gemma4:31b`, `glm-5.3-flash`, noms relevés sur `ollama.com/api/tags`. Pas de prix au jeton
+  (`prix: null`, forfait Ollama). `MODELE_PAR_DEFAUT` / `MODELE_CHAT_PAR_DEFAUT` restent les
+  défauts **OpenRouter** : `lib/studioVerif.ts` lit le premier, ne pas le remplacer.
+- **Clé** : celle du compte, sinon `OLLAMA_API_KEY` (même cascade qu'OpenRouter, pas de repli
+  pour Trello). Aucune variable `NEXT_PUBLIC_`.
+- ⚠️ **Le Studio IA (`lib/studio*`) n'en dépend PAS** : Ollama Cloud ne génère pas d'images,
+  le Studio (génération et avis IA) reste sur OpenRouter avec la clé OpenRouter du compte, quel
+  que soit le fournisseur choisi. Ne pas le brancher sur `fournisseurIA`.
+- **Trois doutes de la documentation Ollama, JAMAIS vérifiés par un appel réel** (le premier
+  appel en dira plus ; chacun a son filet) :
+  1. forme de `image_url` : l'exemple Ollama l'écrit en chaîne, la forme OpenAI est un objet
+     `{ url }`. On construit l'objet ; `FORME_IMAGE_URL` (`lib/ollama.ts`) bascule en chaîne ;
+  2. `response_format` : coché dans la page de compatibilité, nié par la page « structured
+     outputs ». On envoie le schéma **et** on le décrit dans le prompt **et** on lit de façon
+     tolérante (fences, texte autour) **et** on valide (`titre` ≤ 100) **et** on relance UNE
+     fois en redisant la raison du refus ; un 400 qui nomme le champ le fait retirer
+     (`allegerRequete`) ;
+  3. `reasoning_effort` : envoyé seulement pour un modèle dont la réflexion est connue
+     (`reflexion` du catalogue : deepseek `medium` annonces / `low` assistant, rien pour les
+     autres) ; un 400 qui parle de réflexion le fait retirer.
+- `maxDuration` de `/api/listings/generate` : 60 → **120 s** (la relance double le pire cas).
+  Assistant Ollama : `max_tokens` 4096 (la réflexion compte dans le plafond).
+- **e2e** : `OLLAMA_BASE_URL` pointe sur le faux OpenRouter (même format), `OLLAMA_API_KEY` est
+  vidée et contrôlée (`e2e/outils/environnement.ts`). Le compte de test n'a pas de clé Ollama.
+
+---
+
 ## 🔧 Scripts
 
 - `scripts/init-user.mjs` — crée l'utilisateur en base + envoie l'email de bienvenue. One-shot, gitignored.
@@ -501,8 +556,10 @@ utilisateurs, jamais à accéder à un board à leur place. Les six anciennes va
 l'application** — seul `scripts/migrer-trello-env.ts` les consulte, une fois.
 
 ⚠️ **`GEMINI_API_KEY` n'est plus lue** depuis le passage à OpenRouter (13/08/2026).
-La génération d'annonces appelle `lib/openrouter.ts` avec le modèle choisi dans
-`/compte` (`UserSettings.modeleIA`, repli `MODELE_PAR_DEFAUT` de `lib/modelesIA.ts`).
+Depuis le 03/11/2026 la génération d'annonces passe d'abord par le fournisseur du compte
+(Ollama Cloud par défaut, cf. « Fournisseur IA ») ; `lib/openrouter.ts` n'est appelée que si le
+compte a choisi OpenRouter, avec le modèle de `UserSettings.modeleIA` (repli
+`MODELE_PAR_DEFAUT` de `lib/modelesIA.ts`).
 La colonne `UserSettings.geminiKey` survit en base mais n'est lue nulle part —
 même consigne que `photosPretes` : `prisma db push` proposera de la dropper, refuser.
 
@@ -530,7 +587,9 @@ AUTH_TRUST_HOST=true
 NEXTAUTH_URL
 INVITE_CODES            # codes d'invitation acceptés sur /signup ; absente = aucune inscription
 ENCRYPTION_KEY          # 32 octets hex : chiffre les secrets de UserSettings (AES-256-GCM)
-OPENROUTER_API_KEY      # génération d'annonces + assistant : repli quand le compte n'a pas sa clé (JAMAIS pour la génération d'images du Studio)
+OLLAMA_API_KEY         # génération d'annonces + assistant (Ollama Cloud, fournisseur par défaut) : repli quand le compte n'a pas sa clé
+OLLAMA_BASE_URL        # e2e seulement : serveur factice local ; absente = https://ollama.com/v1 (lib/ollamaBase.ts, toute adresse non locale est ignorée)
+OPENROUTER_API_KEY      # génération d'annonces + assistant quand le compte choisit OpenRouter : repli quand il n'a pas sa clé (JAMAIS pour la génération d'images du Studio)
 OPENROUTER_BASE_URL     # e2e seulement : serveur factice local ; absente = https://openrouter.ai/api/v1 (lib/openrouterBase.ts, toute adresse non locale est ignorée)
 TRELLO_API_KEY          # clé de l'APPLICATION MyFlip (trello.com/power-ups/admin)
 TRELLO_API_SECRET       # « OAuth Secret » : signe l'OAuth et valide les webhooks

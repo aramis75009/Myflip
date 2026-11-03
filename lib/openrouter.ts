@@ -105,8 +105,12 @@ export function construireRequete(
   };
 }
 
-/** Recolle un `content` renvoyé en tableau de parts plutôt qu'en chaîne. */
-function texteDuContenu(content: unknown): string {
+/**
+ * Recolle un `content` renvoyé en tableau de parts plutôt qu'en chaîne.
+ *
+ * Exportée : `lib/ollama.ts` lit la même enveloppe (format OpenAI).
+ */
+export function texteDuContenu(content: unknown): string {
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
     return content
