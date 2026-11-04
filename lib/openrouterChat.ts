@@ -41,7 +41,18 @@ export type AppelOutilBrut = {
 export type MessageChat =
   | { role: "system"; content: string }
   | { role: "user"; content: string }
-  | { role: "assistant"; content: string | null; tool_calls?: AppelOutilBrut[] }
+  | {
+      role: "assistant";
+      content: string | null;
+      tool_calls?: AppelOutilBrut[];
+      /**
+       * Anthropic seulement : les blocs de contenu tels que l'API les a rendus
+       * (réflexion signée comprise), à rejouer VERBATIM au tour suivant
+       * (`lib/anthropicChat.ts`). OpenRouter et Ollama Cloud ne le renseignent
+       * jamais et ne le lisent pas.
+       */
+      anthropic_content?: unknown[];
+    }
   | { role: "tool"; tool_call_id: string; content: string };
 
 /** Appel d'outil une fois les arguments parsés — ce que consomme la route. */
@@ -80,11 +91,12 @@ export function construireCorpsChat(
 function messageAssistant(json: unknown): {
   content?: unknown;
   tool_calls?: AppelOutilBrut[];
+  anthropic_content?: unknown;
 } {
   const enveloppe = json as {
     error?: { message?: string };
     choices?: {
-      message?: { content?: unknown; tool_calls?: AppelOutilBrut[] };
+      message?: { content?: unknown; tool_calls?: AppelOutilBrut[]; anthropic_content?: unknown };
     }[];
   };
 
@@ -130,11 +142,12 @@ export function appelsOutils(json: unknown): AppelOutil[] {
  * `tool` results qui y répondent.
  */
 export function messageAssistantBrut(json: unknown): MessageChat {
-  const { content, tool_calls } = messageAssistant(json);
+  const { content, tool_calls, anthropic_content } = messageAssistant(json);
   return {
     role: "assistant",
     content: typeof content === "string" ? content : null,
     ...(tool_calls && tool_calls.length > 0 ? { tool_calls } : {}),
+    ...(Array.isArray(anthropic_content) ? { anthropic_content } : {}),
   };
 }
 

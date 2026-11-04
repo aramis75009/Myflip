@@ -60,7 +60,7 @@ const CHAMPS = ["titre", "description", "motsCles"] as const;
 /** Longueur maximale d'un titre Vinted, espaces compris. */
 export const TITRE_MAX = 100;
 
-const SCHEMA_ANNONCE = {
+export const SCHEMA_ANNONCE = {
   type: "object" as const,
   properties: {
     titre: { type: "string" as const, description: `Titre de l'annonce, ${TITRE_MAX} caractères au maximum.` },
@@ -276,7 +276,19 @@ export function lireReponseOllama(json: unknown): ListingResult {
   if (enCorps) throw new Error(`Ollama Cloud : ${enCorps}`);
 
   const enveloppe = json as { choices?: { message?: { content?: unknown } }[] } | null | undefined;
-  const texte = texteDuContenu(enveloppe?.choices?.[0]?.message?.content).trim();
+  return annonceDepuisTexte(texteDuContenu(enveloppe?.choices?.[0]?.message?.content));
+}
+
+/**
+ * L'annonce contenue dans le TEXTE d'une réponse de modèle : lecture tolérante
+ * (fences markdown, prose autour du JSON) puis validation. Partagée avec
+ * `lib/anthropic.ts` : seule l'enveloppe de la réponse change d'un fournisseur
+ * à l'autre, pas ce qu'on attend du texte.
+ *
+ * Lève `ErreurReponseOllama` (relançable) pour un texte vide, non-JSON ou invalide.
+ */
+export function annonceDepuisTexte(brut: string): ListingResult {
+  const texte = brut.trim();
   if (!texte) throw new ErreurReponseOllama("Réponse vide du modèle.");
 
   const objets = objetsJson(texte);

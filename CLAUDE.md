@@ -104,9 +104,10 @@ SDK Resend, expéditeur `onboarding@resend.dev`. Requiert `RESEND_API_KEY` dans 
   « renseigné » + 4 derniers caractères. Champ absent du corps = inchangé, champ vide =
   effacé. **N'accepte plus aucun secret Trello** : l'accès passe par l'OAuth.
   Enregistrer un board y déclenche la création du webhook.
-- `/api/user/settings/test` — teste la clé IA réellement utilisée : `?fournisseur=ollama|openrouter`.
-  OpenRouter = lecture seule (`/key`) ; **Ollama Cloud = une requête d'UN jeton** (sa liste de
-  modèles est publique, elle validerait une clé fausse), seulement au clic sur « Tester »
+- `/api/user/settings/test` — teste la clé IA réellement utilisée : `?fournisseur=ollama|openrouter|anthropic`.
+  OpenRouter = lecture seule (`/key`) ; **Ollama Cloud et Anthropic = une requête d'UN jeton**
+  (la liste de modèles d'Ollama est publique, elle validerait une clé fausse ; le crédit
+  Anthropic épuisé ne se voit qu'à l'usage), seulement au clic sur « Tester »
 - `/api/user/settings/trello` — liste boards et étiquettes ; POST (re)crée le webhook
 - `/api/trello/connect` — démarre l'autorisation OAuth (302 vers Trello)
 - `/api/trello/callback` — retour de Trello : vérifie l'appartenance, échange et stocke
@@ -533,6 +534,47 @@ fournisseur et ses modèles dans `/compte` (`components/compte/Integrations.tsx`
 - **e2e** : `OLLAMA_BASE_URL` pointe sur le faux OpenRouter (même format), `OLLAMA_API_KEY` est
   vidée et contrôlée (`e2e/outils/environnement.ts`). Le compte de test n'a pas de clé Ollama.
 
+### Anthropic, troisième fournisseur (04/11/2026)
+
+Un compte peut choisir **Anthropic** dans « Mon compte → Mes clés IA » avec sa clé API Anthropic
+(`console.anthropic.com/settings/keys`) : annonces (photos + JSON) et assistant (outils).
+
+- **Clients** (`fetch` direct, aucune dépendance) : `lib/anthropic.ts` (annonces : requête,
+  lecture tolérante, relance unique, `posterAnthropic` partagé), `lib/anthropicChat.ts`
+  (assistant), `lib/anthropicBase.ts` (adresse `https://api.anthropic.com/v1`,
+  `ANTHROPIC_BASE_URL` acceptée **seulement si locale**, en-têtes `x-api-key` et
+  `anthropic-version: 2023-06-01`). `POST /messages`.
+- **Modèles** (`lib/modelesIA.ts`, identifiants SANS suffixe de date) : annonces
+  `claude-haiku-5-5` (défaut) / `claude-sonnet-5-5` ; assistant `claude-sonnet-5-5` (défaut) /
+  `claude-haiku-5-5`. Saisie libre possible (`claude-opus-5-5`…). `effortAnthropic` : `output_config.effort`
+  envoyé seulement pour le catalogue (annonces `medium`, assistant Sonnet `medium`, Haiku `low`) ;
+  un 400 qui nomme `effort` ou le schéma le fait retirer (`allegerRequeteAnthropic`).
+- ⚠️ **Haiku 5.5 et Sonnet 5.5 refusent `temperature`/`top_p`/`top_k`** (400) : ne jamais en
+  envoyer. Sonnet 5.5 refuse aussi `tool_choice` `any`/`tool` : l'assistant reste en `auto`.
+  Ils réfléchissent par défaut : les jetons de réflexion comptent dans `max_tokens`
+  (annonces 8192, assistant 4096).
+- **Annonces** : photos en blocs `image` base64 AVANT le texte ; `media_type` déduit de la
+  signature du fichier (`typeMimeImage`) car Anthropic refuse un type qui ne correspond pas aux
+  octets ; JSON par `output_config.format` (schéma) + format redit dans le prompt + lecture
+  tolérante + une relance. Seuls les blocs `text` portent l'annonce.
+- **Assistant** : la route parle toujours le format OpenAI. `lib/anthropicChat.ts` traduit
+  l'historique vers Anthropic (`versMessagesAnthropic`) et la réponse vers le format OpenAI
+  (`reponseEnFormatChat`). ⚠️ **La réflexion signée (blocs `thinking`) doit être rejouée telle
+  quelle** quand on renvoie un résultat d'outil : la réponse traduite l'embarque dans
+  `anthropic_content`, que `messageAssistantBrut` remet dans l'historique. Ne pas retirer ce
+  champ d'`openrouterChat.ts`.
+- **Colonnes `UserSettings`** (migration `20261104120000_anthropic_provider`, idempotente,
+  `ADD COLUMN IF NOT EXISTS`) : `anthropicKey` (EXISTAIT déjà, redéclarée dans le schéma ;
+  chiffrée comme les autres), `modeleAnthropicIA`, `modeleAnthropicChatIA` (une colonne par
+  fournisseur, comme Ollama). **Prod migrée à la main : coller le SQL de la migration dans
+  l'éditeur SQL de Supabase.**
+- **Clé** : celle du compte, sinon `ANTHROPIC_API_KEY`. Le Studio IA n'en dépend pas.
+- **Jamais vérifié par un appel réel** (aucune clé au moment de l'écriture) : tout le format
+  des requêtes vient de la documentation. Le premier appel dira si `output_config.format` +
+  `effort` ensemble, les images base64 et le tour d'outil avec réflexion passent.
+- **e2e** : `ANTHROPIC_BASE_URL` pointe sur le faux serveur local, `ANTHROPIC_API_KEY` est vidée
+  et contrôlée ; la garde réseau fait échouer la suite si un refus vise `anthropic.com`.
+
 ---
 
 ## 🔧 Scripts
@@ -563,12 +605,14 @@ compte a choisi OpenRouter, avec le modèle de `UserSettings.modeleIA` (repli
 La colonne `UserSettings.geminiKey` survit en base mais n'est lue nulle part —
 même consigne que `photosPretes` : `prisma db push` proposera de la dropper, refuser.
 
-⚠️ **`ANTHROPIC_API_KEY` n'est plus lue non plus**, depuis le passage de l'assistant
-(`/api/chat`) à OpenRouter (15/08/2026). L'assistant appelle `lib/openrouterChat.ts`
-avec le modèle choisi dans `/compte` (`UserSettings.modeleChatIA`, repli
-`MODELE_CHAT_PAR_DEFAUT` de `lib/modelesIA.ts`). Même consigne pour
-`UserSettings.anthropicKey` : la colonne survit en base, `prisma db push` proposera
-de la dropper, refuser.
+⚠️ **`ANTHROPIC_API_KEY` et `UserSettings.anthropicKey` sont de nouveau lues depuis le
+04/11/2026**, mais seulement quand le compte choisit le fournisseur **Anthropic** (cf. « Fournisseur
+IA — Anthropic » plus bas). Entre le 15/08 et le 04/11 elles ne servaient plus : l'assistant
+passait par OpenRouter (`lib/openrouterChat.ts`, modèle `UserSettings.modeleChatIA`, repli
+`MODELE_CHAT_PAR_DEFAUT` de `lib/modelesIA.ts`), qui reste le chemin du fournisseur OpenRouter.
+Le contenu ancien de la colonne `anthropicKey` (clé de l'ancien assistant direct) est relu tel
+quel : si le compte affiche « Ta clé » alors qu'il n'a rien saisi depuis le 04/11, c'est cette
+vieille clé, sans doute périmée : la remplacer.
 
 **Deux catalogues de modèles distincts dans `lib/modelesIA.ts`**, pas superposables :
 - `MODELES_PROPOSES` (génération d'annonces) — exige `input_modalities: image` ET
@@ -588,6 +632,8 @@ NEXTAUTH_URL
 INVITE_CODES            # codes d'invitation acceptés sur /signup ; absente = aucune inscription
 ENCRYPTION_KEY          # 32 octets hex : chiffre les secrets de UserSettings (AES-256-GCM)
 OLLAMA_API_KEY         # génération d'annonces + assistant (Ollama Cloud, fournisseur par défaut) : repli quand le compte n'a pas sa clé
+ANTHROPIC_API_KEY      # génération d'annonces + assistant quand le compte choisit Anthropic : repli quand il n'a pas sa clé
+ANTHROPIC_BASE_URL     # e2e seulement : serveur factice local ; absente = https://api.anthropic.com/v1 (lib/anthropicBase.ts, toute adresse non locale est ignorée)
 OLLAMA_BASE_URL        # e2e seulement : serveur factice local ; absente = https://ollama.com/v1 (lib/ollamaBase.ts, toute adresse non locale est ignorée)
 OPENROUTER_API_KEY      # génération d'annonces + assistant quand le compte choisit OpenRouter : repli quand il n'a pas sa clé (JAMAIS pour la génération d'images du Studio)
 OPENROUTER_BASE_URL     # e2e seulement : serveur factice local ; absente = https://openrouter.ai/api/v1 (lib/openrouterBase.ts, toute adresse non locale est ignorée)

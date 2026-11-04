@@ -19,6 +19,12 @@ import {
   MODELES_OLLAMA_PROPOSES,
   MODELES_PROPOSES,
   modelesProposes,
+  effortAnthropic,
+  MODELE_ANTHROPIC_PAR_DEFAUT,
+  MODELE_CHAT_ANTHROPIC_PAR_DEFAUT,
+  MODELES_ANTHROPIC_PROPOSES,
+  MODELES_CHAT_ANTHROPIC_PROPOSES,
+  FOURNISSEURS_IA,
 } from "./modelesIA";
 
 describe("catalogue Ollama Cloud", () => {
@@ -84,7 +90,9 @@ describe("par défaut", () => {
   it("estFournisseurIA : liste fermée", () => {
     expect(estFournisseurIA("ollama")).toBe(true);
     expect(estFournisseurIA("openrouter")).toBe(true);
+    expect(estFournisseurIA("anthropic")).toBe(true);
     expect(estFournisseurIA("OpenRouter")).toBe(false);
+    expect(estFournisseurIA("Anthropic")).toBe(false);
     expect(estFournisseurIA(null)).toBe(false);
   });
 
@@ -93,6 +101,81 @@ describe("par défaut", () => {
     expect(modeleParDefaut("ollama", "chat")).toBe("deepseek-v4.1-flash");
     expect(modeleParDefaut("openrouter", "annonce")).toBe("google/gemini-3.6-flash");
     expect(modeleParDefaut("openrouter", "chat")).toBe("anthropic/claude-sonnet-4.6");
+    expect(modeleParDefaut("anthropic", "annonce")).toBe("claude-haiku-5-5");
+    expect(modeleParDefaut("anthropic", "chat")).toBe("claude-sonnet-5-5");
+  });
+
+  it("Ollama Cloud reste le fournisseur par défaut, Anthropic vient en troisième", () => {
+    expect(FOURNISSEURS_IA.map((f) => f.id)).toEqual(["ollama", "openrouter", "anthropic"]);
+    expect(fournisseurEffectif(null)).toBe("ollama");
+    expect(fournisseurEffectif("anthropic")).toBe("anthropic");
+  });
+});
+
+describe("catalogue Anthropic", () => {
+  it("annonces : Haiku 5.5 en tête, puis Sonnet 5.5 ; assistant : Sonnet 5.5 en tête", () => {
+    expect(MODELES_ANTHROPIC_PROPOSES.map((m) => m.id)).toEqual(["claude-haiku-5-5", "claude-sonnet-5-5"]);
+    expect(MODELES_CHAT_ANTHROPIC_PROPOSES.map((m) => m.id)).toEqual(["claude-sonnet-5-5", "claude-haiku-5-5"]);
+    expect(MODELE_ANTHROPIC_PAR_DEFAUT).toBe("claude-haiku-5-5");
+    expect(MODELE_CHAT_ANTHROPIC_PAR_DEFAUT).toBe("claude-sonnet-5-5");
+  });
+
+  it("identifiants complets, sans suffixe de date, sans préfixe de fournisseur", () => {
+    for (const m of [...MODELES_ANTHROPIC_PROPOSES, ...MODELES_CHAT_ANTHROPIC_PROPOSES]) {
+      expect(m.id).toMatch(/^claude-[a-z]+-\d+-\d+$/);
+    }
+  });
+
+  it("chaque modèle lit les images et appelle des outils, avec un prix affiché", () => {
+    for (const m of MODELES_ANTHROPIC_PROPOSES) {
+      expect(m.vision).toBe(true);
+      expect(m.tools).toBe(true);
+      expect(m.prix).toMatch(/^\d+\.\d+ \/ \d+\.\d+$/);
+    }
+  });
+
+  it("a son modèle par défaut dans chaque catalogue", () => {
+    expect(MODELES_ANTHROPIC_PROPOSES.some((m) => m.id === MODELE_ANTHROPIC_PAR_DEFAUT)).toBe(true);
+    expect(MODELES_CHAT_ANTHROPIC_PROPOSES.some((m) => m.id === MODELE_CHAT_ANTHROPIC_PAR_DEFAUT)).toBe(true);
+  });
+
+  it("accès générique : catalogue, colonne, hors catalogue, libellé", () => {
+    expect(modelesProposes("anthropic", "annonce")).toBe(MODELES_ANTHROPIC_PROPOSES);
+    expect(modelesProposes("anthropic", "chat")).toBe(MODELES_CHAT_ANTHROPIC_PROPOSES);
+    expect(champModele("anthropic", "annonce")).toBe("modeleAnthropicIA");
+    expect(champModele("anthropic", "chat")).toBe("modeleAnthropicChatIA");
+    expect(estModeleHorsCatalogue("anthropic", "annonce", "claude-sonnet-5-5")).toBe(false);
+    expect(estModeleHorsCatalogue("anthropic", "annonce", "claude-opus-5-5")).toBe(true);
+    expect(estModeleHorsCatalogue("anthropic", "annonce", "gemma4:31b")).toBe(true);
+    expect(libelleModeleIA("anthropic", "annonce", null)).toBe("Claude Haiku 5.5");
+    expect(libelleModeleIA("anthropic", "chat", null)).toBe("Claude Sonnet 5.5");
+    expect(libelleOption(MODELES_ANTHROPIC_PROPOSES[0])).toBe("Claude Haiku 5.5 — 0.10 / 0.50 $/M");
+  });
+
+  it("chaque fournisseur garde son modèle : la colonne Anthropic n'est lue que par Anthropic", () => {
+    const brut = {
+      fournisseurIA: "anthropic",
+      modeleIA: "google/gemini-3.7-flash",
+      modeleOllamaIA: "gemma4:31b",
+      modeleAnthropicIA: "claude-sonnet-5-5",
+      modeleAnthropicChatIA: "claude-haiku-5-5",
+    };
+    expect(modeleChoisi(brut, "annonce")).toEqual({ fournisseur: "anthropic", modele: "claude-sonnet-5-5" });
+    expect(modeleChoisi(brut, "chat")).toEqual({ fournisseur: "anthropic", modele: "claude-haiku-5-5" });
+    expect(modeleChoisi({ ...brut, fournisseurIA: "ollama" }, "annonce").modele).toBe("gemma4:31b");
+    expect(modeleChoisi({ ...brut, fournisseurIA: "openrouter" }, "annonce").modele).toBe("google/gemini-3.7-flash");
+    // Rien de choisi chez Anthropic : le défaut d'Anthropic, pas un identifiant d'ailleurs.
+    expect(modeleChoisi({ fournisseurIA: "anthropic", modeleIA: "google/gemini-3.7-flash" }, "annonce").modele).toBe(
+      "claude-haiku-5-5",
+    );
+  });
+
+  it("effortAnthropic : connu pour le catalogue, rien pour un modèle saisi à la main", () => {
+    expect(effortAnthropic("claude-haiku-5-5", "annonce")).toBe("medium");
+    expect(effortAnthropic("claude-haiku-5-5", "chat")).toBe("low");
+    expect(effortAnthropic("claude-sonnet-5-5", "chat")).toBe("medium");
+    expect(effortAnthropic("claude-opus-5-5", "annonce")).toBeNull();
+    expect(effortAnthropic("deepseek-v4.1-flash", "annonce")).toBeNull();
   });
 });
 

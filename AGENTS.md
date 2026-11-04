@@ -43,8 +43,9 @@ qu'ils sont écrits.
   passe par le statut « Photos prêtes »). L'utilisateur a demandé
   explicitement de la conserver — `prisma db push` proposera de la dropper à
   chaque changement de schéma : refuser, faire un `ALTER TABLE` ciblé si
-  besoin. Même consigne pour `UserSettings.geminiKey` et `.anthropicKey`
-  (colonnes mortes depuis le passage à OpenRouter, mais conservées).
+  besoin. Même consigne pour `UserSettings.geminiKey` (colonne morte depuis le
+  passage à OpenRouter, mais conservée). `UserSettings.anthropicKey` est de nouveau
+  déclarée et lue depuis le 04/11/2026 (fournisseur Anthropic).
 - **`ENCRYPTION_KEY` perdue = tous les secrets de `UserSettings` illisibles**
   (chiffrement AES-256-GCM). La sauvegarder hors Vercel. La changer invalide
   l'existant.

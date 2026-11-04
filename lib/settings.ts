@@ -6,7 +6,8 @@
 // `TRELLO_TOKEN` / `TRELLO_BOARD_ID` du déploiement : n'importe quel
 // utilisateur lisait et écrivait sur le board du propriétaire. Le repli reste
 // en place pour les clés IA, où il n'expose que le quota de l'application —
-// pas les données d'un tiers.
+// pas les données d'un tiers (`ANTHROPIC_API_KEY` comprise depuis le
+// 04/11/2026 : elle ne sert que si le compte choisit le fournisseur Anthropic).
 
 import { prisma } from "@/lib/prisma";
 import { dechiffrerOuNull } from "@/lib/crypto";
@@ -58,6 +59,8 @@ export type ReglagesResolus = {
   openrouterKey: string | null;
   /** Clé Ollama Cloud : celle du compte, sinon `OLLAMA_API_KEY` (même cascade qu'OpenRouter). */
   ollamaKey: string | null;
+  /** Clé API Anthropic : celle du compte, sinon `ANTHROPIC_API_KEY` (même cascade). */
+  anthropicKey: string | null;
   trello: TrelloContexte | null;
   /**
    * Fournisseur choisi par le compte, `null` = rien de choisi. Le défaut
@@ -73,11 +76,16 @@ export type ReglagesResolus = {
   modeleOllamaIA: string | null;
   /** Identifiant Ollama Cloud du modèle de l'assistant conversationnel. */
   modeleOllamaChatIA: string | null;
+  /** Identifiant Anthropic du modèle qui rédige les annonces. */
+  modeleAnthropicIA: string | null;
+  /** Identifiant Anthropic du modèle de l'assistant conversationnel. */
+  modeleAnthropicChatIA: string | null;
   objectifMensuel: number | null;
   /** Pour la clé IA : la valeur vient-elle du compte ou de l'application ? */
   source: {
     openrouter: "utilisateur" | "app" | "absente";
     ollama: "utilisateur" | "app" | "absente";
+    anthropic: "utilisateur" | "app" | "absente";
     trello: SourceTrello;
   };
 };
@@ -154,6 +162,10 @@ export async function resoudreReglages(userId: string): Promise<ReglagesResolus>
     dechiffrerOuNull(s?.ollamaKey),
     process.env.OLLAMA_API_KEY,
   );
+  const [anthropic, srcAnthropic] = cascade(
+    dechiffrerOuNull(s?.anthropicKey),
+    process.env.ANTHROPIC_API_KEY,
+  );
 
   const trello = contexteDepuisReglages(
     {
@@ -171,6 +183,7 @@ export async function resoudreReglages(userId: string): Promise<ReglagesResolus>
   return {
     openrouterKey: openrouter,
     ollamaKey: ollama,
+    anthropicKey: anthropic,
     trello,
     // Une valeur périmée en base (fournisseur retiré) vaut « rien de choisi ».
     fournisseurIA: estFournisseurIA(s?.fournisseurIA) ? s.fournisseurIA : null,
@@ -178,10 +191,13 @@ export async function resoudreReglages(userId: string): Promise<ReglagesResolus>
     modeleChatIA: vide(s?.modeleChatIA),
     modeleOllamaIA: vide(s?.modeleOllamaIA),
     modeleOllamaChatIA: vide(s?.modeleOllamaChatIA),
+    modeleAnthropicIA: vide(s?.modeleAnthropicIA),
+    modeleAnthropicChatIA: vide(s?.modeleAnthropicChatIA),
     objectifMensuel: s?.objectifMensuel ?? null,
     source: {
       openrouter: srcOpenrouter,
       ollama: srcOllama,
+      anthropic: srcAnthropic,
       trello: trello?.source ?? "absente",
     },
   };

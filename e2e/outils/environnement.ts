@@ -117,6 +117,9 @@ export function envServeur(): Record<string, string> {
     // génération réelle n'est faite côté serveur (elles sont simulées dans le
     // navigateur).
     OLLAMA_BASE_URL: URL_OPENROUTER,
+    // Anthropic (troisième fournisseur IA, 04/11/2026) : même garde, pointé sur le
+    // même faux serveur local. Le compte e2e n'a pas de clé Anthropic.
+    ANTHROPIC_BASE_URL: URL_OPENROUTER,
     SACBASE_URL: URL_SACBASE,
     SACBASE_STUDIO_TOKEN: SACBASE_JETON_E2E,
     RESEND_BASE_URL: URL_RESEND,
@@ -206,13 +209,13 @@ export function controlerPreparation(env: Record<string, string> = envServeur())
   const db = env.DATABASE_URL ?? "";
   if (!estUrlLocale(db)) erreurs.push("DATABASE_URL ne vise pas localhost.");
   if (/neon\.tech|ep-curly-haze|ep-autumn-morning/i.test(db)) erreurs.push("DATABASE_URL vise Neon.");
-  for (const nom of ["OPENROUTER_BASE_URL", "OLLAMA_BASE_URL", "SACBASE_URL", "RESEND_BASE_URL", "NEXTAUTH_URL", "AUTH_URL"]) {
+  for (const nom of ["OPENROUTER_BASE_URL", "OLLAMA_BASE_URL", "ANTHROPIC_BASE_URL", "SACBASE_URL", "RESEND_BASE_URL", "NEXTAUTH_URL", "AUTH_URL"]) {
     if (!estUrlLocale(env[nom] ?? "")) erreurs.push(`${nom} n'est pas une adresse locale.`);
   }
   if (env.VERCEL_BLOB_API_URL && !estUrlLocale(env.VERCEL_BLOB_API_URL)) {
     erreurs.push("VERCEL_BLOB_API_URL n'est pas une adresse locale.");
   }
-  for (const nom of ["SUPABASE_URL", "SUPABASE_SECRET_KEY", "BLOB_READ_WRITE_TOKEN", "VERCEL_OIDC_TOKEN", "OPENROUTER_API_KEY", "OLLAMA_API_KEY"]) {
+  for (const nom of ["SUPABASE_URL", "SUPABASE_SECRET_KEY", "BLOB_READ_WRITE_TOKEN", "VERCEL_OIDC_TOKEN", "OPENROUTER_API_KEY", "OLLAMA_API_KEY", "ANTHROPIC_API_KEY"]) {
     if (env[nom] !== "") erreurs.push(`${nom} doit être vide (stockage niveau 0, aucune clé de repli).`);
   }
 

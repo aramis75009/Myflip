@@ -197,6 +197,7 @@ export default function Integrations() {
   // Saisie en cours. Vide = « ne rien changer », jamais « effacer ».
   const [ollama, setOllama] = useState("");
   const [openrouter, setOpenrouter] = useState("");
+  const [anthropic, setAnthropic] = useState("");
 
   // Modèle de rédaction. Deux états et non un : `choix` porte la valeur du menu
   // (un id, ou la sentinelle AUTRE), `libre` porte la saisie manuelle. Les
@@ -423,12 +424,19 @@ export default function Integrations() {
           chat: "Nom exact d'un modèle Ollama Cloud (liste : ollama.com/api/tags), par exemple gemma4:31b. Il doit savoir appeler des outils (tool calling), sinon l'assistant ne pourra ni lire tes données ni agir.",
           placeholder: "nom-du-modele",
         }
-      : {
-          annonce:
-            "Identifiant OpenRouter exact, par exemple mistralai/mistral-medium-3.1. Il doit savoir lire des images et rendre du JSON structuré, sinon chaque génération échouera.",
-          chat: "Identifiant OpenRouter exact, par exemple deepseek/deepseek-v4-pro-0813. Il doit savoir appeler des outils (tool calling), sinon l'assistant ne pourra ni lire tes données ni agir.",
-          placeholder: "fournisseur/modele",
-        };
+      : fournisseur === "anthropic"
+        ? {
+            annonce:
+              "Identifiant Claude exact, sans suffixe de date, par exemple claude-opus-5-5. Il doit savoir lire des images, sinon chaque génération échouera.",
+            chat: "Identifiant Claude exact, sans suffixe de date, par exemple claude-opus-5-5. Il doit savoir appeler des outils (tool calling), sinon l'assistant ne pourra ni lire tes données ni agir.",
+            placeholder: "claude-…",
+          }
+        : {
+            annonce:
+              "Identifiant OpenRouter exact, par exemple mistralai/mistral-medium-3.1. Il doit savoir lire des images et rendre du JSON structuré, sinon chaque génération échouera.",
+            chat: "Identifiant OpenRouter exact, par exemple deepseek/deepseek-v4-pro-0813. Il doit savoir appeler des outils (tool calling), sinon l'assistant ne pourra ni lire tes données ni agir.",
+            placeholder: "fournisseur/modele",
+          };
 
   const secretsIA = [
     {
@@ -452,6 +460,17 @@ export default function Integrations() {
       source: dto.source.openrouter,
       test: "openrouter",
       aide: "Sert quand tu choisis OpenRouter ci-dessous, et pour la génération d'images du Studio (Ollama Cloud ne génère pas d'images). Où la trouver : openrouter.ai/keys.",
+    },
+    {
+      cle: "anthropicKey",
+      fournisseur: "anthropic",
+      titre: "Clé API Anthropic",
+      valeur: anthropic,
+      set: setAnthropic,
+      etat: dto.anthropic,
+      source: dto.source.anthropic,
+      test: "anthropic",
+      aide: "Sert quand tu choisis Anthropic ci-dessous : Claude rédige tes annonces et fait tourner l'assistant, facturé au jeton sur ton compte Anthropic. Où la trouver : console.anthropic.com/settings/keys. Le test envoie une requête d'un seul jeton.",
     },
   ] as const;
 
@@ -505,6 +524,7 @@ export default function Integrations() {
               const patch: Record<string, string> = {};
               if (ollama.trim()) patch.ollamaKey = ollama.trim();
               if (openrouter.trim()) patch.openrouterKey = openrouter.trim();
+              if (anthropic.trim()) patch.anthropicKey = anthropic.trim();
               if (Object.keys(patch).length === 0) {
                 toast.error("Aucune clé saisie.");
                 return;
@@ -512,6 +532,7 @@ export default function Integrations() {
               if (await enregistrer(patch)) {
                 setOllama("");
                 setOpenrouter("");
+                setAnthropic("");
               }
             }}
             className={boutonCls}

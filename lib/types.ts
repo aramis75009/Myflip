@@ -369,6 +369,8 @@ export type UserSettingsDTO = {
   openrouter: SecretEtat;
   /** Clé Ollama Cloud, même traitement qu'OpenRouter : jamais en clair, seulement son état. */
   ollama: SecretEtat;
+  /** Clé API Anthropic, même traitement : jamais en clair, seulement son état. */
+  anthropic: SecretEtat;
   trello: TrelloEtatDTO;
   /**
    * Fournisseur IA choisi par le compte ; `null` = rien de choisi, donc le
@@ -383,6 +385,10 @@ export type UserSettingsDTO = {
   modeleOllamaIA: string | null;
   /** Identifiant Ollama Cloud du modèle de l'assistant conversationnel. */
   modeleOllamaChatIA: string | null;
+  /** Identifiant Anthropic du modèle qui rédige les annonces. */
+  modeleAnthropicIA: string | null;
+  /** Identifiant Anthropic du modèle de l'assistant conversationnel. */
+  modeleAnthropicChatIA: string | null;
   objectifMensuel: number | null;
   /** Étape en cours du parcours de démarrage (1 à 3). */
   onboardingEtape: number;
@@ -390,6 +396,7 @@ export type UserSettingsDTO = {
   source: {
     openrouter: SourceReglage;
     ollama: SourceReglage;
+    anthropic: SourceReglage;
     trello: SourceTrello;
   };
   /** Faux si ENCRYPTION_KEY manque : aucun secret ne peut être enregistré. */
