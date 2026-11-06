@@ -4,13 +4,14 @@ import { choisirIA, messageCleManquante, type ReglagesIA } from "./fournisseurIA
 const reglages = (over: Partial<ReglagesIA> = {}): ReglagesIA => ({
   openrouterKey: null,
   ollamaKey: null,
-  source: { openrouter: "absente", ollama: "absente" },
+  anthropicKey: null,
+  source: { openrouter: "absente", ollama: "absente", anthropic: "absente" },
   ...over,
 });
 
 describe("choisirIA", () => {
   it("Ollama Cloud et deepseek-v4.1-flash quand rien n'est choisi", () => {
-    const c = choisirIA("annonce", reglages({ ollamaKey: "cle-ollama", source: { openrouter: "absente", ollama: "utilisateur" } }));
+    const c = choisirIA("annonce", reglages({ ollamaKey: "cle-ollama", source: { openrouter: "absente", ollama: "utilisateur", anthropic: "absente" } }));
     expect(c).toEqual({
       fournisseur: "ollama",
       modele: "deepseek-v4.1-flash",
@@ -43,7 +44,7 @@ describe("choisirIA", () => {
         ollamaKey: "cle-ollama",
         modeleIA: "google/gemini-3.7-flash",
         modeleOllamaIA: "gemma4:31b",
-        source: { openrouter: "app", ollama: "utilisateur" },
+        source: { openrouter: "app", ollama: "utilisateur", anthropic: "absente" },
       }),
     );
     expect(c).toEqual({
@@ -69,6 +70,51 @@ describe("choisirIA", () => {
     expect(c.modele).toBe("glm-5.3-flash");
   });
 
+  it("Anthropic choisi : sa clé, son modèle (Haiku pour les annonces, Sonnet pour l'assistant)", () => {
+    const r = reglages({
+      fournisseurIA: "anthropic",
+      anthropicKey: "cle-anthropic",
+      openrouterKey: "cle-openrouter",
+      ollamaKey: "cle-ollama",
+      modeleIA: "google/gemini-3.7-flash",
+      modeleOllamaIA: "gemma4:31b",
+      source: { openrouter: "app", ollama: "app", anthropic: "utilisateur" },
+    });
+    expect(choisirIA("annonce", r)).toEqual({
+      fournisseur: "anthropic",
+      modele: "claude-haiku-5-5",
+      cle: "cle-anthropic",
+      source: "utilisateur",
+    });
+    const chat = choisirIA("chat", r);
+    expect(chat.modele).toBe("claude-sonnet-5-5");
+    expect(chat.cle).toBe("cle-anthropic");
+  });
+
+  it("Anthropic choisi : le modèle du compte chez Anthropic, jamais celui d'un autre fournisseur", () => {
+    const c = choisirIA(
+      "annonce",
+      reglages({
+        fournisseurIA: "anthropic",
+        anthropicKey: "k",
+        modeleAnthropicIA: "claude-sonnet-5-5",
+        modeleIA: "google/gemini-3.7-flash",
+        modeleOllamaIA: "gemma4:31b",
+      }),
+    );
+    expect(c.modele).toBe("claude-sonnet-5-5");
+  });
+
+  it("la clé Anthropic ne part jamais chez un autre fournisseur, ni l'inverse", () => {
+    const seule = reglages({ anthropicKey: "cle-anthropic" });
+    // Rien choisi → Ollama, qui n'a pas de clé : la clé Anthropic n'est pas prêtée.
+    expect(choisirIA("annonce", seule).cle).toBeNull();
+    // Anthropic choisi sans clé Anthropic : pas celle d'OpenRouter.
+    const c = choisirIA("chat", reglages({ fournisseurIA: "anthropic", openrouterKey: "cle-openrouter", ollamaKey: "cle-ollama" }));
+    expect(c.cle).toBeNull();
+    expect(c.source).toBe("absente");
+  });
+
   it("un fournisseur périmé en base retombe sur Ollama Cloud", () => {
     expect(choisirIA("annonce", reglages({ fournisseurIA: "gemini" })).fournisseur).toBe("ollama");
   });
@@ -78,6 +124,7 @@ describe("messageCleManquante", () => {
   it("nomme le fournisseur concerné", () => {
     expect(messageCleManquante("ollama")).toMatch(/Aucune clé Ollama Cloud/);
     expect(messageCleManquante("openrouter")).toMatch(/Aucune clé OpenRouter/);
+    expect(messageCleManquante("anthropic")).toMatch(/Aucune clé Anthropic/);
     expect(messageCleManquante("ollama")).toMatch(/Mon compte/);
   });
 });

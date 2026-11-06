@@ -24,8 +24,10 @@ export const dynamic = "force-dynamic";
 // formulaire qui les repose contournerait tout le contrôle d'autorisation.
 //
 // `ollamaKey` (03/11/2026) est traitée EXACTEMENT comme `openrouterKey` : mêmes
-// garde-fous, même chiffrement, jamais renvoyée en clair.
-const SECRETS = ["openrouterKey", "ollamaKey"] as const;
+// garde-fous, même chiffrement, jamais renvoyée en clair. Même chose pour
+// `anthropicKey` (04/11/2026) : la colonne existait déjà, elle est de nouveau
+// écrite (par la clé API Anthropic, plus par l'ancien assistant direct).
+const SECRETS = ["openrouterKey", "ollamaKey", "anthropicKey"] as const;
 
 /**
  * Enregistre le webhook Trello sur le board du compte, si possible.
@@ -79,6 +81,8 @@ const CLAIRS = [
   "fournisseurIA",
   "modeleOllamaIA",
   "modeleOllamaChatIA",
+  "modeleAnthropicIA",
+  "modeleAnthropicChatIA",
 ] as const;
 
 type Body = Partial<
@@ -116,6 +120,7 @@ export async function GET() {
     const dto: UserSettingsDTO = {
       openrouter: etatSecret(s?.openrouterKey),
       ollama: etatSecret(s?.ollamaKey),
+      anthropic: etatSecret(s?.anthropicKey),
       trello: {
         connecte: resolus.trello !== null,
         source: resolus.source.trello,
@@ -130,6 +135,8 @@ export async function GET() {
       modeleChatIA: s?.modeleChatIA ?? null,
       modeleOllamaIA: s?.modeleOllamaIA ?? null,
       modeleOllamaChatIA: s?.modeleOllamaChatIA ?? null,
+      modeleAnthropicIA: s?.modeleAnthropicIA ?? null,
+      modeleAnthropicChatIA: s?.modeleAnthropicChatIA ?? null,
       objectifMensuel: s?.objectifMensuel ?? null,
       onboardingEtape: s?.onboardingEtape ?? 1,
       onboardingTermine: s?.onboardingTermine ?? false,

@@ -61,16 +61,18 @@ model UserSettings {
 
   // Clés IA, chiffrées. Absentes = on retombe sur la clé d'environnement.
   // ⚠️ `geminiKey` n'est PLUS LUE : la génération passe par OpenRouter depuis le
-  // 13/08/2026. `anthropicKey` n'est PLUS LUE non plus : l'assistant passe par
-  // OpenRouter depuis le 15/08/2026 (cf. `openrouterKey`). Les deux colonnes
-  // sont conservées volontairement — une clé effacée ne se récupère pas, et
-  // `prisma db push` proposera de les dropper : refuser.
+  // 13/08/2026. La colonne est conservée volontairement — une clé effacée ne se
+  // récupère pas, et `prisma db push` proposera de la dropper : refuser.
   geminiKey     String? @db.Text
-  anthropicKey  String? @db.Text
   openrouterKey String? @db.Text
   // Clé Ollama Cloud (03/11/2026), chiffrée exactement comme `openrouterKey`
   // (AES-256-GCM, `lib/crypto.ts`). Absente = on retombe sur `OLLAMA_API_KEY`.
   ollamaKey String? @db.Text
+  // Clé API Anthropic (04/11/2026), chiffrée comme les autres. La colonne
+  // existait depuis le 08/08/2026 (l'assistant appelait Anthropic en direct
+  // avant le 15/08) : elle est de nouveau déclarée ici et de nouveau lue.
+  // Absente = on retombe sur `ANTHROPIC_API_KEY`.
+  anthropicKey String? @db.Text
 
   // Accès Trello HÉRITÉ : clé, jeton et secret saisis à la main avant le
   // 15/08/2026. Toujours lus — ils portent les connexions d'avant l'OAuth.
@@ -127,6 +129,10 @@ model UserSettings {
   // `google/gemini-…` à Ollama. Null = modèle par défaut du fournisseur.
   modeleOllamaIA     String?
   modeleOllamaChatIA String?
+  // Modèles CHEZ ANTHROPIC (04/11/2026), même raison que ci-dessus : colonnes à
+  // part. Null = modèle par défaut du fournisseur.
+  modeleAnthropicIA     String?
+  modeleAnthropicChatIA String?
 
   // Objectif de chiffre d'affaires mensuel. Vivait dans le localStorage
   // (`lib/objectif.ts`), donc perdu d'un appareil à l'autre.

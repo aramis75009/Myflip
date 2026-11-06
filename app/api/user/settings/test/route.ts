@@ -5,9 +5,9 @@ import { testerCle, type Fournisseur } from "@/lib/aiTest";
 
 export const dynamic = "force-dynamic";
 
-const FOURNISSEURS: Fournisseur[] = ["ollama", "openrouter"];
+const FOURNISSEURS: Fournisseur[] = ["ollama", "openrouter", "anthropic"];
 
-// POST /api/user/settings/test?fournisseur=ollama|openrouter
+// POST /api/user/settings/test?fournisseur=ollama|openrouter|anthropic
 //
 // Teste la clé RÉELLEMENT utilisée pour ce compte — celle de l'utilisateur si
 // elle existe, sinon celle de l'application. C'est la question qui intéresse
@@ -24,7 +24,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const reglages = await resoudreReglages(userId);
-    const cle = { ollama: reglages.ollamaKey, openrouter: reglages.openrouterKey }[fournisseur];
+    const cle = {
+      ollama: reglages.ollamaKey,
+      openrouter: reglages.openrouterKey,
+      anthropic: reglages.anthropicKey,
+    }[fournisseur];
 
     if (!cle) {
       return NextResponse.json({

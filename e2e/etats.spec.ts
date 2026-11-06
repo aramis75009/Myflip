@@ -1172,8 +1172,8 @@ const ETATS: DefEtat[] = [
       c.simule("POST /api/user/settings/test → { ok: true } (aucun appel OpenRouter)");
       await aller(c.page, "/compte", "demo");
       await expect(c.page.getByPlaceholder(/••••0000/)).toBeVisible();
-      // Deux boutons « Tester » : Ollama Cloud (par défaut) puis OpenRouter (secours, seul à porter une clé de test).
-      await c.page.getByRole("button", { name: "Tester" }).last().click();
+      // Trois boutons « Tester » : Ollama Cloud (par défaut), OpenRouter (secours, seul à porter une clé de test), Anthropic.
+      await c.page.getByRole("button", { name: "Tester" }).nth(1).click();
       await expect(toast(c.page, "Clé OpenRouter valide.")).toBeVisible();
       await c.capture(undefined, IMMEDIAT);
     },

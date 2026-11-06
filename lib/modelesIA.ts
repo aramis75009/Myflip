@@ -1,8 +1,9 @@
 // Catalogue des modèles proposés pour la génération d'annonces et l'assistant,
 // pour chaque fournisseur : Ollama Cloud (par défaut depuis le 03/11/2026, section
-// « Ollama Cloud » en bas de fichier) et OpenRouter (secours, tout ce qui suit
-// jusqu'à elle). Les deux passent par `modeleChoisi`, qui dit quel fournisseur et
-// quel modèle un compte utilise.
+// « Ollama Cloud » plus bas), OpenRouter (secours, tout ce qui suit jusqu'à elle)
+// et Anthropic (04/11/2026, section « Anthropic » en bas de fichier). Tous
+// passent par `modeleChoisi`, qui dit quel fournisseur et quel modèle un compte
+// utilise.
 //
 // Module PARTAGÉ client/serveur, et volontairement sans dépendance : il est
 // importé par `components/compte/Integrations.tsx` (composant client) autant que
@@ -40,6 +41,13 @@ export type ModelePropose = {
   reflexion?: { annonce: EffortReflexion | null; chat: EffortReflexion | null };
 };
 
+/**
+ * Niveau d'`output_config.effort` à envoyer à Anthropic, par usage. Même
+ * convention que `reflexion` : absent ou `null` = ne rien envoyer (un modèle
+ * ancien ou saisi à la main peut refuser le champ).
+ */
+export type EffortAnthropic = EffortReflexion;
+
 /** Valeurs de `reasoning_effort` que nous envoyons à Ollama Cloud. */
 export type EffortReflexion = "low" | "medium" | "high";
 
@@ -54,7 +62,7 @@ export type EffortReflexion = "low" | "medium" | "high";
  * sur les images, `lib/studio*`) n'est PAS concerné : Ollama Cloud ne génère pas
  * d'images, il reste sur OpenRouter quel que soit ce réglage.
  */
-export type FournisseurIA = "ollama" | "openrouter";
+export type FournisseurIA = "ollama" | "openrouter" | "anthropic";
 
 export const FOURNISSEUR_PAR_DEFAUT: FournisseurIA = "ollama";
 
@@ -69,11 +77,16 @@ export const FOURNISSEURS_IA: { id: FournisseurIA; libelle: string; note: string
     libelle: "OpenRouter",
     note: "Le secours : un crédit à recharger, un très large choix de modèles.",
   },
+  {
+    id: "anthropic",
+    libelle: "Anthropic",
+    note: "Claude en direct, avec ta clé API Anthropic : facturé au jeton sur ton compte Anthropic.",
+  },
 ];
 
 /** Vrai si la valeur est un fournisseur connu (une valeur en base peut être périmée). */
 export function estFournisseurIA(v: unknown): v is FournisseurIA {
-  return v === "ollama" || v === "openrouter";
+  return v === "ollama" || v === "openrouter" || v === "anthropic";
 }
 
 /** Fournisseur effectif d'un compte : son choix, sinon Ollama Cloud. */
@@ -274,16 +287,73 @@ export const MODELES_OLLAMA_PROPOSES: ModelePropose[] = CATALOGUE_OLLAMA.filter(
 
 export const MODELES_CHAT_OLLAMA_PROPOSES: ModelePropose[] = CATALOGUE_OLLAMA.filter((m) => m.tools);
 
+// ── Anthropic ───────────────────────────────────────────────────────────────
+//
+// Identifiants relevés dans la documentation de l'API Anthropic (04/11/2026),
+// SANS suffixe de date : `claude-haiku-5-5` et `claude-sonnet-5-5` sont les
+// identifiants complets. Prix en $ par million de jetons (entrée / sortie) ;
+// ceux de Haiku valent pour un prompt de 100 000 jetons au plus, ce qu'une
+// annonce (un prompt et quelques photos) ne dépasse pas.
+//
+// Les deux modèles lisent les images et appellent des outils : les deux
+// catalogues contiennent les mêmes lignes, dans un ordre différent (Haiku en
+// tête pour les annonces, Sonnet pour l'assistant). Ni l'un ni l'autre n'accepte
+// `temperature` : on n'en envoie pas (cf. `lib/anthropic.ts`).
+
+/** Modèle des annonces quand le compte, chez Anthropic, n'a rien choisi : rapide, lit les photos, bon marché. */
+export const MODELE_ANTHROPIC_PAR_DEFAUT = "claude-haiku-5-5";
+
+/** Modèle de l'assistant quand le compte, chez Anthropic, n'a rien choisi. */
+export const MODELE_CHAT_ANTHROPIC_PAR_DEFAUT = "claude-sonnet-5-5";
+
+const HAIKU: ModelePropose = {
+  id: "claude-haiku-5-5",
+  libelle: "Claude Haiku 5.5",
+  prix: "0.10 / 0.50",
+  note: "Le plus rapide et le moins cher : lit les photos, assez fin pour une annonce.",
+  vision: true,
+  tools: true,
+  // Les prompts demandent de saturer un titre à 100 caractères et ~80 mots-clés
+  // sur 7 langues : un effort moyen (le défaut de Haiku 5.5) les tient. Pour
+  // l'assistant, qui enchaîne quelques outils, le plus bas suffit.
+  reflexion: { annonce: "medium", chat: "low" },
+};
+
+const SONNET: ModelePropose = {
+  id: "claude-sonnet-5-5",
+  libelle: "Claude Sonnet 5.5",
+  prix: "2.00 / 10.00",
+  note: "Plus fin pour les pièces qui méritent une annonce impeccable, et pour l'assistant.",
+  vision: true,
+  tools: true,
+  reflexion: { annonce: "medium", chat: "medium" },
+};
+
+export const MODELES_ANTHROPIC_PROPOSES: ModelePropose[] = [HAIKU, SONNET];
+
+export const MODELES_CHAT_ANTHROPIC_PROPOSES: ModelePropose[] = [SONNET, HAIKU];
+
+/**
+ * Niveau d'`output_config.effort` à envoyer à Anthropic pour ce modèle, ou
+ * `null` pour ne rien envoyer (modèle saisi à la main : un modèle ancien refuse
+ * le champ).
+ */
+export function effortAnthropic(modele: string, usage: UsageIA): EffortAnthropic | null {
+  return [HAIKU, SONNET].find((m) => m.id === modele)?.reflexion?.[usage] ?? null;
+}
+
 // ── Accès générique, quel que soit le fournisseur ───────────────────────────
 
 /** Le catalogue à proposer pour ce fournisseur et cet usage. */
 export function modelesProposes(f: FournisseurIA, usage: UsageIA): ModelePropose[] {
+  if (f === "anthropic") return usage === "annonce" ? MODELES_ANTHROPIC_PROPOSES : MODELES_CHAT_ANTHROPIC_PROPOSES;
   if (f === "ollama") return usage === "annonce" ? MODELES_OLLAMA_PROPOSES : MODELES_CHAT_OLLAMA_PROPOSES;
   return usage === "annonce" ? MODELES_PROPOSES : MODELES_CHAT_PROPOSES;
 }
 
 /** Le modèle utilisé quand le compte n'a rien choisi pour ce fournisseur et cet usage. */
 export function modeleParDefaut(f: FournisseurIA, usage: UsageIA): string {
+  if (f === "anthropic") return usage === "annonce" ? MODELE_ANTHROPIC_PAR_DEFAUT : MODELE_CHAT_ANTHROPIC_PAR_DEFAUT;
   if (f === "ollama") return usage === "annonce" ? MODELE_OLLAMA_PAR_DEFAUT : MODELE_CHAT_OLLAMA_PAR_DEFAUT;
   return usage === "annonce" ? MODELE_PAR_DEFAUT : MODELE_CHAT_PAR_DEFAUT;
 }
@@ -312,7 +382,14 @@ export function effortReflexion(modele: string, usage: UsageIA): EffortReflexion
 export function champModele(
   f: FournisseurIA,
   usage: UsageIA,
-): "modeleIA" | "modeleChatIA" | "modeleOllamaIA" | "modeleOllamaChatIA" {
+):
+  | "modeleIA"
+  | "modeleChatIA"
+  | "modeleOllamaIA"
+  | "modeleOllamaChatIA"
+  | "modeleAnthropicIA"
+  | "modeleAnthropicChatIA" {
+  if (f === "anthropic") return usage === "annonce" ? "modeleAnthropicIA" : "modeleAnthropicChatIA";
   if (f === "ollama") return usage === "annonce" ? "modeleOllamaIA" : "modeleOllamaChatIA";
   return usage === "annonce" ? "modeleIA" : "modeleChatIA";
 }
@@ -324,6 +401,8 @@ export type ChoixModeleBrut = {
   modeleChatIA?: string | null;
   modeleOllamaIA?: string | null;
   modeleOllamaChatIA?: string | null;
+  modeleAnthropicIA?: string | null;
+  modeleAnthropicChatIA?: string | null;
 };
 
 /**
@@ -331,7 +410,8 @@ export type ChoixModeleBrut = {
  *
  * Un modèle n'a de sens que chez SON fournisseur : chaque fournisseur a donc sa
  * propre colonne (`modeleIA` reste celle d'OpenRouter). Changer de fournisseur
- * ne fait jamais envoyer un identifiant OpenRouter à Ollama, ni l'inverse.
+ * ne fait jamais envoyer un identifiant OpenRouter à Ollama, ni l'inverse (et
+ * jamais un identifiant d'un autre fournisseur à Anthropic).
  * Rien de choisi pour ce couple = le défaut du fournisseur.
  */
 export function modeleChoisi(

@@ -40,11 +40,11 @@ export default async function globalTeardown(): Promise<void> {
         ` (${path.relative(RACINE, JOURNAUX.reseauServeur)}).`,
     );
   }
-  const versOpenRouter = refus.filter((r) => /(^|\.)(openrouter\.ai|ollama\.com)$/i.test(String(r.hote)));
+  const versOpenRouter = refus.filter((r) => /(^|\.)(openrouter\.ai|ollama\.com|anthropic\.com)$/i.test(String(r.hote)));
   if (versOpenRouter.length > 0) {
     throw new Error(
-      `[e2e] ÉCHEC : le serveur a tenté ${versOpenRouter.length} appel(s) vers openrouter.ai ou ollama.com ` +
-        "(refusés par la garde). OPENROUTER_BASE_URL et OLLAMA_BASE_URL ne s'appliquent pas partout : voir le journal réseau.",
+      `[e2e] ÉCHEC : le serveur a tenté ${versOpenRouter.length} appel(s) vers openrouter.ai, ollama.com ou anthropic.com ` +
+        "(refusés par la garde). OPENROUTER_BASE_URL, OLLAMA_BASE_URL et ANTHROPIC_BASE_URL ne s'appliquent pas partout : voir le journal réseau.",
     );
   }
 }
