@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  FILTRES_ACCUEIL,
   PRISES,
+  bilanPhotos,
   choixAutomatique,
   cleCase,
   etatCase,
@@ -10,6 +12,7 @@ import {
   passeFiltres,
   prisesPour,
   promptVariante,
+  resoudreFiltre,
   sacsCibles,
   sansFreresDuLancement,
   usageAngles,
@@ -145,19 +148,94 @@ describe("usageAngles", () => {
 });
 
 describe("passeFiltres", () => {
-  const c = { generation: "V3", chezMoi: 2, prises: 0, aJuger: 1 };
+  const c = { generation: "V3", chezMoi: 2, prises: 0, photos: 0, aJuger: 1 };
   it("filtre par génération", () => {
     expect(passeFiltres(c, "V3", null)).toBe(true);
     expect(passeFiltres(c, "V1", null)).toBe(false);
   });
-  it("doublons, à juger, à photographier", () => {
+  it("doublons, à juger", () => {
     expect(passeFiltres(c, null, "doublons")).toBe(true);
     expect(passeFiltres({ ...c, chezMoi: 1 }, null, "doublons")).toBe(false);
     expect(passeFiltres(c, null, "a_juger")).toBe(true);
     expect(passeFiltres({ ...c, aJuger: 0 }, null, "a_juger")).toBe(false);
-    expect(passeFiltres(c, null, "a_photographier")).toBe(true);
-    expect(passeFiltres({ ...c, prises: 14 }, null, "a_photographier")).toBe(false);
-    expect(passeFiltres({ ...c, chezMoi: 0 }, null, "a_photographier")).toBe(false);
+  });
+  it("avec vraies photos : une photo suffit, même gardée hors du tableau ; sans vraies photos = le complément", () => {
+    expect(passeFiltres(c, null, "photographies")).toBe(false);
+    expect(passeFiltres(c, null, "jamais_photographies")).toBe(true);
+    // Photo conservée à la mise en vente : pas de ligne dans le tableau (prises = 0), mais bien photographié.
+    const gardee = { ...c, photos: 3 };
+    expect(passeFiltres(gardee, null, "photographies")).toBe(true);
+    expect(passeFiltres(gardee, null, "jamais_photographies")).toBe(false);
+    // Hors catalogue SacBase (chezMoi null) : le filtre ne dépend que des photos.
+    expect(passeFiltres({ ...c, chezMoi: null, photos: 1 }, null, "photographies")).toBe(true);
+    // Tout coloris est dans exactement l'un des deux.
+    for (const photos of [0, 1, 15]) {
+      const x = { ...c, photos };
+      expect(passeFiltres(x, null, "photographies")).not.toBe(passeFiltres(x, null, "jamais_photographies"));
+    }
+  });
+  it("chez toi : à photographier = sans vraies photos et un sac chez toi", () => {
+    expect(passeFiltres(c, null, "a_photographier_chez_toi")).toBe(true);
+    expect(passeFiltres({ ...c, chezMoi: 1 }, null, "a_photographier_chez_toi")).toBe(true);
+    expect(passeFiltres({ ...c, chezMoi: 0 }, null, "a_photographier_chez_toi")).toBe(false);
+    expect(passeFiltres({ ...c, chezMoi: null }, null, "a_photographier_chez_toi")).toBe(false);
+    // Une photo gardée hors du tableau suffit à sortir de la liste.
+    expect(passeFiltres({ ...c, photos: 1 }, null, "a_photographier_chez_toi")).toBe(false);
+  });
+  it("pas chez toi : à commander = sans vraies photos, chezMoi nul ou 0", () => {
+    expect(passeFiltres({ ...c, chezMoi: 0 }, null, "a_commander")).toBe(true);
+    expect(passeFiltres({ ...c, chezMoi: null }, null, "a_commander")).toBe(true);
+    expect(passeFiltres(c, null, "a_commander")).toBe(false);
+    expect(passeFiltres({ ...c, chezMoi: 0, photos: 2 }, null, "a_commander")).toBe(false);
+  });
+  it("les deux tuiles partagent « sans vraies photos » sans rien laisser ni compter deux fois", () => {
+    for (const chezMoi of [null, 0, 1, 3]) {
+      for (const photos of [0, 1, 15]) {
+        const x = { ...c, chezMoi, photos };
+        const tuiles = [passeFiltres(x, null, "a_photographier_chez_toi"), passeFiltres(x, null, "a_commander")].filter(Boolean).length;
+        expect(tuiles).toBe(passeFiltres(x, null, "jamais_photographies") ? 1 : 0);
+      }
+    }
+  });
+});
+
+describe("filtres d'URL : l'ancien identifiant", () => {
+  it("lit les identifiants courants", () => {
+    for (const id of FILTRES_ACCUEIL) expect(resoudreFiltre(id)).toBe(id);
+  });
+  it("« a_photographier » reste lisible et mène à « a_photographier_chez_toi »", () => {
+    expect(FILTRES_ACCUEIL).not.toContain("a_photographier");
+    expect(resoudreFiltre("a_photographier")).toBe("a_photographier_chez_toi");
+  });
+  it("ignore l'inconnu, y compris les clés héritées d'Object", () => {
+    expect(resoudreFiltre("tout")).toBeNull();
+    expect(resoudreFiltre("toString")).toBeNull();
+    expect(resoudreFiltre(null)).toBeNull();
+    expect(resoudreFiltre(42)).toBeNull();
+  });
+});
+
+describe("bilanPhotos (le gros chiffre et les tuiles)", () => {
+  const carte = (generation: string, chezMoi: number | null, photos: number) => ({ generation, chezMoi, prises: 0, photos, aJuger: 0 });
+  const cartes = [
+    carte("V1", 1, 0), // chez toi, sans photos
+    carte("V1", 0, 0), // à commander
+    carte("V2", null, 0), // hors catalogue : à commander
+    carte("V2", 2, 4), // avec photos
+    carte("V3", 1, 1), // chez toi mais déjà photographié : pas à faire
+    carte("V3", 0, 0), // à commander
+  ];
+
+  it("compte tout le catalogue", () => {
+    expect(bilanPhotos(cartes)).toEqual({ total: 6, sans: 4, avec: 2, chezToi: 1, aCommander: 3 });
+  });
+  it("sans + avec = total, chez toi + à commander = sans", () => {
+    const b = bilanPhotos(cartes);
+    expect(b.sans + b.avec).toBe(b.total);
+    expect(b.chezToi + b.aCommander).toBe(b.sans);
+  });
+  it("catalogue vide", () => {
+    expect(bilanPhotos([])).toEqual({ total: 0, sans: 0, avec: 0, chezToi: 0, aCommander: 0 });
   });
 });
 
