@@ -207,13 +207,18 @@ s'appliquent pas à ces écrans.
   squelette de segment enveloppe la fiche, le statut part avec lui (200) et une
   clé inconnue ne répond plus 404 (`[cle]/not-found.tsx`). Le squelette du
   catalogue est un `<Suspense>` dans `app/studio/page.tsx`.
-- **Filtres du catalogue** (`?filtre=`, `lib/studioCases.ts` `passeFiltres`) : « À juger »
-  (`a_juger`), « À photographier » (`a_photographier` : sac chez toi, aucune prise dans le
-  tableau), « Déjà photographiés » (`photographies` : au moins une vraie photo importée,
-  **tableau ou non** — les photos gardées à la mise en vente ont `ordre` null et ne comptent
-  pas dans `prises`), « Jamais photographiés » (`jamais_photographies`, le complément : ce
-  qu'il reste à acheter ou à photographier) et « Doublons chez toi ». Le compte « photos »
-  d'une carte = toutes les `StudioReference` rattachées au coloris.
+- **Accueil et filtres** (`?filtre=`, `lib/studioCases.ts` `passeFiltres`, `app/studio/_parcours.ts`
+  `listeAccueil`) : en tête, le gros chiffre « N articles sans vraies photos, sur M » et deux tuiles
+  cliquables (« Chez toi : à photographier » = `a_photographier_chez_toi`, « Pas chez toi : à
+  commander » = `a_commander`). Ils portent sur **tout le catalogue** (`bilanPhotos`) : ni la
+  génération, ni le filtre, ni la recherche ne les changent ; un clic sur une tuile vide la
+  génération et la recherche pour que « Voir les N » liste bien N. Filtres, dans l'ordre : « Tous »,
+  « Avec vraies photos » (`photographies` : au moins une vraie photo importée, **tableau ou non** —
+  les photos gardées à la mise en vente ont `ordre` null et ne comptent pas dans `prises`), « Sans
+  vraies photos » (`jamais_photographies`, le complément ; rangée en deux sections chez toi / à
+  commander), « À juger » (`a_juger`), « Doublons chez toi ». L'ancien id `a_photographier` reste
+  lu dans l'URL et mène à `a_photographier_chez_toi` (`FILTRES_ANCIENS`). Le compte « photos » d'une
+  carte = toutes les `StudioReference` rattachées au coloris.
 - ⚠️ **« Jamais acheté »** (`libelleStock`, `app/studio/_parcours.ts`) : seulement si SacBase
   ne connaît **aucun sac** du coloris (`nbSacs` = 0) ET qu'aucune photo n'a été importée. Avant
   le 10/11, la carte l'affichait dès qu'aucun sac n'était « chez toi » (En stock / Photos

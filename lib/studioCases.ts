@@ -245,8 +245,28 @@ export const GENERATIONS = ["V1", "V2", "V3"] as const;
 export type Generation = (typeof GENERATIONS)[number];
 export const estGeneration = (v: unknown): v is Generation => GENERATIONS.includes(v as Generation);
 
-export const FILTRES_ACCUEIL = ["doublons", "a_juger", "a_photographier", "photographies", "jamais_photographies"] as const;
+export const FILTRES_ACCUEIL = [
+  "doublons",
+  "a_juger",
+  "a_photographier_chez_toi",
+  "a_commander",
+  "photographies",
+  "jamais_photographies",
+] as const;
 export type FiltreAccueil = (typeof FILTRES_ACCUEIL)[number];
+
+/**
+ * Identifiants d'URL d'avant le 10/11, toujours lisibles (liens enregistrés, retour de fiche
+ * gardé en sessionStorage) : « À photographier » est devenu la tuile « Chez toi : à photographier ».
+ */
+export const FILTRES_ANCIENS: Readonly<Record<string, FiltreAccueil>> = { a_photographier: "a_photographier_chez_toi" };
+
+/** Un identifiant lu dans l'URL → le filtre courant ; null s'il est inconnu. */
+export function resoudreFiltre(v: unknown): FiltreAccueil | null {
+  if (typeof v !== "string") return null;
+  if (FILTRES_ACCUEIL.includes(v as FiltreAccueil)) return v as FiltreAccueil;
+  return Object.prototype.hasOwnProperty.call(FILTRES_ANCIENS, v) ? FILTRES_ANCIENS[v] : null;
+}
 
 export type CarteAccueil = {
   generation: string | null;
@@ -262,10 +282,34 @@ export function passeFiltres(c: CarteAccueil, generation: Generation | null, fil
   if (generation && c.generation !== generation) return false;
   if (filtre === "doublons") return (c.chezMoi ?? 0) >= 2;
   if (filtre === "a_juger") return c.aJuger > 0;
-  if (filtre === "a_photographier") return (c.chezMoi ?? 0) > 0 && c.prises === 0;
-  // « Déjà photographiés » : au moins une vraie photo importée, où qu'elle soit rangée.
+  // « Avec vraies photos » : au moins une vraie photo importée, où qu'elle soit rangée.
   if (filtre === "photographies") return c.photos > 0;
-  // Le complément : les coloris à acheter (ou à photographier) pour les avoir tous en photo.
+  // « Sans vraies photos » : le complément, ce qu'il reste à photographier ou à acheter.
   if (filtre === "jamais_photographies") return c.photos === 0;
+  // Les deux moitiés de « Sans vraies photos » : le sac est là (à photographier) ou non (à commander).
+  if (filtre === "a_photographier_chez_toi") return c.photos === 0 && (c.chezMoi ?? 0) > 0;
+  if (filtre === "a_commander") return c.photos === 0 && (c.chezMoi ?? 0) === 0;
   return true;
+}
+
+export type BilanPhotos = {
+  /** Toutes les cartes données. */
+  total: number;
+  sans: number;
+  avec: number;
+  /** Sans vraies photos, sac chez toi. */
+  chezToi: number;
+  /** Sans vraies photos, aucun sac chez toi. */
+  aCommander: number;
+};
+
+/**
+ * Le gros chiffre de l'accueil et ses deux tuiles. À appeler sur TOUT le
+ * catalogue : ni la génération, ni le filtre, ni la recherche n'y changent rien.
+ */
+export function bilanPhotos(cartes: readonly CarteAccueil[]): BilanPhotos {
+  const chezToi = cartes.filter((c) => passeFiltres(c, null, "a_photographier_chez_toi")).length;
+  const aCommander = cartes.filter((c) => passeFiltres(c, null, "a_commander")).length;
+  const sans = chezToi + aCommander;
+  return { total: cartes.length, sans, avec: cartes.length - sans, chezToi, aCommander };
 }
