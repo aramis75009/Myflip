@@ -207,12 +207,24 @@ s'appliquent pas à ces écrans.
   squelette de segment enveloppe la fiche, le statut part avec lui (200) et une
   clé inconnue ne répond plus 404 (`[cle]/not-found.tsx`). Le squelette du
   catalogue est un `<Suspense>` dans `app/studio/page.tsx`.
+- **Vue « chez toi »** (10/11, en tête de `/studio` : `app/studio/_components/ChezToi.tsx`, règles pures
+  dans `lib/studioChezToi.ts`) : « N sacs chez toi », trois tuiles cliquables (`?etat=a_photographier|
+  a_generer|pret`, un second clic l'enlève), puis les sacs **rangés par Commande**, la plus récente
+  d'abord (à prendre en photo, puis à générer, puis prêts). Un sac est « chez toi » selon `estChezToi`
+  (`lib/studioCases.ts`, la règle du sac cible) : non vendu, statut En stock ou Photos prêtes, le statut
+  MyFlip l'emportant sur celui de SacBase. État (`etatSac`) : **prêt** = au moins une image validée pour
+  ce SKU, au sens de `whereImagesValidees` (`lib/studioAnnonce.ts`, **la même condition que
+  `GET /api/studio/annonce`**, lue par les deux : ne pas la réécrire) ; sinon **à prendre en photo** si la
+  carte du coloris a `photos === 0`, sinon **à générer**. Le numéro de Commande vient de FLIPO :
+  `commande` (entier ≥ 1 ou null) sur chaque sac de `GET /api/studio/coloris`, **facultatif** (absent
+  ou invalide = null : ce champ ne rejette **jamais** le catalogue) ; sans numéro, un seul groupe « Chez toi » (« Commande inconnue » pour les sacs
+  sans numéro quand d'autres en ont). L'alias Studio s'applique avant : SDN60 sort sous 5880 Black Gold.
 - **Accueil et filtres** (`?filtre=`, `lib/studioCases.ts` `passeFiltres`, `app/studio/_parcours.ts`
-  `listeAccueil`) : en tête, le gros chiffre « N articles sans vraies photos, sur M » et deux tuiles
-  cliquables (« Chez toi : à photographier » = `a_photographier_chez_toi`, « Pas chez toi : à
-  commander » = `a_commander`). Ils portent sur **tout le catalogue** (`bilanPhotos`) : ni la
-  génération, ni le filtre, ni la recherche ne les changent ; un clic sur une tuile vide la
-  génération et la recherche pour que « Voir les N » liste bien N. Filtres, dans l'ordre : « Tous »,
+  `listeAccueil`) : sous la vue « chez toi », une ligne de texte « Catalogue : N coloris sans vraies
+  photos, sur M · K à commander », dont les deux nombres sont des boutons (`jamais_photographies`,
+  `a_commander`). Elle porte sur **tout le catalogue** (`bilanPhotos`) : ni la
+  génération, ni le filtre, ni la recherche ne la changent ; un clic sur un nombre vide la
+  génération et la recherche pour que la liste compte bien N. Filtres, dans l'ordre : « Tous »,
   « Avec vraies photos » (`photographies` : au moins une vraie photo importée, **tableau ou non** —
   les photos gardées à la mise en vente ont `ordre` null et ne comptent pas dans `prises`), « Sans
   vraies photos » (`jamais_photographies`, le complément ; rangée en deux sections chez toi / à

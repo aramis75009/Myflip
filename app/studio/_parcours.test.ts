@@ -4,6 +4,7 @@ import {
   actionCarte,
   deplacer,
   ecrireFiltres,
+  FILTRES_VIDES,
   libelleStock,
   lireFiltres,
   listeAccueil,
@@ -82,10 +83,10 @@ describe("actionCarte", () => {
 describe("catalogue filters in the URL", () => {
   it("round-trips, and ignores unknown values", () => {
     const f = lireFiltres(new URLSearchParams("generation=V2&filtre=a_juger&q=pink"));
-    expect(f).toEqual({ generation: "V2", filtre: "a_juger", q: "pink" });
+    expect(f).toEqual({ generation: "V2", filtre: "a_juger", q: "pink", etat: null });
     expect(ecrireFiltres(f)).toBe("generation=V2&filtre=a_juger&q=pink");
-    expect(lireFiltres(new URLSearchParams("generation=V9&filtre=tout"))).toEqual({ generation: null, filtre: null, q: "" });
-    expect(ecrireFiltres({ generation: null, filtre: null, q: "  " })).toBe("");
+    expect(lireFiltres(new URLSearchParams("generation=V9&filtre=tout"))).toEqual({ generation: null, filtre: null, q: "", etat: null });
+    expect(ecrireFiltres({ generation: null, filtre: null, q: "  ", etat: null })).toBe("");
     expect(lireFiltres(new URLSearchParams("filtre=photographies")).filtre).toBe("photographies");
     expect(lireFiltres(new URLSearchParams("filtre=jamais_photographies")).filtre).toBe("jamais_photographies");
     expect(lireFiltres(new URLSearchParams("filtre=a_commander")).filtre).toBe("a_commander");
@@ -93,8 +94,26 @@ describe("catalogue filters in the URL", () => {
 
   it("still reads the old « a_photographier » id, as « a_photographier_chez_toi », and writes the new one back", () => {
     const f = lireFiltres(new URLSearchParams("generation=V1&filtre=a_photographier"));
-    expect(f).toEqual({ generation: "V1", filtre: "a_photographier_chez_toi", q: "" });
+    expect(f).toEqual({ generation: "V1", filtre: "a_photographier_chez_toi", q: "", etat: null });
     expect(ecrireFiltres(f)).toBe("generation=V1&filtre=a_photographier_chez_toi");
+  });
+
+  it("the chez-toi state (?etat=) round-trips with the other filters, and an unknown state is ignored", () => {
+    for (const etat of ["a_photographier", "a_generer", "pret"] as const) {
+      const f = lireFiltres(new URLSearchParams(`etat=${etat}`));
+      expect(f).toEqual({ generation: null, filtre: null, q: "", etat });
+      expect(ecrireFiltres(f)).toBe(`etat=${etat}`);
+    }
+    const tout = lireFiltres(new URLSearchParams("generation=V3&filtre=a_commander&q=pink&etat=pret"));
+    expect(tout).toEqual({ generation: "V3", filtre: "a_commander", q: "pink", etat: "pret" });
+    expect(ecrireFiltres(tout)).toBe("generation=V3&filtre=a_commander&q=pink&etat=pret");
+    for (const mauvais of ["tout", "PRET", "a_commander", "", "a_photographier_chez_toi"]) {
+      expect(lireFiltres(new URLSearchParams({ etat: mauvais })).etat, mauvais).toBeNull();
+    }
+  });
+
+  it("FILTRES_VIDES writes an empty query", () => {
+    expect(ecrireFiltres(FILTRES_VIDES)).toBe("");
   });
 });
 

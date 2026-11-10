@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId, unauthorized } from "@/lib/apiAuth";
+import { whereImagesValidees } from "@/lib/studioAnnonce";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
   if (!sku) return NextResponse.json({ error: "sku requis." }, { status: 400 });
 
   const essais = await prisma.studioEssai.findMany({
-    where: { skuCible: sku, decision: "valide", urlImage: { not: "" }, coloris: { userId }, reference: { ordre: { not: null } } },
+    where: whereImagesValidees(userId, sku),
     select: { id: true, createdAt: true, reference: { select: { ordre: true, prise: true } } },
   });
   const images = essais

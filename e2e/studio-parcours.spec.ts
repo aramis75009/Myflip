@@ -33,9 +33,10 @@ test.describe("Studio, parcours", () => {
     for (const groupe of ["À juger", "À photographier", "Rien à préparer"]) {
       await expect(page.getByRole("heading", { level: 2, name: new RegExp(`^${groupe}`) })).toBeVisible();
     }
-    const carte = page.locator('a[href="/studio/5039-black-pink"]');
+    // Les lignes de la vue « chez toi » (data-sac) mènent aussi à la fiche : la carte du catalogue est le lien sans data-sac.
+    const carte = page.locator('a[href="/studio/5039-black-pink"]:not([data-sac])');
     await expect(carte).toContainText("Juger 3 images");
-    await expect(page.locator('a[href="/studio/5039-white-volt"]')).toContainText("Photographier le sac");
+    await expect(page.locator('a[href="/studio/5039-white-volt"]:not([data-sac])')).toContainText("Photographier le sac");
     await capturer(page, "parcours.catalogue", { pleinePage: true });
 
     // Filtre dans l'URL, gardé au rechargement et au retour depuis une fiche.

@@ -11,6 +11,7 @@ import {
   nomPrise,
   passeFiltres,
   prisesPour,
+  estChezToi,
   promptVariante,
   resoudreFiltre,
   sacsCibles,
@@ -131,6 +132,28 @@ describe("sacsCibles", () => {
       { sku: "SDN20", statut: "Photos prêtes", vendu: false }, // inconnu de MyFlip : SacBase fait foi
     ];
     expect(sacsCibles(sacs, statutDe)).toEqual(["SDN15", "SDN16", "SDN20"]);
+  });
+});
+
+describe("estChezToi (la règle « chez toi » du Studio)", () => {
+  const sac = (sku: string, statut: string, vendu = false) => ({ sku, statut, vendu });
+
+  it("En stock ou Photos prêtes, non vendu", () => {
+    expect(estChezToi(sac("SDN16", "En stock"), statutDe)).toBe(true);
+    expect(estChezToi(sac("SDN20", "Photos prêtes"), statutDe)).toBe(true); // inconnu de MyFlip : SacBase fait foi
+  });
+
+  it("le statut MyFlip l'emporte sur celui de SacBase, dans les deux sens", () => {
+    expect(estChezToi(sac("SDN15", "?"), statutDe)).toBe(true); // MyFlip : Photos prêtes
+    expect(estChezToi(sac("SDN12", "En stock"), statutDe)).toBe(false); // SacBase en retard, MyFlip : En vente
+  });
+
+  it("un sac vendu, en vente ou en livraison n'est pas chez toi", () => {
+    const enLivraison = (sku: string) => (sku === "SDN30" ? "En livraison" : null);
+    expect(estChezToi(sac("SDN9", "En stock", true), statutDe)).toBe(false);
+    expect(estChezToi(sac("SDN31", "Vendu"), statutDe)).toBe(false);
+    expect(estChezToi(sac("SDN32", "En vente"), statutDe)).toBe(false);
+    expect(estChezToi(sac("SDN30", "En stock"), enLivraison)).toBe(false);
   });
 });
 

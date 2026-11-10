@@ -25,8 +25,8 @@ const BODY = {
       coloris: "Black Pink",
       image: "/img/5039_black_pink.jpg",
       sacs: [
-        { sku: "SDN3", statut: "En stock", vendu: false },
-        { sku: "SDN1", statut: "Vendu", vendu: true },
+        { sku: "SDN3", statut: "En stock", vendu: false, commande: 7 as number | null },
+        { sku: "SDN1", statut: "Vendu", vendu: true, commande: null as number | null },
       ],
       chezMoi: 1,
       generation: "V3" as string | null,
@@ -103,6 +103,62 @@ describe("parseColorisCatalogue", () => {
     expect(parsed?.coloris.map((c) => c.generation)).toEqual([null, null]);
   });
 
+  it("reads the Commande number of a bag (FLIPO), or null", () => {
+    const parsed = parseColorisCatalogue(BODY);
+    expect(parsed?.coloris[0].sacs.map((x) => x.commande)).toEqual([7, null]);
+  });
+
+  it("an absent `commande` is read as null and does NOT reject the catalogue (FLIPO before this field)", () => {
+    const ancien = mutated((b) => {
+      for (const c of b.coloris) for (const x of c.sacs) delete (x as { commande?: unknown }).commande;
+    });
+    expect(ancien.coloris[0].sacs[0]).not.toHaveProperty("commande");
+    const parsed = parseColorisCatalogue(ancien);
+    expect(parsed).not.toBeNull();
+    expect(parsed?.coloris[0].sacs.map((x) => [x.sku, x.commande])).toEqual([
+      ["SDN3", null],
+      ["SDN1", null],
+    ]);
+    // Everything else is read exactly as before.
+    expect(parsed?.coloris.map((c) => [c.cle, c.chezMoi, c.generation])).toEqual([
+      ["5039-black-pink", 1, "V3"],
+      ["5880-white", 0, null],
+    ]);
+  });
+
+  it.each<[string, unknown]>([
+    ["a string", "7"],
+    ["zero", 0],
+    ["a negative number", -2],
+    ["a fractional number", 7.5],
+    ["NaN", Number.NaN],
+    ["a boolean", true],
+    ["an object", { numero: 7 }],
+    ["an array", [7]],
+  ])("an invalid `commande` (%s) is read as null and never rejects the catalogue", (_label, valeur) => {
+    const body = mutated((b) => void Object.assign(b.coloris[0].sacs[0], { commande: valeur }));
+    const parsed = parseColorisCatalogue(body);
+    expect(parsed).not.toBeNull();
+    // Only that bag's Commande is lost: its neighbours and the rest of the bag are read as usual.
+    expect(parsed?.coloris[0].sacs).toEqual([
+      { sku: "SDN3", statut: "En stock", vendu: false, commande: null },
+      { sku: "SDN1", statut: "Vendu", vendu: true, commande: null },
+    ]);
+    expect(parsed?.coloris.map((c) => c.cle)).toEqual(["5039-black-pink", "5880-white"]);
+  });
+
+  it("keeps a whole number of 1 or more as it is", () => {
+    for (const n of [1, 7, 120]) {
+      const parsed = parseColorisCatalogue(mutated((b) => void Object.assign(b.coloris[0].sacs[0], { commande: n })));
+      expect(parsed?.coloris[0].sacs[0].commande).toBe(n);
+    }
+  });
+
+  it("some bags with a Commande and some without are both accepted", () => {
+    const melange = mutated((b) => void delete (b.coloris[0].sacs[1] as { commande?: unknown }).commande);
+    expect(parseColorisCatalogue(melange)?.coloris[0].sacs.map((x) => x.commande)).toEqual([7, null]);
+  });
+
   it("drops unknown fields", () => {
     const parsed = parseColorisCatalogue(
       mutated((b) => {
@@ -153,7 +209,7 @@ describe("parseColorisCatalogue", () => {
     ["a SKU out of format", mutated((b) => void (b.coloris[0].sacs[0].sku = "SDN-3"))],
     ["a lowercase SKU", mutated((b) => void (b.coloris[0].sacs[0].sku = "sdn3"))],
     ["a SKU repeated inside a colourway", mutated((b) => void (b.coloris[0].sacs[1].sku = "SDN3"))],
-    ["a SKU repeated across colourways", mutated((b) => void b.coloris[1].sacs.push({ sku: "SDN3", statut: "En stock", vendu: false }))],
+    ["a SKU repeated across colourways", mutated((b) => void b.coloris[1].sacs.push({ sku: "SDN3", statut: "En stock", vendu: false, commande: null }))],
     ["`statut` empty", mutated((b) => void (b.coloris[0].sacs[0].statut = ""))],
     ["`statut` not a string", mutated((b) => void Object.assign(b.coloris[0].sacs[0], { statut: 1 }))],
     ["`vendu` as a string", mutated((b) => void Object.assign(b.coloris[0].sacs[0], { vendu: "false" }))],

@@ -22,6 +22,13 @@ export interface SacbaseBag {
   /** Statut SacBase tel quel ("En stock", "Photos prêtes", "Vendu"…). */
   statut: string;
   vendu: boolean;
+  /**
+   * Numéro de la Commande fournisseur du sac (« 7 » pour « Commande 7 »), donné
+   * par FLIPO. null = FLIPO ne le donne pas pour ce sac. Le parseur la rend
+   * toujours (null si absente) ; facultative dans le type pour qu'une fixture
+   * écrite à la main puisse l'omettre.
+   */
+  commande?: number | null;
 }
 
 export interface SacbaseColoris {
@@ -81,6 +88,7 @@ const SKU_RE = /^[A-Z]{2,5}\d+$/;
 const ISO_TS_RE = /^\d{4}-\d{2}-\d{2}T/;
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const isCount = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0;
+const isCommande = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 1;
 
 /**
  * Validation stricte : TOUTE entrée malformée rejette la réponse entière (le
@@ -107,8 +115,11 @@ export function parseColorisCatalogue(v: unknown): SacbaseCatalogue | null {
     for (const s of c.sacs) {
       if (!isObj(s) || typeof s.sku !== "string" || !SKU_RE.test(s.sku) || skus.has(s.sku)) return null;
       if (typeof s.statut !== "string" || s.statut === "" || typeof s.vendu !== "boolean") return null;
+      // Le numéro de Commande ne sert qu'à ranger les sacs : il ne rejette JAMAIS le catalogue. Un entier
+      // de 1 ou plus est gardé ; absent, null ou invalide (0, négatif, décimal, texte, objet…), il se lit null
+      // (FLIPO d'avant ce champ : les sacs se rangent alors en un seul groupe).
       skus.add(s.sku);
-      sacs.push({ sku: s.sku, statut: s.statut, vendu: s.vendu });
+      sacs.push({ sku: s.sku, statut: s.statut, vendu: s.vendu, commande: isCommande(s.commande) ? s.commande : null });
     }
     if (!isCount(c.chezMoi) || c.chezMoi > sacs.length) return null;
     // Absente toléré (SacBase d'avant le 20/10) ; présente, une chaîne. "" = inconnue.

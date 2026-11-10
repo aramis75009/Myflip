@@ -322,10 +322,19 @@ describe("cloisonnement : le Studio n'atteint jamais la vente ni l'export", () =
   });
 
   it("la route de l'annonce ne rend que les images VALIDÉES par Aramis, jamais selon l'avis IA", () => {
-    const src = lire("app/api/studio/annonce/route.ts");
-    expect(src).toMatch(/decision:\s*"valide"/);
-    expect(src).not.toMatch(/verifIA/);
-    expect(ECRITURE_ARTICLE.test(src)).toBe(false);
+    // Depuis le 10/11, la condition vit dans lib/studioAnnonce.ts (`whereImagesValidees`) : la route
+    // et l'état « Prêt » de l'accueil la lisent au même endroit. Le garde-fou suit la condition :
+    // la route DOIT l'appeler et ne plus rien écrire elle-même, et le fichier qui la porte ne
+    // retient que `decision: "valide"`, jamais l'avis IA.
+    const route = lire("app/api/studio/annonce/route.ts");
+    const regle = lire("lib/studioAnnonce.ts");
+    expect(route).toMatch(/where:\s*whereImagesValidees\(userId,\s*sku\)/);
+    expect(route).not.toMatch(/decision\s*:/);
+    expect(regle).toMatch(/decision:\s*"valide"/);
+    for (const src of [route, regle]) {
+      expect(src).not.toMatch(/verifIA/);
+      expect(ECRITURE_ARTICLE.test(src)).toBe(false);
+    }
   });
 
   it("une image générée ne repart jamais comme vraie photo : les images du Studio sautent conserverReferences", () => {
