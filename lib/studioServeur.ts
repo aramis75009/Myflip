@@ -128,8 +128,12 @@ export type CarteColoris = {
   vignette: string | null;
   chezMoi: number | null;
   vendus: number | null;
+  /** Sacs de ce coloris connus de SacBase, vendus ou non ; null hors catalogue. */
+  nbSacs: number | null;
   /** Vraies photos du tableau (prises numérotées). */
   prises: number;
+  /** Toutes les vraies photos déjà importées pour ce coloris, tableau ou non (celles de la mise en vente n'ont pas de ligne). */
+  photos: number;
   /** Cases libres / cases du tableau (prises × prompts d'angle actifs). */
   libres: number;
   cases: number;
@@ -162,7 +166,8 @@ export async function chargerGrille(userId: string): Promise<DonneesGrille> {
         cle: true,
         modele: true,
         coloris: true,
-        references: { where: { ordre: { not: null } }, select: { id: true } },
+        // Toutes les photos, pas seulement celles du tableau : une photo gardée à la mise en vente (ordre null) prouve aussi qu'on a photographié ce coloris.
+        references: { select: { id: true, ordre: true } },
         essais: { select: { referenceId: true, angleId: true, decision: true, skuCible: true } },
       },
     }),
@@ -174,12 +179,14 @@ export async function chargerGrille(userId: string): Promise<DonneesGrille> {
   const parCle = new Map(enBase.map((c) => [c.cle, c]));
 
   const compter = (b: (typeof enBase)[number] | undefined) => {
-    if (!b) return { prises: 0, libres: 0, cases: 0, aJuger: 0 };
-    const etats = etatsDesCases(b.references, angles, b.essais, statutDe);
+    if (!b) return { prises: 0, photos: 0, libres: 0, cases: 0, aJuger: 0 };
+    const lignes = b.references.filter((r) => r.ordre !== null);
+    const etats = etatsDesCases(lignes, angles, b.essais, statutDe);
     let libres = 0;
     for (const e of etats.values()) if (e.kind === "libre") libres++;
     return {
-      prises: b.references.length,
+      prises: lignes.length,
+      photos: b.references.length,
       libres,
       cases: etats.size,
       // Les essais du banc de test (sans photo de ligne) ne se jugent plus dans la fiche.
@@ -199,6 +206,7 @@ export async function chargerGrille(userId: string): Promise<DonneesGrille> {
       vignette: c.image ? `/api/studio/vignette?cle=${encodeURIComponent(c.cle)}` : null,
       chezMoi: c.chezMoi,
       vendus: c.sacs.filter((s) => s.vendu).length,
+      nbSacs: c.sacs.length,
       prochain: sacsCibles(c.sacs, statutDe)[0] ?? null,
       ...compter(parCle.get(c.cle)),
     });
@@ -213,6 +221,7 @@ export async function chargerGrille(userId: string): Promise<DonneesGrille> {
       vignette: null,
       chezMoi: null,
       vendus: null,
+      nbSacs: null,
       prochain: null,
       ...compter(b),
     });

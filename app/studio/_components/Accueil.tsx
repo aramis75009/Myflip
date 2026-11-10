@@ -12,7 +12,7 @@ import { pluriel } from "@/lib/format";
 import { GENERATIONS, passeFiltres, type FiltreAccueil, type Generation } from "@/lib/studioCases";
 import type { CarteColoris, DonneesGrille } from "@/lib/studioServeur";
 
-import { CLE_RETOUR_CATALOGUE, FILTRES_VIDES, TITRES_GENRES, actionCarte, ecrireFiltres, regrouperParAction, type FiltresCatalogue, type GenreAction } from "../_parcours";
+import { CLE_RETOUR_CATALOGUE, FILTRES_VIDES, TITRES_GENRES, actionCarte, ecrireFiltres, libelleStock, regrouperParAction, type FiltresCatalogue, type GenreAction } from "../_parcours";
 import { BandeauSacbase } from "../_ui";
 
 // /studio — the catalogue as a LIST OF ACTIONS: every colourway says, verb
@@ -24,6 +24,8 @@ const FILTRES: { id: FiltreAccueil | null; nom: string }[] = [
   { id: null, nom: "Tous" },
   { id: "a_juger", nom: "À juger" },
   { id: "a_photographier", nom: "À photographier" },
+  { id: "photographies", nom: "Déjà photographiés" },
+  { id: "jamais_photographies", nom: "Jamais photographiés" },
   { id: "doublons", nom: "Doublons chez toi" },
 ];
 
@@ -69,6 +71,7 @@ export default function Accueil({ donnees, filtresInitiaux }: { donnees: Donnees
 
   const doublons = visibles.filter((c) => (c.chezMoi ?? 0) >= 2).length;
   const aPhotographier = visibles.filter((c) => passeFiltres(c, null, "a_photographier")).length;
+  const photographies = visibles.filter((c) => passeFiltres(c, null, "photographies")).length;
   const aJuger = visibles.reduce((n, c) => n + c.aJuger, 0);
   const filtre = f.generation !== null || f.filtre !== null || f.q.trim() !== "";
 
@@ -81,7 +84,8 @@ export default function Accueil({ donnees, filtresInitiaux }: { donnees: Donnees
           <h1 className="text-xl font-bold tracking-[-0.02em] text-ink">Coloris</h1>
           <p className="mt-1 text-base text-ink-2">
             {visibles.length} coloris · {pluriel(aJuger, "image", "images")} à juger · {aPhotographier} à photographier ·{" "}
-            {pluriel(doublons, "doublon", "doublons")} chez toi
+            {pluriel(doublons, "doublon", "doublons")} chez toi ·{" "}
+            {pluriel(photographies, "déjà photographié", "déjà photographiés")} · {visibles.length - photographies} jamais photographié{visibles.length - photographies > 1 ? "s" : ""}
             {donnees.orphelines > 0 && ` · ${pluriel(donnees.orphelines, "photo non rattachée", "photos non rattachées")}`}
           </p>
         </div>
@@ -210,10 +214,7 @@ function Carte({ c }: { c: CarteColoris }) {
   const action = actionCarte(c);
   const Icone = ICONES[action.genre];
   const chezMoi = c.chezMoi ?? 0;
-  const stock =
-    c.chezMoi === null
-      ? "hors catalogue SacBase"
-      : [chezMoi ? `${chezMoi} chez toi` : null, c.vendus ? `vendu ×${c.vendus}` : null].filter(Boolean).join(" · ") || "jamais acheté";
+  const stock = libelleStock(c);
   const prises = c.cases - c.libres;
 
   return (
@@ -249,7 +250,7 @@ function Carte({ c }: { c: CarteColoris }) {
         <dl className="grid grid-cols-2 gap-x-4 text-sm">
           <div>
             <dt className="text-ink-2">Vraies photos</dt>
-            <dd className="font-mono font-semibold">{c.prises ? `${c.prises} / 15` : "—"}</dd>
+            <dd className="font-mono font-semibold">{c.prises ? `${c.prises} / 15` : c.photos ? `${c.photos} hors tableau` : "—"}</dd>
           </div>
           <div>
             <dt className="text-ink-2">Variantes utilisées</dt>

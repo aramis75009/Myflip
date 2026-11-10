@@ -4,6 +4,7 @@ import {
   actionCarte,
   deplacer,
   ecrireFiltres,
+  libelleStock,
   lireFiltres,
   messageSurplus,
   prochaineAction,
@@ -22,6 +23,29 @@ const carte = (x: Partial<Parameters<typeof actionCarte>[0]> = {}) => ({
   ...x,
 });
 
+describe("libelleStock", () => {
+  const stock = (x: Partial<Parameters<typeof libelleStock>[0]> = {}) => ({ chezMoi: 0, vendus: 0, nbSacs: 0, photos: 0, ...x });
+
+  it("says « jamais acheté » only when SacBase knows no bag and no photo was imported", () => {
+    expect(libelleStock(stock())).toBe("jamais acheté");
+  });
+
+  it("imported photos prove a purchase, even when SacBase lists no bag", () => {
+    expect(libelleStock(stock({ photos: 4 }))).toBe("acheté · photos importées");
+  });
+
+  it("a bag for sale or in transit (not at home, not sold) is never « jamais acheté »", () => {
+    expect(libelleStock(stock({ nbSacs: 1 }))).toBe("1 en vente ou en route");
+    expect(libelleStock(stock({ nbSacs: 3, chezMoi: 1, vendus: 1 }))).toBe("1 chez toi · 1 en vente ou en route · vendu ×1");
+  });
+
+  it("keeps the old wording for bags at home and sold, and for a colourway outside the catalogue", () => {
+    expect(libelleStock(stock({ nbSacs: 2, chezMoi: 2 }))).toBe("2 chez toi");
+    expect(libelleStock(stock({ nbSacs: 1, vendus: 1 }))).toBe("vendu ×1");
+    expect(libelleStock({ chezMoi: null, vendus: null, nbSacs: null, photos: 2 })).toBe("hors catalogue SacBase");
+  });
+});
+
 describe("actionCarte", () => {
   it("judging comes first: money is already spent", () => {
     expect(actionCarte(carte({ aJuger: 3 }))).toMatchObject({ genre: "juger", phrase: "Juger 3 images" });
@@ -30,6 +54,11 @@ describe("actionCarte", () => {
 
   it("a bag at home without any photo is to photograph", () => {
     expect(actionCarte(carte({ prises: 0, chezMoi: 2 }))).toMatchObject({ genre: "photographier", phrase: "Photographier le sac" });
+  });
+
+  it("photos kept outside the board are named on a bag still to photograph", () => {
+    expect(actionCarte(carte({ prises: 0, chezMoi: 1, photos: 3 })).detail).toBe("0 / 15 prises · 1 chez toi · 3 photos gardées hors tableau");
+    expect(actionCarte(carte({ prises: 0, chezMoi: 1 })).detail).toBe("0 / 15 prises · 1 chez toi");
   });
 
   it("photos and a target bag: generate for it", () => {
@@ -55,6 +84,8 @@ describe("catalogue filters in the URL", () => {
     expect(ecrireFiltres(f)).toBe("generation=V2&filtre=a_juger&q=pink");
     expect(lireFiltres(new URLSearchParams("generation=V9&filtre=tout"))).toEqual({ generation: null, filtre: null, q: "" });
     expect(ecrireFiltres({ generation: null, filtre: null, q: "  " })).toBe("");
+    expect(lireFiltres(new URLSearchParams("filtre=photographies")).filtre).toBe("photographies");
+    expect(lireFiltres(new URLSearchParams("filtre=jamais_photographies")).filtre).toBe("jamais_photographies");
   });
 });
 

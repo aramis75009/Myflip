@@ -245,13 +245,15 @@ export const GENERATIONS = ["V1", "V2", "V3"] as const;
 export type Generation = (typeof GENERATIONS)[number];
 export const estGeneration = (v: unknown): v is Generation => GENERATIONS.includes(v as Generation);
 
-export const FILTRES_ACCUEIL = ["doublons", "a_juger", "a_photographier"] as const;
+export const FILTRES_ACCUEIL = ["doublons", "a_juger", "a_photographier", "photographies", "jamais_photographies"] as const;
 export type FiltreAccueil = (typeof FILTRES_ACCUEIL)[number];
 
 export type CarteAccueil = {
   generation: string | null;
   chezMoi: number | null;
   prises: number;
+  /** Toutes les vraies photos importées, tableau ou non (celles de la mise en vente n'ont pas de ligne). */
+  photos: number;
   aJuger: number;
 };
 
@@ -261,5 +263,9 @@ export function passeFiltres(c: CarteAccueil, generation: Generation | null, fil
   if (filtre === "doublons") return (c.chezMoi ?? 0) >= 2;
   if (filtre === "a_juger") return c.aJuger > 0;
   if (filtre === "a_photographier") return (c.chezMoi ?? 0) > 0 && c.prises === 0;
+  // « Déjà photographiés » : au moins une vraie photo importée, où qu'elle soit rangée.
+  if (filtre === "photographies") return c.photos > 0;
+  // Le complément : les coloris à acheter (ou à photographier) pour les avoir tous en photo.
+  if (filtre === "jamais_photographies") return c.photos === 0;
   return true;
 }

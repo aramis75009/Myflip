@@ -207,6 +207,17 @@ s'appliquent pas à ces écrans.
   squelette de segment enveloppe la fiche, le statut part avec lui (200) et une
   clé inconnue ne répond plus 404 (`[cle]/not-found.tsx`). Le squelette du
   catalogue est un `<Suspense>` dans `app/studio/page.tsx`.
+- **Filtres du catalogue** (`?filtre=`, `lib/studioCases.ts` `passeFiltres`) : « À juger »
+  (`a_juger`), « À photographier » (`a_photographier` : sac chez toi, aucune prise dans le
+  tableau), « Déjà photographiés » (`photographies` : au moins une vraie photo importée,
+  **tableau ou non** — les photos gardées à la mise en vente ont `ordre` null et ne comptent
+  pas dans `prises`), « Jamais photographiés » (`jamais_photographies`, le complément : ce
+  qu'il reste à acheter ou à photographier) et « Doublons chez toi ». Le compte « photos »
+  d'une carte = toutes les `StudioReference` rattachées au coloris.
+- ⚠️ **« Jamais acheté »** (`libelleStock`, `app/studio/_parcours.ts`) : seulement si SacBase
+  ne connaît **aucun sac** du coloris (`nbSacs` = 0) ET qu'aucune photo n'a été importée. Avant
+  le 10/11, la carte l'affichait dès qu'aucun sac n'était « chez toi » (En stock / Photos
+  prêtes) ni vendu : un sac « En vente » ou « En livraison » passait pour jamais acheté.
 - ⚠️ **V / R ne partent pas tout de suite** : l'image quitte la file, un toast
   « Annuler » de 5 s s'affiche, et le `PATCH` n'est envoyé qu'après
   (`DecisionsDifferees`) ; quitter la page envoie ce qui attend (`keepalive`).

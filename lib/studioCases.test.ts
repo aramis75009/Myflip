@@ -145,7 +145,7 @@ describe("usageAngles", () => {
 });
 
 describe("passeFiltres", () => {
-  const c = { generation: "V3", chezMoi: 2, prises: 0, aJuger: 1 };
+  const c = { generation: "V3", chezMoi: 2, prises: 0, photos: 0, aJuger: 1 };
   it("filtre par génération", () => {
     expect(passeFiltres(c, "V3", null)).toBe(true);
     expect(passeFiltres(c, "V1", null)).toBe(false);
@@ -158,6 +158,21 @@ describe("passeFiltres", () => {
     expect(passeFiltres(c, null, "a_photographier")).toBe(true);
     expect(passeFiltres({ ...c, prises: 14 }, null, "a_photographier")).toBe(false);
     expect(passeFiltres({ ...c, chezMoi: 0 }, null, "a_photographier")).toBe(false);
+  });
+  it("déjà photographiés : une photo suffit, même gardée hors du tableau ; jamais photographiés = le complément", () => {
+    expect(passeFiltres(c, null, "photographies")).toBe(false);
+    expect(passeFiltres(c, null, "jamais_photographies")).toBe(true);
+    // Photo conservée à la mise en vente : pas de ligne dans le tableau (prises = 0), mais bien photographié.
+    const gardee = { ...c, photos: 3 };
+    expect(passeFiltres(gardee, null, "photographies")).toBe(true);
+    expect(passeFiltres(gardee, null, "jamais_photographies")).toBe(false);
+    // Hors catalogue SacBase (chezMoi null) : le filtre ne dépend que des photos.
+    expect(passeFiltres({ ...c, chezMoi: null, photos: 1 }, null, "photographies")).toBe(true);
+    // Tout coloris est dans exactement l'un des deux.
+    for (const photos of [0, 1, 15]) {
+      const x = { ...c, photos };
+      expect(passeFiltres(x, null, "photographies")).not.toBe(passeFiltres(x, null, "jamais_photographies"));
+    }
   });
 });
 

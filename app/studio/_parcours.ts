@@ -25,6 +25,8 @@ export type ActionCarte = {
 export type CarteAction = {
   chezMoi: number | null;
   prises: number;
+  /** Photos gardées en dehors du tableau (facultatif : absent = aucune). */
+  photos?: number;
   libres: number;
   cases: number;
   aJuger: number;
@@ -44,7 +46,14 @@ export function actionCarte(c: CarteAction): ActionCarte {
     return { genre: "juger", phrase: `Juger ${pluriel(c.aJuger, "image", "images")}`, detail: "générées, en attente de ta décision" };
   }
   if (c.prises === 0) {
-    if (chezMoi > 0) return { genre: "photographier", phrase: "Photographier le sac", detail: `${prises(0)} · ${chezMoi} chez toi` };
+    if (chezMoi > 0) {
+      const gardees = c.photos ?? 0;
+      return {
+        genre: "photographier",
+        phrase: "Photographier le sac",
+        detail: `${prises(0)} · ${chezMoi} chez toi${gardees > 0 ? ` · ${pluriel(gardees, "photo gardée", "photos gardées")} hors tableau` : ""}`,
+      };
+    }
     return { genre: "rien", phrase: "Rien à préparer", detail: c.chezMoi === null ? "hors catalogue SacBase" : "aucun sac chez toi" };
   }
   if (c.prochain) {
@@ -58,6 +67,38 @@ export function actionCarte(c: CarteAction): ActionCarte {
     return { genre: "rien", phrase: "Plus de variante libre", detail: "ajoute un prompt d’angle dans les Réglages" };
   }
   return { genre: "rien", phrase: "Rien à préparer", detail: c.chezMoi === null ? "hors catalogue SacBase" : "chaque sac a déjà son annonce" };
+}
+
+/** What the card says about the purchases of a colourway: where its bags are, or that none was ever bought. */
+export type CarteStock = {
+  chezMoi: number | null;
+  vendus: number | null;
+  /** Bags SacBase knows for this colourway, sold or not; null = not in the catalogue. */
+  nbSacs: number | null;
+  /** Real photos already imported for it. */
+  photos: number;
+};
+
+/**
+ * « 2 chez toi · vendu ×1 », « 1 en vente ou en route », or « jamais acheté ».
+ *
+ * « Jamais acheté » was once printed for every colourway with no bag at home and
+ * none sold, which also hid a bag for sale or in transit. A colourway only
+ * qualifies if SacBase knows no bag of it AND no photo was ever imported for it:
+ * a photo means a bag existed.
+ */
+export function libelleStock(c: CarteStock): string {
+  if (c.chezMoi === null) return "hors catalogue SacBase";
+  const chez = c.chezMoi;
+  const vendus = c.vendus ?? 0;
+  const ailleurs = Math.max(0, (c.nbSacs ?? 0) - chez - vendus);
+  const parties = [
+    chez > 0 ? `${chez} chez toi` : null,
+    ailleurs > 0 ? `${ailleurs} en vente ou en route` : null,
+    vendus > 0 ? `vendu ×${vendus}` : null,
+  ].filter(Boolean);
+  if (parties.length > 0) return parties.join(" · ");
+  return c.photos > 0 ? "acheté · photos importées" : "jamais acheté";
 }
 
 /** Group order of the catalogue: what costs or blocks first. */
