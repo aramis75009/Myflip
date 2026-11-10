@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { LogOut, PanelLeft } from "lucide-react";
 
-import { CountBadge } from "@/components/ui/badge";
+import { Badge, CountBadge } from "@/components/ui/badge";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { pluriel } from "@/lib/format";
@@ -90,6 +90,11 @@ export default function MenuLateral() {
                 >
                   <Icone aria-hidden className="h-[18px] w-[18px] flex-shrink-0" strokeWidth={actif ? 2.3 : 2} />
                   <span className="min-w-0 flex-1 truncate text-base replie:sr-only">{entree.libelle}</span>
+                  {entree.enChantier && (
+                    <Badge ton="warn" className="h-5 px-1.5 replie:hidden">
+                      En chantier
+                    </Badge>
+                  )}
                   {avecCompteur && (
                     <CountBadge
                       count={count}

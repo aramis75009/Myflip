@@ -31,6 +31,8 @@ export type EntreeNav = {
   plus?: boolean;
   /** Desktop screen: flagged « sur ordinateur » on mobile. */
   ordinateur?: boolean;
+  /** Paused page: shows a discreet « En chantier » pill next to the label. */
+  enChantier?: boolean;
   /** Shorter label for the dock (5 cells in 390 px). */
   libelleCourt?: string;
 };
@@ -52,7 +54,7 @@ export const NAVIGATION: EntreeNav[] = [
   { href: "/statistiques", libelle: "Statistiques", icone: BarChart3, plus: true },
   { href: "/parametres", libelle: "Réglages", icone: Settings, plus: true },
   { href: "/compte", libelle: "Mon compte", icone: UserCircle, plus: true },
-  { href: "/studio", libelle: "Studio", icone: FlaskConical, section: "studio", plus: true, ordinateur: true },
+  { href: "/studio", libelle: "Studio", icone: FlaskConical, section: "studio", plus: true, ordinateur: true, enChantier: true },
 ];
 
 /**
