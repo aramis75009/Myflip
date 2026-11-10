@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { FlaskConical, Monitor } from "lucide-react";
+import { FlaskConical, Hammer, Monitor } from "lucide-react";
 
 import SousNavStudio from "@/components/cadre/SousNavStudio";
 
@@ -24,6 +24,13 @@ export default function StudioLayout({ children }: { children: ReactNode }) {
       >
         <FlaskConical size={15} className="flex-none text-warn" aria-hidden="true" />
         <span>Images générées par IA : seules celles que tu valides partent dans l’annonce du sac</span>
+      </div>
+      <div
+        role="note"
+        className="flex items-center gap-2.5 border-b border-warn bg-warn-soft px-[18px] py-2 text-sm font-semibold text-ink"
+      >
+        <Hammer size={15} className="flex-none text-warn" aria-hidden="true" />
+        <span>Studio en chantier : il ne fonctionne pas encore correctement, ne t’y fie pas pour l’instant.</span>
       </div>
       <p className="flex items-start gap-2.5 border-b border-line bg-surface-2 px-4 py-3 text-base text-ink md:hidden">
         <Monitor size={18} className="mt-0.5 flex-none text-ink-2" aria-hidden="true" />

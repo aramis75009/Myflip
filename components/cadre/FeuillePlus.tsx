@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { LogOut } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 
@@ -34,6 +35,11 @@ export default function FeuillePlus({ open, onOpenChange }: { open: boolean; onO
             >
               <Icone aria-hidden className="h-[18px] w-[18px] flex-shrink-0 text-ink-2" strokeWidth={2} />
               <span className="min-w-0 flex-1">{entree.libelle}</span>
+              {entree.enChantier && (
+                <Badge ton="warn" className="h-5 px-1.5">
+                  En chantier
+                </Badge>
+              )}
               {entree.ordinateur && <span className="text-xs text-ink-3">sur ordinateur</span>}
             </Link>
           );
