@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { regrouperParCleStudio } from "@/lib/studioAlias";
 import { cleCase, etatsDesCases, nomPrise, sacsCibles, usageAngles, type EtatCase } from "@/lib/studioCases";
 import { buildSkuIndex, getColoris, type SacbaseCatalogue, type SacbaseColoris, type SacbaseColorisSource } from "@/lib/studioColoris";
 import { planRattachement } from "@/lib/studioFiche";
@@ -159,7 +160,7 @@ export async function chargerGrille(userId: string): Promise<DonneesGrille> {
   const rattachees = source.kind === "off" ? 0 : await rattacherOrphelines(userId, source.data);
   const catalogue = source.kind === "off" ? [] : source.data.coloris;
 
-  const [enBase, angles, orphelines, statuts] = await Promise.all([
+  const [lignesEnBase, angles, orphelines, statuts] = await Promise.all([
     prisma.studioColoris.findMany({
       where: { userId },
       select: {
@@ -175,6 +176,8 @@ export async function chargerGrille(userId: string): Promise<DonneesGrille> {
     prisma.studioReference.count({ where: { userId, colorisId: null } }),
     statutsDesSkus(userId, catalogue.flatMap((c) => c.sacs.map((s) => s.sku))),
   ]);
+  // Alias du Studio (lib/studioAlias.ts) : une ligne 5883 encore en base compte pour 5880, jamais comme carte à part.
+  const enBase = regrouperParCleStudio(lignesEnBase);
   const statutDe = (sku: string) => statuts.get(sku) ?? null;
   const parCle = new Map(enBase.map((c) => [c.cle, c]));
 

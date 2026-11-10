@@ -1,4 +1,5 @@
 import "server-only";
+import { fusionnerAliasCatalogue } from "@/lib/studioAlias";
 
 /**
  * Client de GET <SACBASE_URL>/api/studio/coloris. Les SKU MyFlip (SDN1, SDN2…)
@@ -152,7 +153,11 @@ async function fetchOnce(cfg: SacbaseConfig, now: number, fetchImpl: typeof fetc
     });
     if (res.ok) {
       // Le signal couvre aussi la lecture du corps : un délai dépassé ici passe par le catch.
-      const data = parseColorisCatalogue(await res.json());
+      const brut = parseColorisCatalogue(await res.json());
+      // Ce client ne sert que le Studio : ses alias (lib/studioAlias.ts) s'appliquent
+      // ici, une fois, pour toutes les pages, routes et la table sku → cle. La
+      // dernière bonne réponse (« stale ») est donc déjà fusionnée elle aussi.
+      const data = brut ? fusionnerAliasCatalogue(brut) : null;
       if (data) {
         lastGood = { data, fetchedAt: now };
         return { kind: "live", data, fetchedAt: now };
