@@ -14,15 +14,18 @@ import type { CarteColoris, DonneesGrille } from "@/lib/studioServeur";
 
 import { CLE_RETOUR_CATALOGUE, FILTRES_VIDES, actionCarte, ecrireFiltres, libelleStock, listeAccueil, type FiltresCatalogue, type GenreAction } from "../_parcours";
 import { BandeauSacbase } from "../_ui";
+import { VueChezToi } from "./ChezToi";
 
-// /studio — the catalogue as a LIST OF ACTIONS: every colourway says, verb
-// first, what is left to do (judge, photograph, generate), grouped in work
-// order. Generation, filter and search live in the URL (?generation=V2&
-// filtre=a_juger&q=…), so a reload or the way back from a sheet keeps them.
+// /studio — on top, the bags you have in hand (« N sacs chez toi », three tiles,
+// the bags grouped by Commande: ChezToi.tsx). Under it, the catalogue as a LIST
+// OF ACTIONS: every colourway says, verb first, what is left to do (judge,
+// photograph, generate), grouped in work order. Generation, filter, search and
+// the chez-toi state live in the URL (?generation=V2&filtre=a_juger&q=…&etat=pret),
+// so a reload or the way back from a sheet keeps them.
 //
-// On top, the big number « N articles sans vraies photos, sur M » and its two
-// tiles (to photograph / to order) cover the WHOLE catalogue: neither the
-// generation, the filter nor the search changes them. The two tiles are filters.
+// Between the two, one line counts the WHOLE catalogue: « N coloris sans vraies
+// photos, sur M · K à commander ». Neither the generation, the filter nor the
+// search changes it, and its two numbers are filters of the cards below.
 
 const FILTRES: { id: FiltreAccueil | null; nom: string }[] = [
   { id: null, nom: "Tous" },
@@ -97,7 +100,9 @@ export default function Accueil({ donnees, filtresInitiaux }: { donnees: Donnees
         </p>
       )}
 
-      {cartes.length > 0 && <BilanVraiesPhotos bilan={bilan} filtreActif={f.filtre} onOuvrir={ouvrir} />}
+      {donnees.sacbase.kind !== "off" && <VueChezToi sacs={donnees.sacs} etat={f.etat} onEtat={(etat) => changer({ etat })} />}
+
+      {cartes.length > 0 && <LigneCatalogue bilan={bilan} filtreActif={f.filtre} onOuvrir={ouvrir} />}
 
       <div className="flex flex-wrap items-center gap-2.5">
         <div className="inline-flex gap-0.5 rounded-md bg-surface-2 p-1" role="group" aria-label="Génération">
@@ -172,7 +177,7 @@ export default function Accueil({ donnees, filtresInitiaux }: { donnees: Donnees
             description={cartes.length === 0 ? "Les coloris arrivent de SacBase dès qu’il répond." : "Change de filtre ou efface-les pour revoir tout le catalogue."}
             action={
               filtre ? (
-                <Button variant="secondary" onClick={() => setF(FILTRES_VIDES)}>
+                <Button variant="secondary" onClick={() => setF((p) => ({ ...FILTRES_VIDES, etat: p.etat }))}>
                   <X size={15} aria-hidden /> Effacer les filtres
                 </Button>
               ) : undefined
@@ -202,47 +207,27 @@ export default function Accueil({ donnees, filtresInitiaux }: { donnees: Donnees
   );
 }
 
-/** The big number and the two tiles; `bilan` covers the whole catalogue. */
-function BilanVraiesPhotos({ bilan, filtreActif, onOuvrir }: { bilan: BilanPhotos; filtreActif: FiltreAccueil | null; onOuvrir: (f: FiltreAccueil) => void }) {
-  const part = bilan.total > 0 ? Math.round((bilan.avec / bilan.total) * 100) : 0;
+/**
+ * The catalogue count, one line: « Catalogue : 31 coloris sans vraies photos, sur 57 · 27 à
+ * commander ». `bilan` covers the whole catalogue. Both numbers apply an existing filter of
+ * the cards below (« Sans vraies photos », « à commander »).
+ */
+function LigneCatalogue({ bilan, filtreActif, onOuvrir }: { bilan: BilanPhotos; filtreActif: FiltreAccueil | null; onOuvrir: (f: FiltreAccueil) => void }) {
   return (
-    <div className="grid gap-3 min-[820px]:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)]">
-      <div className="rounded-lg bg-accent px-5 py-4 text-accent-ink">
-        <div className="font-mono text-3xl font-bold leading-none">{bilan.sans}</div>
-        <div className="mt-1.5 text-md">
-          {bilan.sans > 1 ? "articles" : "article"} sans vraies photos, sur {bilan.total}
-        </div>
-        <div
-          role="progressbar"
-          aria-label="Articles avec vraies photos"
-          aria-valuemin={0}
-          aria-valuemax={bilan.total}
-          aria-valuenow={bilan.avec}
-          className="mt-3.5 h-2 overflow-hidden rounded-full bg-accent-ink/25"
-        >
-          <div className="h-full rounded-full bg-accent-ink" style={{ width: `${part}%` }} />
-        </div>
-        <div className="mt-1.5 text-sm">{pluriel(bilan.avec, "a déjà ses vraies photos", "ont déjà leurs vraies photos")}</div>
-      </div>
-      <Tuile
-        n={bilan.chezToi}
-        titre="Chez toi : à photographier"
-        detail="Tu as le sac, il manque les photos."
-        actif={filtreActif === "a_photographier_chez_toi"}
-        onClick={() => onOuvrir("a_photographier_chez_toi")}
-      />
-      <Tuile
-        n={bilan.aCommander}
-        titre="Pas chez toi : à commander"
-        detail="Pour avoir tous les modèles en photo."
-        actif={filtreActif === "a_commander"}
-        onClick={() => onOuvrir("a_commander")}
-      />
-    </div>
+    <p className="flex flex-wrap items-baseline gap-x-5 gap-y-1 border-t border-dashed border-line pt-3.5 text-base text-ink-2">
+      <span>
+        Catalogue :{" "}
+        <NombreFiltre n={bilan.sans} actif={filtreActif === "jamais_photographies"} onClick={() => onOuvrir("jamais_photographies")} /> coloris sans vraies photos, sur {bilan.total}
+      </span>
+      <span>
+        <NombreFiltre n={bilan.aCommander} actif={filtreActif === "a_commander"} onClick={() => onOuvrir("a_commander")} /> à commander
+      </span>
+    </p>
   );
 }
 
-function Tuile({ n, titre, detail, actif, onClick }: { n: number; titre: string; detail: string; actif: boolean; onClick: () => void }) {
+/** A number in a sentence that applies a filter when clicked; it stays still at 0. */
+function NombreFiltre({ n, actif, onClick }: { n: number; actif: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -250,17 +235,12 @@ function Tuile({ n, titre, detail, actif, onClick }: { n: number; titre: string;
       disabled={n === 0}
       aria-pressed={actif}
       className={cn(
-        "flex flex-col items-start rounded-lg border bg-surface px-4 py-3.5 text-left text-ink transition-colors duration-fast",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-default disabled:opacity-60",
-        actif ? "border-ink ring-1 ring-inset ring-ink" : "border-line enabled:hover:border-line-strong",
+        "rounded-xs font-semibold text-ink underline decoration-dotted underline-offset-4 transition-colors duration-fast",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus enabled:hover:text-accent-text disabled:cursor-default disabled:no-underline",
+        actif && "decoration-solid",
       )}
     >
-      <span className="font-mono text-2xl font-bold leading-none">{n}</span>
-      <span className="mt-1.5 text-md font-semibold">{titre}</span>
-      <span className="mt-0.5 text-sm text-ink-2">{detail}</span>
-      <span className="mt-2.5 inline-flex items-center gap-1 text-base font-semibold text-accent-text">
-        Voir les {n} <ArrowRight size={15} aria-hidden />
-      </span>
+      {n}
     </button>
   );
 }

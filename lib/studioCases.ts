@@ -198,15 +198,20 @@ export const caseLibre = (e: EtatCase | undefined) => e?.kind === "libre";
 export type SacCatalogue = { sku: string; statut: string; vendu: boolean };
 
 /**
- * Les sacs qui peuvent recevoir des images : ceux encore sans annonce. Le
- * statut MyFlip, s'il est connu, l'emporte sur celui relayé par SacBase.
+ * Le sac est-il chez toi, sans annonce ? Statut « En stock » ou « Photos prêtes »,
+ * non vendu. Le statut MyFlip, s'il est connu, l'emporte sur celui relayé par
+ * SacBase. C'est LA règle du Studio : le sac cible d'un coloris et la vue
+ * « chez toi » de l'accueil l'utilisent toutes les deux.
  */
+export function estChezToi(s: SacCatalogue, statutDe: (sku: string) => string | null): boolean {
+  const statut = statutDe(s.sku) ?? s.statut;
+  return !s.vendu && STATUTS_SANS_ANNONCE.has(statut);
+}
+
+/** Les sacs qui peuvent recevoir des images : ceux chez toi, encore sans annonce. */
 export function sacsCibles(sacs: readonly SacCatalogue[], statutDe: (sku: string) => string | null): string[] {
   return sacs
-    .filter((s) => {
-      const statut = statutDe(s.sku) ?? s.statut;
-      return !s.vendu && STATUTS_SANS_ANNONCE.has(statut);
-    })
+    .filter((s) => estChezToi(s, statutDe))
     .map((s) => s.sku)
     .sort((a, b) => a.localeCompare(b, "fr", { numeric: true }));
 }

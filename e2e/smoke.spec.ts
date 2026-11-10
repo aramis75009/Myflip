@@ -123,11 +123,11 @@ test.describe("connecté (compte demo)", () => {
     // Un catalogue rejeté ne laisserait que les 4 coloris déjà en base.
     await expect(page.getByText(/^7 coloris · .* · 2 photos non rattachées$/)).toBeVisible();
     for (const cle of CLES_STUDIO) {
-      await expect(page.locator(`a[href="/studio/${cle}"]`), `carte ${cle}`).toBeVisible();
+      await expect(page.locator(`a[href="/studio/${cle}"]:not([data-sac])`), `carte ${cle}`).toBeVisible();
     }
 
     // Vignette relayée par le serveur depuis le faux SacBase (/img/*), affichée dans la carte.
-    const vignette = page.locator('a[href="/studio/5039-black-pink"] img[src*="/api/studio/vignette"]');
+    const vignette = page.locator('a[href="/studio/5039-black-pink"]:not([data-sac]) img[src*="/api/studio/vignette"]');
     await expect.poll(() => vignette.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0)).toBe(true);
 
     // Cumulatif : le serveur garde le catalogue 60 s, un test précédent a pu le charger.

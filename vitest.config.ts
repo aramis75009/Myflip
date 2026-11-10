@@ -14,6 +14,10 @@ import tsconfigPaths from "vite-tsconfig-paths";
  */
 export default defineConfig({
   plugins: [tsconfigPaths()],
+  // tsconfig.json garde `"jsx": "preserve"` pour Next : sans ceci, esbuild compile le JSX en
+  // `React.createElement` et un composant importé par un test échoue (« React is not defined »).
+  // Sert aux rares tests de rendu (renderToStaticMarkup), écrits en .ts avec createElement.
+  esbuild: { jsx: "automatic" },
   resolve: {
     alias: {
       // `server-only` lève une erreur hors d'un Server Component, et Vitest

@@ -6,6 +6,7 @@
 // data already read; app/studio/_parcours.test.ts pins the rules.
 
 import { pluriel } from "@/lib/format";
+import { estEtatSac, type EtatSac } from "@/lib/studioChezToi";
 import { MAX_PRISES, bilanPhotos, estGeneration, passeFiltres, resoudreFiltre, type BilanPhotos, type CarteAccueil, type FiltreAccueil, type Generation } from "@/lib/studioCases";
 
 // ── Catalogue: one action sentence per colourway ────────────────────────────
@@ -156,7 +157,7 @@ const sansAccents = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu,
  * What the home screen shows for the given filters. The `bilan` is computed on
  * every card: neither the generation, the filter nor the search moves it.
  */
-export function listeAccueil<C extends CarteListe>(cartes: readonly C[], f: FiltresCatalogue): ListeAccueil<C> {
+export function listeAccueil<C extends CarteListe>(cartes: readonly C[], f: FiltresListe): ListeAccueil<C> {
   const q = sansAccents(f.q.trim());
   const duTexte = (c: C) => !q || sansAccents(`${c.coloris} ${c.modele} ${c.cle}`).includes(q);
   const deGeneration = cartes.filter((c) => passeFiltres(c, f.generation, null) && duTexte(c));
@@ -176,24 +177,32 @@ export function listeAccueil<C extends CarteListe>(cartes: readonly C[], f: Filt
 
 // ── Catalogue: filters in the URL ───────────────────────────────────────────
 
-export type FiltresCatalogue = { generation: Generation | null; filtre: FiltreAccueil | null; q: string };
+/** Les filtres des cartes du catalogue : la vue « chez toi » (`etat`) ne les touche pas, et eux ne la touchent pas. */
+export type FiltresListe = { generation: Generation | null; filtre: FiltreAccueil | null; q: string };
+
+export type FiltresCatalogue = FiltresListe & {
+  /** Vue « chez toi » : ne garde que les sacs de cet état (`?etat=a_photographier`) ; null = tous. */
+  etat: EtatSac | null;
+};
 
 /** sessionStorage key of the catalogue query: « Tous les coloris » on a sheet goes back to it. */
 export const CLE_RETOUR_CATALOGUE = "myflip-studio-catalogue";
 
-export const FILTRES_VIDES: FiltresCatalogue = { generation: null, filtre: null, q: "" };
+export const FILTRES_VIDES: FiltresCatalogue = { generation: null, filtre: null, q: "", etat: null };
 
 /**
- * Reads `?generation=V2&filtre=a_juger&q=…`; an unknown value is ignored, never trusted.
+ * Reads `?generation=V2&filtre=a_juger&q=…&etat=pret`; an unknown value is ignored, never trusted.
  * The old `filtre=a_photographier` still reads, as `a_photographier_chez_toi`.
  */
 export function lireFiltres(params: { get(nom: string): string | null }): FiltresCatalogue {
   const generation = params.get("generation");
   const filtre = params.get("filtre");
+  const etat = params.get("etat");
   return {
     generation: estGeneration(generation) ? generation : null,
     filtre: resoudreFiltre(filtre),
     q: (params.get("q") ?? "").slice(0, 80),
+    etat: estEtatSac(etat) ? etat : null,
   };
 }
 
@@ -204,6 +213,7 @@ export function ecrireFiltres(f: FiltresCatalogue): string {
   if (f.filtre) p.set("filtre", f.filtre);
   const q = f.q.trim();
   if (q) p.set("q", q);
+  if (f.etat) p.set("etat", f.etat);
   return p.toString();
 }
 

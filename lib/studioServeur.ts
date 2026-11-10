@@ -1,7 +1,9 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { regrouperParCleStudio } from "@/lib/studioAlias";
+import { whereImagesValidees } from "@/lib/studioAnnonce";
 import { cleCase, etatsDesCases, nomPrise, sacsCibles, usageAngles, type EtatCase } from "@/lib/studioCases";
+import { sacsChezToi, type SacChezToi } from "@/lib/studioChezToi";
 import { buildSkuIndex, getColoris, type SacbaseCatalogue, type SacbaseColoris, type SacbaseColorisSource } from "@/lib/studioColoris";
 import { planRattachement } from "@/lib/studioFiche";
 import { BUDGET_PAR_DEFAUT, type BudgetCompte } from "@/lib/studioModeles";
@@ -22,6 +24,20 @@ export async function statutsDesSkus(userId: string, skus: readonly string[]): P
     select: { sku: true, statut: true },
   });
   return new Map(lignes.map((l) => [l.sku, l.statut]));
+}
+
+/**
+ * Les SKU de la liste qui ont au moins une image validée pour leur annonce : la
+ * même règle que GET /api/studio/annonce (`whereImagesValidees`).
+ */
+export async function skusAvecImageValidee(userId: string, skus: readonly string[]): Promise<Set<string>> {
+  if (skus.length === 0) return new Set();
+  const lignes = await prisma.studioEssai.findMany({
+    where: whereImagesValidees(userId, { in: [...new Set(skus)] }),
+    select: { skuCible: true },
+    distinct: ["skuCible"],
+  });
+  return new Set(lignes.flatMap((l) => (l.skuCible ? [l.skuCible] : [])));
 }
 
 /** Prompts d'angle actifs (colonnes du tableau), dans l'ordre. */
@@ -146,6 +162,8 @@ export type CarteColoris = {
 export type DonneesGrille = {
   sacbase: EtatSacbase;
   cartes: CarteColoris[];
+  /** Les sacs chez toi, un par SKU, avec ce qu'il leur manque (vue « chez toi » de l'accueil). Vide sans catalogue. */
+  sacs: SacChezToi[];
   nbAngles: number;
   orphelines: number;
   rattachees: number;
@@ -159,8 +177,9 @@ export async function chargerGrille(userId: string): Promise<DonneesGrille> {
   const source = await getColoris();
   const rattachees = source.kind === "off" ? 0 : await rattacherOrphelines(userId, source.data);
   const catalogue = source.kind === "off" ? [] : source.data.coloris;
+  const skusCatalogue = catalogue.flatMap((c) => c.sacs.map((s) => s.sku));
 
-  const [lignesEnBase, angles, orphelines, statuts] = await Promise.all([
+  const [lignesEnBase, angles, orphelines, statuts, skusValides] = await Promise.all([
     prisma.studioColoris.findMany({
       where: { userId },
       select: {
@@ -174,7 +193,8 @@ export async function chargerGrille(userId: string): Promise<DonneesGrille> {
     }),
     anglesActifs(userId),
     prisma.studioReference.count({ where: { userId, colorisId: null } }),
-    statutsDesSkus(userId, catalogue.flatMap((c) => c.sacs.map((s) => s.sku))),
+    statutsDesSkus(userId, skusCatalogue),
+    skusAvecImageValidee(userId, skusCatalogue),
   ]);
   // Alias du Studio (lib/studioAlias.ts) : une ligne 5883 encore en base compte pour 5880, jamais comme carte à part.
   const enBase = regrouperParCleStudio(lignesEnBase);
@@ -231,7 +251,10 @@ export async function chargerGrille(userId: string): Promise<DonneesGrille> {
   }
   cartes.sort((a, b) => a.cle.localeCompare(b.cle, "fr", { numeric: true }));
 
-  return { sacbase: etatDe(source), cartes, nbAngles: angles.length, orphelines, rattachees };
+  // Le catalogue est celui du Studio (alias déjà fusionné) : SDN60 sort sous 5880, avec les photos de la carte 5880.
+  const sacs = sacsChezToi(catalogue, cartes, skusValides, statutDe);
+
+  return { sacbase: etatDe(source), cartes, sacs, nbAngles: angles.length, orphelines, rattachees };
 }
 
 /**

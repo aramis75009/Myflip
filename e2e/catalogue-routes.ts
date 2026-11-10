@@ -305,7 +305,7 @@ export const ROUTES: EntreeRoute[] = [
     chemin: "/studio",
     compte: "demo",
     statut: 200,
-    attente: (p) => [texte(p, /^7 coloris · /), p.locator('a[href="/studio/5039-black-pink"]')],
+    attente: (p) => [texte(p, /^7 coloris · /), p.locator('a[href="/studio/5039-black-pink"]:not([data-sac])')],
     informatifMobile: STUDIO_INFORMATIF,
     description: "Studio, accueil : 7 coloris (6 SacBase + 1 hors catalogue), vignettes du faux SacBase.",
   },
