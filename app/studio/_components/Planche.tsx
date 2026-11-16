@@ -2,19 +2,21 @@
 
 import { useEffect, useRef, useState, useTransition, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ImagePlus, Upload } from "lucide-react";
+import { ImagePlus, Upload, X } from "lucide-react";
 
 import { AlertDialog } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
+import { Button, IconButton } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { pluriel } from "@/lib/format";
 import { toastAvertissement, toastErreur, toastSucces } from "@/lib/toast";
 import { MAX_PRISES, nomPrise } from "@/lib/studioCases";
+import { libelleAngle } from "@/lib/studioPivot";
 
 import { deplacer, messageSurplus, repartirDepot } from "../_parcours";
 import { ACCEPT, changerPrise, fichiersImages, lireErreur, preparer, remplacerPhoto } from "./envoi";
 import { parNom } from "./lancer";
 import MenuPhoto from "./MenuPhoto";
+import PivoterPhoto from "./PivoterPhoto";
 import { SectionEtape } from "./SectionEtape";
 
 const PHOTOS_PAR_ENVOI = 12;
@@ -24,6 +26,8 @@ const OCTETS_PAR_ENVOI = 3_500_000;
 export const REFUS_PHOTO_SERVIE = "Cette photo a déjà servi à une variante : elle reste sur la planche.";
 
 type Photo = { id: string; ordre: number };
+/** A straightened copy of a board photo (tool « Pivoter »): shown next to its photo, never a cell of its own. */
+export type CopiePivotee = { id: string; copieDeId: string; angle: number };
 
 const avecFichiers = (e: DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
 const num = (o: number) => String(o).padStart(2, "0");
@@ -34,12 +38,14 @@ const num = (o: number) => String(o).padStart(2, "0");
  * photo's menu offers « Déplacer vers… ». A drop of files fills the free
  * cells and NAMES what does not fit. Each photo can be replaced or removed;
  * a photo that already gave a variant cannot (the API refuses it, and the
- * menu says so beforehand).
+ * menu says so beforehand). « Pivoter » saves a straightened COPY, shown in
+ * the same cell under the photo; the photo itself is never touched.
  */
 export default function Planche({
   cle,
   generation,
   lignes,
+  copies,
   servies,
   numero,
   ouverte,
@@ -49,6 +55,8 @@ export default function Planche({
   cle: string;
   generation: string | null;
   lignes: readonly Photo[];
+  /** Straightened copies, to show under their photo. */
+  copies: readonly CopiePivotee[];
   /** Photos with at least one variant (any decision): neither removable nor replaceable. */
   servies: ReadonlySet<string | null>;
   numero: number;
@@ -88,8 +96,11 @@ export default function Planche({
   const [annonce, setAnnonce] = useState("");
   const [enCours, setEnCours] = useState<{ id: string; texte: string } | null>(null);
   const [retrait, setRetrait] = useState<Photo | null>(null);
+  const [pivot, setPivot] = useState<Photo | null>(null);
+  const [copieARetirer, setCopieARetirer] = useState<{ copie: CopiePivotee; ordre: number } | null>(null);
 
   const parOrdre = new Map(photos.map((p) => [p.ordre, p]));
+  const copiesDe = (id: string) => copies.filter((c) => c.copieDeId === id);
   const libres = Array.from({ length: MAX_PRISES }, (_, i) => i + 1).filter((o) => !parOrdre.has(o));
   const nom = (o: number) => nomPrise(o, generation);
 
@@ -196,6 +207,22 @@ export default function Planche({
     } finally {
       setEnCours(null);
       setRetrait(null);
+      rafraichir();
+    }
+  }
+
+  // ── Remove a straightened copy (the photo is untouched) ───────────────────
+  async function retirerCopie(c: CopiePivotee) {
+    setEnCours({ id: c.id, texte: "Retrait…" });
+    try {
+      const res = await fetch(`/api/studio/references/${c.id}`, { method: "DELETE" });
+      if (!res.ok) toastErreur(`Retrait impossible : ${await lireErreur(res)}`);
+      else toastSucces(`Copie à ${libelleAngle(c.angle)} retirée.`);
+    } catch {
+      toastErreur("Connexion perdue : la copie reste sur la planche.");
+    } finally {
+      setEnCours(null);
+      setCopieARetirer(null);
       rafraichir();
     }
   }
@@ -343,6 +370,7 @@ export default function Planche({
                     servie={servie}
                     desactive={!!occupation}
                     onDeplacer={(o) => void ranger(photo.id, o)}
+                    onPivoter={() => setPivot(photo)}
                     onRemplacer={() => {
                       aRemplacer.current = photo;
                       inputRemplacement.current?.click();
@@ -386,6 +414,34 @@ export default function Planche({
                   {dessus ? "Lâche ici" : "Glisse une photo ici"}
                 </div>
               )}
+              {photo && copiesDe(photo.id).length > 0 && (
+                <ul aria-label={`Copies pivotées de la photo ${nom(ordre)}`} className="grid grid-cols-2 gap-2">
+                  {copiesDe(photo.id).map((c) => (
+                    <li key={c.id} className="relative">
+                      <a
+                        href={`/api/studio/image?ref=${c.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={`Ouvrir la copie pivotée de ${libelleAngle(c.angle)}`}
+                        className="block aspect-[3/4] overflow-hidden rounded-xs bg-surface-3"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element -- image privée servie par /api/studio/image */}
+                        <img src={`/api/studio/image?ref=${c.id}`} alt="" loading="lazy" draggable={false} className="h-full w-full object-cover" />
+                      </a>
+                      <span className="absolute bottom-1 left-1 rounded-xs bg-surface px-1 font-mono text-xs font-semibold text-ink">{libelleAngle(c.angle)}</span>
+                      <IconButton
+                        label={`Retirer la copie pivotée de ${libelleAngle(c.angle)}`}
+                        size="sm"
+                        className="absolute right-0.5 top-0.5 h-6 w-6 bg-surface md:h-6 md:w-6"
+                        disabled={enCours?.id === c.id}
+                        onClick={() => setCopieARetirer({ copie: c, ordre })}
+                      >
+                        <X size={12} aria-hidden />
+                      </IconButton>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           );
         })}
@@ -401,6 +457,19 @@ export default function Planche({
         pendingLabel="Retrait…"
         onConfirm={() => retrait && void retirer(retrait)}
       />
+
+      <AlertDialog
+        open={copieARetirer !== null}
+        onOpenChange={(o) => !o && setCopieARetirer(null)}
+        title={copieARetirer ? `Retirer la copie ${libelleAngle(copieARetirer.copie.angle)} ?` : "Retirer la copie ?"}
+        description="Seule la copie pivotée est retirée ; la photo d’origine reste sur la planche."
+        confirmLabel="Retirer"
+        pending={!!copieARetirer && enCours?.id === copieARetirer.copie.id}
+        pendingLabel="Retrait…"
+        onConfirm={() => copieARetirer && void retirerCopie(copieARetirer.copie)}
+      />
+
+      <PivoterPhoto photo={pivot} nom={pivot ? nom(pivot.ordre) : ""} onFermer={() => setPivot(null)} />
     </SectionEtape>
   );
 }

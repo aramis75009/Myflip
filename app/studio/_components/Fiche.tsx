@@ -129,6 +129,7 @@ export default function Fiche({ fiche }: { fiche: FicheClient }) {
         cle={coloris.cle}
         generation={fiche.generation}
         lignes={fiche.lignes}
+        copies={fiche.copies}
         servies={new Set(fiche.essais.map((e) => e.referenceId))}
       />
       <TableauAngles

@@ -245,6 +245,37 @@ s'appliquent pas à ces écrans.
   « Retirer » = `DELETE` ; « Remplacer » sort l'ancienne de la planche (`ordre: null`,
   gardée hors tableau) puis dépose la nouvelle. Une photo qui a servi ne se retire ni
   ne se remplace (409, et le menu le dit avant).
+- **Copies pivotées** (16/11/2026, « Pivoter la photo… » dans le menu d'une photo de la planche) :
+  curseur de −45° à +45°, au degré, plus une case où l'on tape l'angle (les deux restent
+  synchronisés), aperçu CSS en direct sans aller-retour serveur (`PivoterPhoto.tsx`).
+  « Enregistrer » = `POST /api/studio/references/[id]/pivoter` `{ angle }` : une **nouvelle copie**,
+  l'originale n'est jamais touchée ; « Annuler » ne fait rien. Rendu serveur par **sharp**
+  (`lib/studioPivotRendu.ts` : rotation sans perte, découpe centrée, agrandissement aux dimensions
+  EXACTES de l'original, un seul JPEG q92 4:4:4). Le recadrage « sans coin vide » est
+  `echelleRecadrage` (`lib/studioPivot.ts`, pur) : **la même fonction pour l'aperçu et le rendu**,
+  ne pas en écrire une seconde. Orchestration à dépendances injectées : `lib/studioCopie.ts`
+  (testée sans réseau), branchée sur Prisma et le stockage dans `lib/studioCopieServeur.ts`.
+  - ⚠️ **Empreinte** : la copie suit le chemin de l'import (`references/<userId>/<sha>.jpg`,
+    `deposerImage`) avec l'empreinte de **ses propres octets**, jamais celle de l'original :
+    `deposerImage` écrase un même nom (`x-upsert`), réutiliser l'empreinte de l'original
+    **réécrirait l'original**. Le dédoublonnage de l'import (`POST /api/studio/references`) est
+    inchangé et ne connaît pas les copies ; la copie n'est refusée que si les mêmes octets sont
+    déjà conservés (même photo, même angle : le rendu est déterministe).
+  - **Une copie n'est jamais une ligne du tableau** : `ordre` null, donc ni génération (les routes
+    exigent `ordre` non null), ni annonce, ni swap de `PATCH`. Elle s'affiche **sous sa photo, dans
+    la même case de la planche**, avec son angle, un lien vers l'image et « Retirer ». Elle ne
+    compte pas dans `photos` de la carte du catalogue (`copieDeId` null seulement).
+  - Colonnes `StudioReference.copieDeId` (auto-relation, `ON DELETE CASCADE`) et `angleCopie`,
+    index unique `(copieDeId, angleCopie)` : une copie par photo et par angle (deux clics ne
+    font pas deux copies). Migration `20261116120000_studio_copie_pivotee`, idempotente, **à coller
+    à la main dans l'éditeur SQL de Supabase AVANT le merge** (comme les précédentes). Retirer une
+    photo (`DELETE`) retire ses copies **et leurs fichiers** (seulement s'ils sont orphelins).
+  - On ne pivote pas une copie (400) : chaque copie part de l'original, sans rééchantillonnages
+    en cascade. Une copie « n'est pas rattachée » à une photo remplacée (`Remplacer` sort l'ancienne
+    du tableau) : ses copies restent en base, masquées avec elle.
+  - **`sharp` est une dépendance directe** depuis le 16/11/2026 (`package.json`). Il était déjà
+    dans le lockfile, mais seulement comme dépendance **optionnelle** de `next` : l'importer sans
+    la déclarer, c'est compter sur un paquet qu'`npm` a le droit de sauter. Aucune nouvelle version.
 - **Avis IA** : plus jamais lancé à l'ouverture d'une fiche (c'était payant) ;
   seulement après une génération, ou par « Demander l'avis ». Un échec est rangé
   dans `verifIA` (`{ erreur: { code, message } }`, sans migration, jamais

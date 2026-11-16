@@ -1,6 +1,6 @@
 "use client";
 
-import { Ellipsis, MoveRight, Replace, Trash2 } from "lucide-react";
+import { Ellipsis, MoveRight, Replace, RotateCw, Trash2 } from "lucide-react";
 
 import { IconButton } from "@/components/ui/button";
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuSub, MenuSubContent, MenuSubTrigger, MenuTrigger } from "@/components/ui/menu";
@@ -10,7 +10,9 @@ const num = (o: number) => String(o).padStart(2, "0");
 
 /**
  * The menu of a photo on the board: « Déplacer vers… » (the keyboard
- * alternative to dragging), « Remplacer la photo… », « Retirer de la planche ».
+ * alternative to dragging), « Pivoter la photo… » (saves a straightened COPY,
+ * the photo itself is never touched, so it stays available even once the photo
+ * has served), « Remplacer la photo… », « Retirer de la planche ».
  * A photo that already gave a variant can be neither replaced nor removed:
  * the menu says so before the API would refuse it.
  */
@@ -21,6 +23,7 @@ export default function MenuPhoto({
   servie,
   desactive,
   onDeplacer,
+  onPivoter,
   onRemplacer,
   onRetirer,
 }: {
@@ -31,6 +34,7 @@ export default function MenuPhoto({
   servie: boolean;
   desactive: boolean;
   onDeplacer: (ordre: number) => void;
+  onPivoter: () => void;
   onRemplacer: () => void;
   onRetirer: () => void;
 }) {
@@ -62,6 +66,9 @@ export default function MenuPhoto({
               ))}
           </MenuSubContent>
         </MenuSub>
+        <MenuItem onSelect={onPivoter}>
+          <RotateCw size={15} aria-hidden /> Pivoter la photo…
+        </MenuItem>
         <MenuItem disabled={servie} onSelect={onRemplacer}>
           <Replace size={15} aria-hidden /> Remplacer la photo…
         </MenuItem>
