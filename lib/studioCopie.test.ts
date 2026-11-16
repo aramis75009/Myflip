@@ -5,8 +5,9 @@ import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 
 import { EMPREINTE_RE, cheminImage } from "./studioBlob";
-import { creerCopiePivotee, empreinteDe, type DepsCopie, type DonneesCopie, type ReferenceSource } from "./studioCopie";
-import { rendreCopiePivotee } from "./studioPivotRendu";
+import { creerCopiePivotee, creerCopieRetouchee, empreinteDe, type DepsCopie, type DonneesCopie, type ReferenceSource } from "./studioCopie";
+import { rendreCopieRetouchee } from "./studioPivotRendu";
+import { cleRetouche, retoucheDePivot, type Retouche } from "./studioRetouche";
 
 const USER = "ckuserid0001";
 const ORIGINALE: ReferenceSource = {
@@ -26,7 +27,7 @@ const jpegOriginal = () =>
 
 type Journal = {
   lectures: string[];
-  rendus: number[];
+  rendus: string[];
   depots: { empreinte: string; octets: number }[];
   creations: DonneesCopie[];
   retraits: string[];
@@ -50,9 +51,9 @@ function fausses(
       journal.lectures.push(url);
       return octets === undefined ? Buffer.from("source") : octets;
     },
-    rendre: async (source, angle) => {
-      journal.rendus.push(angle);
-      return { jpeg: Buffer.concat([source, Buffer.from(`pivote:${angle}`)]), largeur: 300, hauteur: 400 };
+    rendre: async (source, retouche) => {
+      journal.rendus.push(cleRetouche(retouche));
+      return { jpeg: Buffer.concat([source, Buffer.from(`retouche:${cleRetouche(retouche)}`)]), largeur: 300, hauteur: 400 };
     },
     deposer: async (jpeg, empreinte) => {
       journal.depots.push({ empreinte, octets: jpeg.length });
@@ -80,6 +81,9 @@ describe("creerCopiePivotee — la copie", () => {
     expect(journal.creations).toHaveLength(1);
     const copie = journal.creations[0];
     expect(copie).toMatchObject({ colorisId: "coloris-5039", sku: "SDN15", role: "face", copieDeId: ORIGINALE.id, angleCopie: 8 });
+    // Une copie de « Pivoter » est une retouche « angle seul, zoom », avec sa clé.
+    expect(copie.retouche).toEqual({ angle: 8, modeRotation: "zoom", recadragePct: 0, cadre: null });
+    expect(copie.retoucheCle).toBe("a8|zoom|r0|c-");
     // Ni numéro de prise ni nom de prise : une copie n'est pas une ligne du tableau.
     expect(copie).not.toHaveProperty("ordre");
     expect(copie).not.toHaveProperty("prise");
@@ -96,7 +100,7 @@ describe("creerCopiePivotee — la copie", () => {
     const { empreinte } = journal.depots[0];
     expect(empreinte).toMatch(EMPREINTE_RE);
     // Le nom est le SHA-256 du JPEG rendu…
-    const rendu = Buffer.concat([Buffer.from("source"), Buffer.from("pivote:-8")]);
+    const rendu = Buffer.concat([Buffer.from("source"), Buffer.from(`retouche:${cleRetouche(retoucheDePivot(-8))}`)]);
     expect(empreinte).toBe(empreinteDe(rendu));
     // …et c'est un chemin que le module de stockage accepte tel quel.
     expect(() => cheminImage("references", USER, empreinte, "jpg")).not.toThrow();
@@ -244,12 +248,85 @@ describe("creerCopiePivotee — avec le vrai rendu sharp", () => {
   it("la copie a les dimensions de l'original, d'autres octets, un nom valide, et l'original reste intact", async () => {
     const original = await jpegOriginal();
     const avant = empreinteDe(original);
-    const { deps, journal } = fausses({ rendre: rendreCopiePivotee }, { octets: original });
+    const { deps, journal } = fausses({ rendre: rendreCopieRetouchee }, { octets: original });
     const res = await creerCopiePivotee(deps, { referenceId: ORIGINALE.id, angle: 8 });
     expect(res).toMatchObject({ ok: true, largeur: 300, hauteur: 400 });
     expect(journal.depots[0].empreinte).toMatch(EMPREINTE_RE);
     expect(journal.depots[0].empreinte).not.toBe(avant);
     // Les octets de l'original n'ont pas bougé (la fonction ne reçoit qu'un Buffer, qu'elle ne modifie pas).
+    expect(empreinteDe(original)).toBe(avant);
+  });
+});
+
+// ── Retouches par lot (17/11) : la même orchestration, réglages complets ─────
+
+const CADRE_BEIGE: Retouche = { angle: -3, modeRotation: "bordsBlancs", recadragePct: 15, cadre: { couleur: "#E6DCCB", epaisseurPct: 4, adoucissement: 35 } };
+
+describe("creerCopieRetouchee", () => {
+  it("range les réglages complets et leur clé ; angleCopie reste null hors « angle seul, zoom »", async () => {
+    const { deps, journal } = fausses();
+    const res = await creerCopieRetouchee(deps, { referenceId: ORIGINALE.id, retouche: CADRE_BEIGE });
+    expect(res).toMatchObject({ ok: true, id: "ref-copie" });
+    const copie = journal.creations[0];
+    // Couleur normalisée en minuscules.
+    expect(copie.retouche).toEqual({ angle: -3, modeRotation: "bordsBlancs", recadragePct: 15, cadre: { couleur: "#e6dccb", epaisseurPct: 4, adoucissement: 35 } });
+    expect(copie.retoucheCle).toBe("a-3|bordsBlancs|r15|c#e6dccb/4/35");
+    // L'index unique historique (copieDeId, angleCopie) ne gêne pas une copie à −3° avec cadre.
+    expect(copie.angleCopie).toBeNull();
+    expect(journal.lectures).toEqual([ORIGINALE.urlImage]);
+    expect(journal.rendus).toEqual(["a-3|bordsBlancs|r15|c#e6dccb/4/35"]);
+  });
+
+  it("deux retouches au même angle (avec et sans cadre) donnent deux fichiers", async () => {
+    const un = fausses();
+    const deux = fausses();
+    await creerCopieRetouchee(un.deps, { referenceId: ORIGINALE.id, retouche: retoucheDePivot(8) });
+    await creerCopieRetouchee(deux.deps, { referenceId: ORIGINALE.id, retouche: { ...retoucheDePivot(8), cadre: { couleur: "#ffffff", epaisseurPct: 4, adoucissement: 0 } } });
+    expect(un.journal.depots[0].empreinte).not.toBe(deux.journal.depots[0].empreinte);
+  });
+
+  it("la même retouche déjà faite (copie pivotée d'avant la refonte comprise) rend l'existante, sans rien rendre", async () => {
+    const vues: Retouche[] = [];
+    const { deps, journal } = fausses({
+      copieExistante: async (_id, r) => {
+        vues.push(r);
+        return { id: "copie-pivotee-16-11" };
+      },
+    });
+    const res = await creerCopieRetouchee(deps, { referenceId: ORIGINALE.id, retouche: { angle: 8, modeRotation: "zoom", recadragePct: 0, cadre: null } });
+    expect(res).toMatchObject({ ok: false, code: "deja_la", existante: "copie-pivotee-16-11" });
+    expect(vues).toEqual([retoucheDePivot(8)]);
+    expect(journal.rendus).toEqual([]);
+    expect(journal.depots).toEqual([]);
+  });
+
+  it("refuse des réglages invalides ou sans effet, sans rien lire", async () => {
+    for (const retouche of [
+      null,
+      { angle: 8 },
+      { angle: 8, modeRotation: "zoom", recadragePct: 31, cadre: null },
+      { angle: 8, modeRotation: "zoom", recadragePct: 0, cadre: { couleur: "beige", epaisseurPct: 4, adoucissement: 35 } },
+      { angle: 8, modeRotation: "zoom", recadragePct: 0, cadre: { couleur: "#ffffff", epaisseurPct: 16, adoucissement: 35 } },
+    ]) {
+      const { deps, journal } = fausses({ lireReference: async () => { throw new Error("ne doit pas être appelé"); } });
+      expect(await creerCopieRetouchee(deps, { referenceId: ORIGINALE.id, retouche }), JSON.stringify(retouche)).toMatchObject({ ok: false, code: "retouche_invalide" });
+      expect(journal.lectures).toEqual([]);
+    }
+    const { deps } = fausses();
+    expect(await creerCopieRetouchee(deps, { referenceId: ORIGINALE.id, retouche: { angle: 0, modeRotation: "bordsBlancs", recadragePct: 0, cadre: null } })).toMatchObject({
+      ok: false,
+      code: "retouche_vide",
+    });
+  });
+
+  it("avec le vrai rendu sharp : dimensions de l'original, autres octets, original intact", async () => {
+    const original = await jpegOriginal();
+    const avant = empreinteDe(original);
+    const { deps, journal } = fausses({ rendre: rendreCopieRetouchee }, { octets: original });
+    const res = await creerCopieRetouchee(deps, { referenceId: ORIGINALE.id, retouche: CADRE_BEIGE });
+    expect(res).toMatchObject({ ok: true, largeur: 300, hauteur: 400 });
+    expect(journal.depots[0].empreinte).toMatch(EMPREINTE_RE);
+    expect(journal.depots[0].empreinte).not.toBe(avant);
     expect(empreinteDe(original)).toBe(avant);
   });
 });

@@ -13,6 +13,8 @@ type Ctx = { params: Promise<{ id: string }> };
 
 const STATUT: Record<CodeRefus, number> = {
   angle_invalide: 400,
+  retouche_invalide: 400,
+  retouche_vide: 400,
   est_une_copie: 400,
   introuvable: 404,
   image_introuvable: 404,

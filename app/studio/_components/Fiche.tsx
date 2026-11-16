@@ -7,6 +7,7 @@ import { Frame } from "@/components/console";
 import { useMouvementReduit } from "@/lib/useMouvementReduit";
 import { MODELE_MANUEL } from "@/lib/studioFiche";
 import type { DonneesFiche } from "@/lib/studioServeur";
+import { fusionnerVersions, prochainNumero, type VersionEnBase } from "@/lib/studioVersion";
 
 import { ETAPES, prochaineAction, type Etape } from "../_parcours";
 import { BandeauSacbase } from "../_ui";
@@ -16,11 +17,12 @@ import FileAJuger from "./FileAJuger";
 import Generation from "./Generation";
 import HistoriquePrise, { type CibleHistorique } from "./HistoriquePrise";
 import Planche from "./Planche";
-import { idEtape } from "./SectionEtape";
+import { idEtape, type Section } from "./SectionEtape";
 import TableauAngles from "./TableauAngles";
 import { useModeles } from "./useModeles";
 import { useAvisIA, useChoixCases, useDecisions } from "./useParcours";
 import Validees from "./Validees";
+import Versions from "./Versions";
 
 type AvecDate<T> = Omit<T, "createdAt"> & { createdAt: string };
 export type FicheClient = Omit<DonneesFiche, "essais"> & { essais: AvecDate<DonneesFiche["essais"][number]>[] };
@@ -82,7 +84,16 @@ export default function Fiche({ fiche }: { fiche: FicheClient }) {
       return n;
     });
 
-  const [aFaireDefiler, setAFaireDefiler] = useState<Etape | null>(null);
+  // Versions of the bag (17/11): those of the server, plus one just created and not read again yet.
+  const [versions, setVersions] = useState<VersionEnBase[]>(fiche.versions);
+  useEffect(() => setVersions((locales) => fusionnerVersions(locales, fiche.versions)), [fiche.versions]);
+  const [versionChoisie, setVersionChoisie] = useState(1);
+  const [versionsOuverte, setVersionsOuverte] = useState(false);
+  // Version 1 = the current listing of the bag shown in the header (the target bag, or the first bag of the colourway).
+  const skuVersionUn = cibleValide ?? fiche.sacs[0]?.sku ?? null;
+  const versionUn = fiche.versionsUn.find((v) => v.sku === skuVersionUn) ?? null;
+
+  const [aFaireDefiler, setAFaireDefiler] = useState<Section | null>(null);
   useEffect(() => {
     if (!aFaireDefiler) return;
     const el = document.getElementById(idEtape(aFaireDefiler));
@@ -131,6 +142,25 @@ export default function Fiche({ fiche }: { fiche: FicheClient }) {
         lignes={fiche.lignes}
         copies={fiche.copies}
         servies={new Set(fiche.essais.map((e) => e.referenceId))}
+        enVersion={new Set(fiche.photosEnVersion)}
+        skuSource={skuVersionUn}
+        numeroSuivant={prochainNumero(versions.map((v) => v.numero))}
+        onVersionCreee={(v) => {
+          setVersions((actuelles) => fusionnerVersions(actuelles, [v]));
+          setVersionChoisie(v.numero);
+          setVersionsOuverte(true);
+          setAFaireDefiler("versions");
+          router.refresh();
+        }}
+      />
+      <Versions
+        ouverte={versionsOuverte}
+        onBasculer={() => setVersionsOuverte((o) => !o)}
+        versionUn={versionUn}
+        versions={versions}
+        choisie={versionChoisie}
+        onChoisir={setVersionChoisie}
+        onVersionModifiee={(v) => setVersions((actuelles) => actuelles.map((x) => (x.id === v.id ? v : x)))}
       />
       <TableauAngles
         {...props("angles")}

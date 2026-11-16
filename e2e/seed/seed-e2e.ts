@@ -718,7 +718,8 @@ export const BUDGET_E2E_EUR = 0.3;
 
 /**
  * Supprime les comptes de test et tout ce qui en dépend, dans l'ordre imposé
- * par les clés RESTRICT (StudioEssai → angle et photo, StudioEchec → angle).
+ * par les clés RESTRICT (StudioEssai → angle et photo, StudioEchec → angle) et
+ * NO ACTION (StudioVersionPhoto → photo).
  * Refuse de toucher un utilisateur dont l'e-mail ne finit pas par @myflip.test.
  */
 async function effacerComptes(prisma: PrismaClient): Promise<void> {
@@ -737,6 +738,8 @@ async function effacerComptes(prisma: PrismaClient): Promise<void> {
   for (const { id } of existants) {
     await prisma.studioEssai.deleteMany({ where: { coloris: { userId: id } } });
     await prisma.studioEchec.deleteMany({ where: { userId: id } });
+    // Une photo montrée par une version ne se supprime pas (NO ACTION) : les versions d'abord.
+    await prisma.studioVersion.deleteMany({ where: { userId: id } });
     await prisma.studioReference.deleteMany({ where: { userId: id } });
     await prisma.studioAngle.deleteMany({ where: { userId: id } });
     await prisma.studioColoris.deleteMany({ where: { userId: id } });
