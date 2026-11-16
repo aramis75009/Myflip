@@ -4,7 +4,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { deposerImage, lireImage, supprimerImage } from "@/lib/studioBlob";
 import type { DepsCopie } from "@/lib/studioCopie";
-import { rendreCopiePivotee } from "@/lib/studioPivotRendu";
+import { rendreCopieRetouchee } from "@/lib/studioPivotRendu";
+import { cleRetouche, estPivotSeul } from "@/lib/studioRetouche";
 
 /**
  * Efface les fichiers de `references/` que plus aucune ligne de ce compte
@@ -25,8 +26,9 @@ export async function supprimerFichiersOrphelins(userId: string, urls: readonly 
 }
 
 /**
- * Les dépendances réelles de `creerCopiePivotee` : Prisma scopé par `userId`,
- * le stockage privé de `lib/studioBlob.ts`, et le rendu sharp.
+ * Les dépendances réelles de `creerCopieRetouchee` (et de `creerCopiePivotee`) :
+ * Prisma scopé par `userId`, le stockage privé de `lib/studioBlob.ts`, et le
+ * rendu sharp.
  */
 export function depsCopie(userId: string): DepsCopie {
   return {
@@ -36,8 +38,19 @@ export function depsCopie(userId: string): DepsCopie {
         select: { id: true, colorisId: true, sku: true, role: true, urlImage: true, copieDeId: true },
       }),
 
-    copieExistante: (originaleId, angle) =>
-      prisma.studioReference.findFirst({ where: { userId, copieDeId: originaleId, angleCopie: angle }, select: { id: true } }),
+    // Par la clé de la retouche ; une copie pivotée d'avant le 17/11 n'a que son angle (lue « angle seul, zoom »).
+    copieExistante: (originaleId, retouche) =>
+      prisma.studioReference.findFirst({
+        where: {
+          userId,
+          copieDeId: originaleId,
+          OR: [
+            { retoucheCle: cleRetouche(retouche) },
+            ...(estPivotSeul(retouche) ? [{ retoucheCle: null, angleCopie: retouche.angle }] : []),
+          ],
+        },
+        select: { id: true },
+      }),
 
     // Même prédicat que l'import (POST /api/studio/references) : une ligne du compte dont l'URL finit par `/<empreinte>.jpg`.
     empreinteConnue: (empreinte) =>
@@ -48,7 +61,7 @@ export function depsCopie(userId: string): DepsCopie {
       return image ? Buffer.from(await new Response(image.stream).arrayBuffer()) : null;
     },
 
-    rendre: rendreCopiePivotee,
+    rendre: rendreCopieRetouchee,
 
     deposer: (jpeg, empreinte) => deposerImage("references", userId, jpeg, empreinte),
 
@@ -68,6 +81,8 @@ export function depsCopie(userId: string): DepsCopie {
             prise: null,
             copieDeId: d.copieDeId,
             angleCopie: d.angleCopie,
+            retouche: d.retouche,
+            retoucheCle: d.retoucheCle,
           },
           select: { id: true },
         });

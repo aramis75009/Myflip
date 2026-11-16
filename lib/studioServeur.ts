@@ -7,6 +7,9 @@ import { sacsChezToi, type SacChezToi } from "@/lib/studioChezToi";
 import { buildSkuIndex, getColoris, type SacbaseCatalogue, type SacbaseColoris, type SacbaseColorisSource } from "@/lib/studioColoris";
 import { planRattachement } from "@/lib/studioFiche";
 import { BUDGET_PAR_DEFAUT, type BudgetCompte } from "@/lib/studioModeles";
+import { libelleRetouche, retoucheDeCopie } from "@/lib/studioRetouche";
+import type { VersionUn } from "@/lib/studioVersion";
+import { SELECT_VERSION, versionEnBase } from "@/lib/studioVersionLecture";
 
 /**
  * Lectures et écritures du Studio en base. Toutes scopées par userId.
@@ -271,17 +274,17 @@ export async function chargerFiche(userId: string, cle: string) {
   if (!coloris && duCatalogue) coloris = await assurerColoris(userId, duCatalogue);
   if (!coloris) return null;
 
-  const [lignes, copies, angles, essais, reglages] = await Promise.all([
+  const [lignes, copies, angles, essais, reglages, versions] = await Promise.all([
     prisma.studioReference.findMany({
       where: { userId, colorisId: coloris.id, ordre: { not: null } },
       orderBy: [{ ordre: "asc" }, { createdAt: "asc" }],
       select: { id: true, ordre: true, prise: true, sku: true },
     }),
-    // Les copies pivotées : jamais des lignes du tableau (ordre null), affichées à côté de leur photo sur la planche.
+    // Les copies retouchées : jamais des lignes du tableau (ordre null). Hors version, elles s'affichent sous leur photo.
     prisma.studioReference.findMany({
       where: { userId, colorisId: coloris.id, copieDeId: { not: null } },
       orderBy: [{ createdAt: "asc" }],
-      select: { id: true, copieDeId: true, angleCopie: true },
+      select: { id: true, copieDeId: true, angleCopie: true, retouche: true, _count: { select: { versionPhotos: true } } },
     }),
     anglesActifs(userId),
     prisma.studioEssai.findMany({
@@ -308,6 +311,7 @@ export async function chargerFiche(userId: string, cle: string) {
       },
     }),
     lireReglages(userId),
+    prisma.studioVersion.findMany({ where: { userId, colorisId: coloris.id }, orderBy: { numero: "asc" }, select: SELECT_VERSION }),
   ]);
 
   // Les noms de prise dépendent de la génération (les V3 ont leur liste) : une
@@ -325,6 +329,10 @@ export async function chargerFiche(userId: string, cle: string) {
   }
 
   const sacs = duCatalogue?.sacs ?? [];
+  const versionsUn = await chargerVersionsUn(
+    userId,
+    sacs.map((s) => s.sku),
+  );
   const statuts = await statutsDesSkus(userId, [...sacs.map((s) => s.sku), ...essais.flatMap((e) => (e.skuCible ? [e.skuCible] : []))]);
   const statutDe = (sku: string) => statuts.get(sku) ?? null;
   const etats = etatsDesCases(lignes, angles, essais, statutDe);
@@ -339,7 +347,16 @@ export async function chargerFiche(userId: string, cle: string) {
     sacs: sacs.map((s) => ({ sku: s.sku, statut: statutDe(s.sku) ?? s.statut, vendu: s.vendu })),
     cibles: sacsCibles(sacs, statutDe),
     lignes: lignes.map((l) => ({ id: l.id, ordre: l.ordre as number, prise: l.prise })),
-    copies: copies.flatMap((c) => (c.copieDeId && c.angleCopie !== null ? [{ id: c.id, copieDeId: c.copieDeId, angle: c.angleCopie }] : [])),
+    // Sur la planche, seulement les copies qu'aucune version ne montre (les autres sont dans « Versions »).
+    copies: copies.flatMap((c) => {
+      const retouche = retoucheDeCopie(c);
+      return c.copieDeId && retouche && c._count.versionPhotos === 0 ? [{ id: c.id, copieDeId: c.copieDeId, libelle: libelleRetouche(retouche) }] : [];
+    }),
+    /** Photos de la planche qu'une version montre (elle-même ou une de ses copies) : elles ne se retirent plus. */
+    photosEnVersion: [...photosMontrees(versions, copies)],
+    /** Versions 2, 3… du coloris, et la Version 1 (état actuel de l'annonce) de chaque sac. */
+    versions: versions.map(versionEnBase),
+    versionsUn,
     angles,
     cases,
     promptMaitre: reglages.texte,
@@ -351,6 +368,44 @@ export async function chargerFiche(userId: string, cle: string) {
 }
 
 export type DonneesFiche = NonNullable<Awaited<ReturnType<typeof chargerFiche>>>;
+
+/** Les vraies photos qu'une version montre, directement ou par une de leurs copies. */
+function photosMontrees(
+  versions: readonly { photos: readonly { referenceId: string }[] }[],
+  copies: readonly { id: string; copieDeId: string | null }[],
+): Set<string> {
+  const copieDe = new Map(copies.map((c) => [c.id, c.copieDeId]));
+  return new Set(versions.flatMap((v) => v.photos.map((p) => copieDe.get(p.referenceId) ?? p.referenceId)));
+}
+
+/**
+ * La Version 1 de chaque sac : l'état actuel de son annonce, RELU (jamais
+ * stocké) — titre, description à tirets et mots-clés de son `Article` (lecture
+ * seule), et les images validées pour lui, par la règle unique de l'annonce
+ * (`whereImagesValidees`), dans l'ordre des prises.
+ */
+export async function chargerVersionsUn(userId: string, skus: readonly string[]): Promise<VersionUn[]> {
+  if (skus.length === 0) return [];
+  const [articles, valides] = await Promise.all([
+    prisma.article.findMany({
+      where: { userId, sku: { in: [...new Set(skus)] } },
+      select: { sku: true, titreAnnonce: true, descriptionAnnonce: true, motsClesAnnonce: true },
+    }),
+    prisma.studioEssai.findMany({
+      where: whereImagesValidees(userId, { in: [...new Set(skus)] }),
+      select: { id: true, skuCible: true, createdAt: true, reference: { select: { ordre: true } } },
+    }),
+  ]);
+  const parSku = new Map(articles.map((a) => [a.sku, a]));
+  return skus.map((sku) => {
+    const a = parSku.get(sku);
+    const photos = valides
+      .filter((e) => e.skuCible === sku)
+      .sort((x, y) => (x.reference?.ordre ?? 0) - (y.reference?.ordre ?? 0) || +x.createdAt - +y.createdAt)
+      .map((e) => e.id);
+    return { sku, titre: a?.titreAnnonce ?? "", description: a?.descriptionAnnonce ?? "", motsCles: a?.motsClesAnnonce ?? "", photos };
+  });
+}
 
 /** L'onglet Studio de /parametres : prompt maître, prompts d'angle actifs et leur utilisation. */
 export async function chargerPromptsStudio(userId: string) {

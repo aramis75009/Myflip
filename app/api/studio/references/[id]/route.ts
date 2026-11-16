@@ -52,7 +52,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 }
 
 // DELETE /api/studio/references/[id] — retire une photo de la bibliothèque, ou
-// une de ses copies pivotées. Retirer une photo retire aussi ses copies.
+// une de ses copies retouchées. Retirer une photo retire aussi ses copies. Une
+// photo (ou une copie) montrée par une version reste : 409.
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
   const userId = await getUserId();
   if (!userId) return unauthorized();
@@ -64,6 +65,10 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
   // RESTRICT en base : une photo qui a servi garde ses cases verrouillées.
   if ((await prisma.studioEssai.count({ where: { referenceId: { in: [id, ...copies.map((c) => c.id)] } } })) > 0) {
     return NextResponse.json({ error: "Cette photo a déjà servi : elle ne peut plus être supprimée." }, { status: 409 });
+  }
+  // Une version montre cette photo, ou une de ses copies : la retirer viderait une case de la version.
+  if ((await prisma.studioVersionPhoto.count({ where: { referenceId: { in: [id, ...copies.map((c) => c.id)] } } })) > 0) {
+    return NextResponse.json({ error: "Cette photo sert à une version : elle ne peut plus être supprimée." }, { status: 409 });
   }
   await prisma.studioReference.delete({ where: { id } });
   // Un fichier peut servir à une autre ligne (même empreinte) : on ne l'efface que s'il est orphelin.

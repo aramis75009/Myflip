@@ -46,6 +46,7 @@ model User {
   studioFavoris    StudioModeleFavori[]
   studioEchecs     StudioEchec[]
   studioReglages   StudioReglages?
+  studioVersions   StudioVersion[]
 }
 
 /// Réglages et secrets propres à un compte : clés IA et accès Trello.
@@ -333,6 +334,7 @@ model StudioColoris {
   references StudioReference[]
   essais     StudioEssai[]
   echecs     StudioEchec[]
+  versions   StudioVersion[]
 
   @@unique([userId, cle])
   @@index([userId])
@@ -368,8 +370,21 @@ model StudioReference {
   copieDeId String?
   copieDe   StudioReference?  @relation("StudioCopie", fields: [copieDeId], references: [id], onDelete: Cascade)
   copies    StudioReference[] @relation("StudioCopie")
-  /// Angle de la copie, en degrés entiers de −45 à +45 (jamais 0). null hors copie.
+  /// Angle de la copie, en degrés entiers de −45 à +45 (jamais 0). Depuis les
+  /// retouches par lot (17/11), seulement pour une copie « angle seul, zoom » ;
+  /// null pour toute autre retouche, et hors copie.
   angleCopie Int?
+  /// Réglages complets de la copie (lib/studioRetouche.ts, type `Retouche`) :
+  /// angle, mode, recadrage, cadre. null = vraie photo, ou copie pivotée d'avant
+  /// le 17/11, lue comme « angle seul, mode zoom » (`retoucheDeCopie`).
+  retouche    Json?
+  /// Clé canonique de la retouche (`cleRetouche`) : une copie par photo et par
+  /// retouche. null sur les vraies photos et les copies d'avant le 17/11.
+  retoucheCle String?
+
+  /// Les versions qui montrent cette photo (copie ou originale). NoAction :
+  /// une photo d'une version ne se supprime pas (la route DELETE répond 409).
+  versionPhotos StudioVersionPhoto[]
 
   createdAt DateTime @default(now())
 
@@ -386,6 +401,62 @@ model StudioReference {
   /// Une seule copie par photo et par angle (deux clics ne créent pas deux copies).
   /// Postgres ne compte pas les NULL comme égaux : les vraies photos n'y sont pas soumises.
   @@unique([copieDeId, angleCopie])
+  /// Une seule copie par photo et par retouche (deux enregistrements identiques réutilisent la même).
+  @@unique([copieDeId, retoucheCle])
+}
+
+/// Une VERSION d'un sac (PRD 2026-11-16, §8) : des photos ordonnées, un titre,
+/// une description (tirets, mots-clés) et un SKU d'annonce saisi par Aramis.
+/// Elle appartient au coloris (la fiche /studio/[cle], « fiche du sac »).
+///
+/// La Version 1 n'est PAS en base : c'est l'état actuel de l'annonce d'un sac
+/// (images validées, titre, description et mots-clés de l'`Article`, son SKU),
+/// relu à chaque affichage. Elle ne peut donc ni diverger ni être modifiée par
+/// le Studio. Chaque « Enregistrer » du panneau de retouche crée la version
+/// suivante (numéro ≥ 2), qui recopie le texte de la Version 1 du sac affiché.
+///
+/// Cloisonnement : aucune clé vers `Article`. Le texte est COPIÉ à la création
+/// (lecture seule de l'Article), jamais écrit en retour.
+model StudioVersion {
+  id          String        @id @default(cuid())
+  colorisId   String
+  coloris     StudioColoris @relation(fields: [colorisId], references: [id], onDelete: Cascade)
+  /// 2, 3… par coloris (la 1 est virtuelle).
+  numero      Int
+  /// Le sac dont la Version 1 a fourni le texte (« SDN12 »). Informatif, sans clé.
+  skuSource   String?
+  titre       String        @default("") @db.Text
+  /// Les tirets : copiés tels quels de l'annonce, jamais modifiés ensuite.
+  description String        @default("") @db.Text
+  /// Mots-clés, séparés par des virgules (format de la génération d'annonce).
+  motsCles    String        @default("") @db.Text
+  /// SKU de l'annonce, saisi par Aramis. null = pas encore renseigné.
+  skuAnnonce  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  photos StudioVersionPhoto[]
+
+  @@unique([colorisId, numero])
+  @@index([userId])
+}
+
+/// Une photo d'une version, à sa place (1, 2, 3…). Le plus souvent une copie
+/// retouchée ; la photo d'origine elle-même quand le lot n'a rien retouché.
+model StudioVersionPhoto {
+  id          String          @id @default(cuid())
+  versionId   String
+  version     StudioVersion   @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  referenceId String
+  reference   StudioReference @relation(fields: [referenceId], references: [id], onDelete: NoAction)
+  ordre       Int
+
+  @@unique([versionId, ordre])
+  @@index([referenceId])
 }
 
 /// Un prompt d'angle, éditable dans /parametres (onglet Studio) : une colonne
