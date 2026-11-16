@@ -43,15 +43,49 @@ const enRadians = (degres: number) => (degres * Math.PI) / 180;
  * l'image agrandie de s quand sa boîte englobante tient dans s·l × s·h :
  *   s = max((l·|cos| + h·|sin|) / l , (l·|sin| + h·|cos|) / h)
  * Symétrique en l'angle (+8° et −8° donnent le même), égal à 1 à 0°.
+ *
+ * Étendue le 17/11/2026 (retouches par lot, `lib/studioRetouche.ts`) : l'image
+ * peut avoir d'AUTRES dimensions que le cadre (`image`, a × b), quand un cadre de
+ * couleur réduit la zone de la photo. Le facteur, rapporté aux pixels de
+ * l'image, devient max((l·|cos| + h·|sin|) / a , (l·|sin| + h·|cos|) / b). Sans
+ * `image`, a = l et b = h : c'est la formule d'origine, au bit près.
  */
-export function echelleRecadrage(largeur: number, hauteur: number, angle: number): number {
-  if (!(largeur > 0) || !(hauteur > 0) || !Number.isFinite(angle)) {
+export function echelleRecadrage(
+  largeur: number,
+  hauteur: number,
+  angle: number,
+  image: { largeur: number; hauteur: number } = { largeur, hauteur },
+): number {
+  if (!(largeur > 0) || !(hauteur > 0) || !(image.largeur > 0) || !(image.hauteur > 0) || !Number.isFinite(angle)) {
     throw new RangeError("Dimensions ou angle invalides.");
   }
   const c = Math.abs(Math.cos(enRadians(angle)));
   const s = Math.abs(Math.sin(enRadians(angle)));
   // Arrondi à 1e-12 : cos(0) et sin(45°) laissent des poussières flottantes, qui feraient échouer une comparaison exacte.
-  const brut = Math.max((largeur * c + hauteur * s) / largeur, (largeur * s + hauteur * c) / hauteur);
+  const brut = Math.max((largeur * c + hauteur * s) / image.largeur, (largeur * s + hauteur * c) / image.hauteur);
+  return Math.round(brut * 1e12) / 1e12;
+}
+
+/**
+ * Le pendant « image entière » d'`echelleRecadrage`, même repère : le plus
+ * grand facteur pour qu'une image a × b (`image`, par défaut l × h) tournée de
+ * `angle` degrés tienne ENTIÈRE dans le cadre l × h. Sa boîte englobante,
+ * agrandie de s, mesure s·(a·|cos| + b·|sin|) × s·(a·|sin| + b·|cos|) :
+ *   s = min(l / (a·|cos| + b·|sin|) , h / (a·|sin| + b·|cos|))
+ * Pour une image au format du cadre, c'est exactement 1 / echelleRecadrage.
+ */
+export function echelleContenue(
+  largeur: number,
+  hauteur: number,
+  angle: number,
+  image: { largeur: number; hauteur: number } = { largeur, hauteur },
+): number {
+  if (!(largeur > 0) || !(hauteur > 0) || !(image.largeur > 0) || !(image.hauteur > 0) || !Number.isFinite(angle)) {
+    throw new RangeError("Dimensions ou angle invalides.");
+  }
+  const c = Math.abs(Math.cos(enRadians(angle)));
+  const s = Math.abs(Math.sin(enRadians(angle)));
+  const brut = Math.min(largeur / (image.largeur * c + image.hauteur * s), hauteur / (image.largeur * s + image.hauteur * c));
   return Math.round(brut * 1e12) / 1e12;
 }
 
@@ -91,10 +125,36 @@ export function zoneRecadree(
 ): { left: number; top: number; width: number; height: number; echelle: number } {
   const s = echelleRecadrage(largeur, hauteur, angle);
   // À 0° rien n'est tourné : pas de marge, la zone est l'image entière.
-  const marge = angle === 0 ? 0 : MARGE_RENDU_PX;
-  const width = Math.max(1, Math.min(largeurTournee, Math.floor(largeur / s - 2 * marge)));
-  const height = Math.max(1, Math.min(hauteurTournee, Math.floor(hauteur / s - 2 * marge)));
-  const left = Math.max(0, Math.round((largeurTournee - width) / 2));
-  const top = Math.max(0, Math.round((hauteurTournee - height) / 2));
-  return { left, top, width, height, echelle: Math.max(largeur / width, hauteur / height) };
+  const zone = zoneCentree(
+    { largeur, hauteur },
+    s,
+    { largeur: largeurTournee, hauteur: hauteurTournee },
+    { marge: angle === 0 ? 0 : MARGE_RENDU_PX, bornee: true },
+  );
+  return { ...zone, echelle: Math.max(largeur / zone.width, hauteur / zone.height) };
+}
+
+/**
+ * La règle de découpe, généralisée (retouches par lot) : dans l'image tournée
+ * (`tournee`, aux pixels de l'original), la zone centrée de (l / s) × (h / s)
+ * que le rendu agrandit ensuite à `cible` (l × h), réduite de `marge` de chaque
+ * côté. `bornee` : la zone ne déborde jamais de l'image tournée (mode « zoom »,
+ * aucun coin vide). Sans borne (mode « bords blancs », s < 1), elle peut être
+ * plus grande que l'image : `left` / `top` négatifs = du fond à ajouter autour.
+ */
+export function zoneCentree(
+  cible: { largeur: number; hauteur: number },
+  echelle: number,
+  tournee: { largeur: number; hauteur: number },
+  { marge, bornee }: { marge: number; bornee: boolean },
+): { left: number; top: number; width: number; height: number } {
+  let width = Math.max(1, Math.floor(cible.largeur / echelle - 2 * marge));
+  let height = Math.max(1, Math.floor(cible.hauteur / echelle - 2 * marge));
+  if (bornee) {
+    width = Math.min(tournee.largeur, width);
+    height = Math.min(tournee.hauteur, height);
+  }
+  const left = Math.round((tournee.largeur - width) / 2);
+  const top = Math.round((tournee.hauteur - height) / 2);
+  return bornee ? { left: Math.max(0, left), top: Math.max(0, top), width, height } : { left, top, width, height };
 }
