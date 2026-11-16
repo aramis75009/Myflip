@@ -7,7 +7,10 @@ import { cn } from "@/lib/cn";
 
 import type { Etape } from "../_parcours";
 
-export const idEtape = (e: Etape) => `etape-${e}`;
+/** The five steps, plus « versions » (retouches par lot, 17/11), which is not a step of the next action. */
+export type Section = Etape | "versions";
+
+export const idEtape = (e: Section) => `etape-${e}`;
 
 /**
  * One step of a colourway sheet: number, title, one-line state, and actions
@@ -32,8 +35,9 @@ export function SectionEtape({
   survolee = false,
   children,
 }: {
-  etape: Etape;
-  numero: number;
+  etape: Section;
+  /** The step number, or a mark for a section outside the numbered steps. */
+  numero: ReactNode;
   titre: string;
   /** State of the step, always visible (« 9 / 15 prises »). */
   resume: ReactNode;

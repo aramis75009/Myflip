@@ -21,6 +21,7 @@ export default function MenuPhoto({
   generation,
   occupees,
   servie,
+  dansUneVersion = false,
   desactive,
   onDeplacer,
   onPivoter,
@@ -32,6 +33,8 @@ export default function MenuPhoto({
   /** Occupied cells (« échange » vs « libre » in the submenu). */
   occupees: ReadonlyMap<number, unknown>;
   servie: boolean;
+  /** A version shows this photo (or one of its copies): it is not removed. */
+  dansUneVersion?: boolean;
   desactive: boolean;
   onDeplacer: (ordre: number) => void;
   onPivoter: () => void;
@@ -73,13 +76,16 @@ export default function MenuPhoto({
           <Replace size={15} aria-hidden /> Remplacer la photo…
         </MenuItem>
         <MenuSeparator />
-        <MenuItem tone="danger" disabled={servie} onSelect={onRetirer}>
+        <MenuItem tone="danger" disabled={servie || dansUneVersion} onSelect={onRetirer}>
           <Trash2 size={15} aria-hidden /> Retirer de la planche
         </MenuItem>
         {servie && (
           <p className="max-w-60 px-2.5 pb-1.5 pt-1 text-xs text-ink-2">
             Elle a déjà servi à une variante : ni retrait ni remplacement.
           </p>
+        )}
+        {!servie && dansUneVersion && (
+          <p className="max-w-60 px-2.5 pb-1.5 pt-1 text-xs text-ink-2">Une version la montre : elle reste sur la planche.</p>
         )}
       </MenuContent>
     </Menu>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ImagePlus, Upload, X } from "lucide-react";
+import { ImagePlus, SlidersHorizontal, Upload, X } from "lucide-react";
 
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { Button, IconButton } from "@/components/ui/button";
@@ -10,13 +10,14 @@ import { cn } from "@/lib/cn";
 import { pluriel } from "@/lib/format";
 import { toastAvertissement, toastErreur, toastSucces } from "@/lib/toast";
 import { MAX_PRISES, nomPrise } from "@/lib/studioCases";
-import { libelleAngle } from "@/lib/studioPivot";
+import type { VersionEnBase } from "@/lib/studioVersion";
 
 import { deplacer, messageSurplus, repartirDepot } from "../_parcours";
 import { ACCEPT, changerPrise, fichiersImages, lireErreur, preparer, remplacerPhoto } from "./envoi";
 import { parNom } from "./lancer";
 import MenuPhoto from "./MenuPhoto";
 import PivoterPhoto from "./PivoterPhoto";
+import RetoucheLot, { REGLAGES_INITIAUX, type ReglagesLot } from "./RetoucheLot";
 import { SectionEtape } from "./SectionEtape";
 
 const PHOTOS_PAR_ENVOI = 12;
@@ -26,8 +27,11 @@ const OCTETS_PAR_ENVOI = 3_500_000;
 export const REFUS_PHOTO_SERVIE = "Cette photo a déjà servi à une variante : elle reste sur la planche.";
 
 type Photo = { id: string; ordre: number };
-/** A straightened copy of a board photo (tool « Pivoter »): shown next to its photo, never a cell of its own. */
-export type CopiePivotee = { id: string; copieDeId: string; angle: number };
+/**
+ * A retouched copy of a board photo that no version shows (made by « Pivoter »,
+ * or left by an earlier batch): shown next to its photo, never a cell of its own.
+ */
+export type CopieRetouchee = { id: string; copieDeId: string; libelle: string };
 
 const avecFichiers = (e: DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
 const num = (o: number) => String(o).padStart(2, "0");
@@ -40,6 +44,10 @@ const num = (o: number) => String(o).padStart(2, "0");
  * a photo that already gave a variant cannot (the API refuses it, and the
  * menu says so beforehand). « Pivoter » saves a straightened COPY, shown in
  * the same cell under the photo; the photo itself is never touched.
+ *
+ * Batch retouch (17/11): each photo has a checkbox; « Retoucher N photos »
+ * opens ONE panel for all of them, whose « Enregistrer » makes a new version
+ * of the bag with a retouched copy of each.
  */
 export default function Planche({
   cle,
@@ -47,6 +55,10 @@ export default function Planche({
   lignes,
   copies,
   servies,
+  enVersion,
+  skuSource,
+  numeroSuivant,
+  onVersionCreee,
   numero,
   ouverte,
   courante,
@@ -55,10 +67,16 @@ export default function Planche({
   cle: string;
   generation: string | null;
   lignes: readonly Photo[];
-  /** Straightened copies, to show under their photo. */
-  copies: readonly CopiePivotee[];
+  /** Retouched copies outside any version, to show under their photo. */
+  copies: readonly CopieRetouchee[];
   /** Photos with at least one variant (any decision): neither removable nor replaceable. */
   servies: ReadonlySet<string | null>;
+  /** Photos a version shows (themselves or a copy): not removable. */
+  enVersion: ReadonlySet<string>;
+  /** The bag shown in the sheet: its Version 1 gives a new version its text. */
+  skuSource: string | null;
+  numeroSuivant: number;
+  onVersionCreee: (v: VersionEnBase) => void;
   numero: number;
   ouverte: boolean;
   courante: boolean;
@@ -97,12 +115,26 @@ export default function Planche({
   const [enCours, setEnCours] = useState<{ id: string; texte: string } | null>(null);
   const [retrait, setRetrait] = useState<Photo | null>(null);
   const [pivot, setPivot] = useState<Photo | null>(null);
-  const [copieARetirer, setCopieARetirer] = useState<{ copie: CopiePivotee; ordre: number } | null>(null);
+  const [copieARetirer, setCopieARetirer] = useState<{ copie: CopieRetouchee; ordre: number } | null>(null);
+  // Batch retouch: the checked photos, the panel, and its settings (kept between two openings).
+  const [coches, setCoches] = useState<ReadonlySet<string>>(() => new Set());
+  const [panneau, setPanneau] = useState(false);
+  const [reglages, setReglages] = useState<ReglagesLot>(REGLAGES_INITIAUX);
 
   const parOrdre = new Map(photos.map((p) => [p.ordre, p]));
   const copiesDe = (id: string) => copies.filter((c) => c.copieDeId === id);
   const libres = Array.from({ length: MAX_PRISES }, (_, i) => i + 1).filter((o) => !parOrdre.has(o));
   const nom = (o: number) => nomPrise(o, generation);
+  // In board order; a photo removed or moved off the board drops out of the batch by itself.
+  const cochees = [...photos].sort((a, b) => a.ordre - b.ordre).filter((p) => coches.has(p.id));
+  const toutCoche = photos.length > 0 && cochees.length === photos.length;
+  const basculerCoche = (id: string) =>
+    setCoches((c) => {
+      const n = new Set(c);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
 
   // ── Import: fill the free cells, name the surplus ──────────────────────────
   async function importer(liste: File[], visee: number | null = null) {
@@ -211,13 +243,13 @@ export default function Planche({
     }
   }
 
-  // ── Remove a straightened copy (the photo is untouched) ───────────────────
-  async function retirerCopie(c: CopiePivotee) {
+  // ── Remove a retouched copy (the photo is untouched) ───────────────────────
+  async function retirerCopie(c: CopieRetouchee) {
     setEnCours({ id: c.id, texte: "Retrait…" });
     try {
       const res = await fetch(`/api/studio/references/${c.id}`, { method: "DELETE" });
       if (!res.ok) toastErreur(`Retrait impossible : ${await lireErreur(res)}`);
-      else toastSucces(`Copie à ${libelleAngle(c.angle)} retirée.`);
+      else toastSucces(`Copie « ${c.libelle} » retirée.`);
     } catch {
       toastErreur("Connexion perdue : la copie reste sur la planche.");
     } finally {
@@ -280,9 +312,22 @@ export default function Planche({
         </>
       }
       actions={
-        <Button variant={photos.length === 0 ? "primary" : "secondary"} size="sm" pending={!!envoi} pendingLabel={envoi ?? undefined} disabled={rafraichit && !envoi} onClick={choisirFichiers}>
-          <Upload size={15} aria-hidden /> Ajouter des photos
-        </Button>
+        <>
+          <Button variant={photos.length === 0 ? "primary" : "secondary"} size="sm" pending={!!envoi} pendingLabel={envoi ?? undefined} disabled={rafraichit && !envoi} onClick={choisirFichiers}>
+            <Upload size={15} aria-hidden /> Ajouter des photos
+          </Button>
+          {photos.length > 0 && (
+            <>
+              <Button variant="secondary" size="sm" onClick={() => setCoches(toutCoche ? new Set() : new Set(photos.map((p) => p.id)))}>
+                {toutCoche ? "Tout décocher" : "Tout cocher"}
+              </Button>
+              <Button size="sm" disabled={cochees.length === 0} onClick={() => setPanneau(true)}>
+                <SlidersHorizontal size={15} aria-hidden />
+                {cochees.length === 0 ? "Retoucher" : `Retoucher ${pluriel(cochees.length, "photo", "photos")}`}
+              </Button>
+            </>
+          )}
+        </>
       }
     >
       <input
@@ -313,7 +358,7 @@ export default function Planche({
       <p className="max-w-[65ch] text-base text-ink-2">
         {photos.length === 0
           ? "14 à 15 vraies photos, toujours les mêmes prises. Dépose-les d’un coup sur la planche : elles prennent les cases libres dans l’ordre des noms de fichier."
-          : "Glisse chaque photo sur sa prise : sur une case occupée, les deux s’échangent. Au clavier : menu de la photo, puis « Déplacer vers »."}
+          : "Coche les photos à retoucher : un seul réglage pour toutes, une copie de chacune. Glisse une photo sur sa prise pour la ranger (au clavier : menu de la photo, « Déplacer vers »)."}
         {nbServies > 0 && ` ${pluriel(nbServies, "photo a", "photos ont")} déjà servi : elles restent sur la planche.`}
       </p>
       <p role="status" className="sr-only">
@@ -326,6 +371,7 @@ export default function Planche({
           const dessus = survol === ordre;
           const eclaire = eclair.includes(ordre);
           const servie = !!photo && servies.has(photo.id);
+          const cochee = !!photo && coches.has(photo.id);
           const occupation = photo && enCours?.id === photo.id ? enCours.texte : null;
           return (
             <li
@@ -350,7 +396,7 @@ export default function Planche({
               // Constant border width: the highlight is a ring (box-shadow), which takes no room.
               className={cn(
                 "relative flex flex-col gap-2 rounded-md border p-2 transition-[background-color,border-color,box-shadow] duration-fast",
-                dessus
+                dessus || cochee
                   ? "border-accent bg-accent-soft ring-1 ring-accent"
                   : eclaire
                     ? "border-warn bg-warn-soft ring-1 ring-warn"
@@ -368,6 +414,7 @@ export default function Planche({
                     generation={generation}
                     occupees={parOrdre}
                     servie={servie}
+                    dansUneVersion={enVersion.has(photo.id)}
                     desactive={!!occupation}
                     onDeplacer={(o) => void ranger(photo.id, o)}
                     onPivoter={() => setPivot(photo)}
@@ -392,6 +439,11 @@ export default function Planche({
                     setGlissee(null);
                     setSurvol(null);
                   }}
+                  // A click on the photo checks it, like the box (a drag never clicks).
+                  onClick={(e) => {
+                    if ((e.target as HTMLElement).closest("input")) return;
+                    basculerCoche(photo.id);
+                  }}
                   className={cn(
                     "relative aspect-[3/4] w-full cursor-grab overflow-hidden rounded-sm bg-surface-3 active:cursor-grabbing",
                     glissee === photo.id && "opacity-40",
@@ -399,6 +451,15 @@ export default function Planche({
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element -- image privée servie par /api/studio/image */}
                   <img src={`/api/studio/image?ref=${photo.id}`} alt={`Photo ${nom(ordre)}`} loading="lazy" draggable={false} className="h-full w-full object-cover" />
+                  <span className="absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-xs bg-surface shadow-pop">
+                    <input
+                      type="checkbox"
+                      checked={cochee}
+                      onChange={() => basculerCoche(photo.id)}
+                      aria-label={`Retoucher la photo ${nom(ordre)}`}
+                      className="h-4 w-4 cursor-pointer accent-accent"
+                    />
+                  </span>
                   {servie && (
                     <span className="absolute bottom-1.5 left-1.5 rounded-xs bg-surface px-1.5 py-0.5 text-xs font-semibold text-ink-2">A servi</span>
                   )}
@@ -415,22 +476,22 @@ export default function Planche({
                 </div>
               )}
               {photo && copiesDe(photo.id).length > 0 && (
-                <ul aria-label={`Copies pivotées de la photo ${nom(ordre)}`} className="grid grid-cols-2 gap-2">
+                <ul aria-label={`Copies retouchées de la photo ${nom(ordre)}`} className="grid grid-cols-2 gap-2">
                   {copiesDe(photo.id).map((c) => (
                     <li key={c.id} className="relative">
                       <a
                         href={`/api/studio/image?ref=${c.id}`}
                         target="_blank"
                         rel="noreferrer"
-                        aria-label={`Ouvrir la copie pivotée de ${libelleAngle(c.angle)}`}
+                        aria-label={`Ouvrir la copie « ${c.libelle} »`}
                         className="block aspect-[3/4] overflow-hidden rounded-xs bg-surface-3"
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element -- image privée servie par /api/studio/image */}
                         <img src={`/api/studio/image?ref=${c.id}`} alt="" loading="lazy" draggable={false} className="h-full w-full object-cover" />
                       </a>
-                      <span className="absolute bottom-1 left-1 rounded-xs bg-surface px-1 font-mono text-xs font-semibold text-ink">{libelleAngle(c.angle)}</span>
+                      <span className="absolute bottom-1 left-1 right-7 truncate rounded-xs bg-surface px-1 font-mono text-xs font-semibold text-ink">{c.libelle}</span>
                       <IconButton
-                        label={`Retirer la copie pivotée de ${libelleAngle(c.angle)}`}
+                        label={`Retirer la copie « ${c.libelle} »`}
                         size="sm"
                         className="absolute right-0.5 top-0.5 h-6 w-6 bg-surface md:h-6 md:w-6"
                         disabled={enCours?.id === c.id}
@@ -461,8 +522,8 @@ export default function Planche({
       <AlertDialog
         open={copieARetirer !== null}
         onOpenChange={(o) => !o && setCopieARetirer(null)}
-        title={copieARetirer ? `Retirer la copie ${libelleAngle(copieARetirer.copie.angle)} ?` : "Retirer la copie ?"}
-        description="Seule la copie pivotée est retirée ; la photo d’origine reste sur la planche."
+        title={copieARetirer ? `Retirer la copie « ${copieARetirer.copie.libelle} » ?` : "Retirer la copie ?"}
+        description="Seule la copie est retirée ; la photo d’origine reste sur la planche."
         confirmLabel="Retirer"
         pending={!!copieARetirer && enCours?.id === copieARetirer.copie.id}
         pendingLabel="Retrait…"
@@ -470,6 +531,21 @@ export default function Planche({
       />
 
       <PivoterPhoto photo={pivot} nom={pivot ? nom(pivot.ordre) : ""} onFermer={() => setPivot(null)} />
+
+      <RetoucheLot
+        ouvert={panneau}
+        onFermer={() => setPanneau(false)}
+        photos={cochees.map((p) => ({ id: p.id, ordre: p.ordre, nom: nom(p.ordre) }))}
+        cle={cle}
+        skuSource={skuSource}
+        numeroSuivant={numeroSuivant}
+        reglages={reglages}
+        onReglages={setReglages}
+        onVersionCreee={(v) => {
+          setPanneau(false);
+          onVersionCreee(v);
+        }}
+      />
     </SectionEtape>
   );
 }

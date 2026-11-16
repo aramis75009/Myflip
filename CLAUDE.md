@@ -276,6 +276,51 @@ s'appliquent pas à ces écrans.
   - **`sharp` est une dépendance directe** depuis le 16/11/2026 (`package.json`). Il était déjà
     dans le lockfile, mais seulement comme dépendance **optionnelle** de `next` : l'importer sans
     la déclarer, c'est compter sur un paquet qu'`npm` a le droit de sauter. Aucune nouvelle version.
+- **Retouches par lot et Versions** (17/11/2026, PRD `docs/prd/2026-11-16-studio-retouches-par-lot.md`,
+  étape 2) : chaque photo de la planche a une case ; « Tout cocher », puis « Retoucher N photos »
+  ouvre UN panneau (`RetoucheLot.tsx`) avec un aperçu en direct de chaque photo cochée
+  (`ApercuRetouche.tsx`) : **pivoter** (−45° à +45°, curseur et case synchronisés ; mode « zoom »
+  sans coin vide, ou « bords blancs » image entière), **recadrer** (0 à 30 %, centré), **cadre**
+  (pastilles Blanc / Noir / Gris / Beige ou couleur libre, épaisseur 0 à 15 % de la largeur, défaut
+  4 %, bord adouci 0 à 100 %, défaut 35 %). Les réglages forment un objet `Retouche`
+  (`lib/studioRetouche.ts`).
+  - ⚠️ **Une seule géométrie** : `geometrieRetouche` (`lib/studioRetouche.ts`, pure) part
+    d'`echelleRecadrage` (étendue à une image d'autres dimensions que le cadre, plus son pendant
+    `echelleContenue` pour les bords blancs) ; l'aperçu (CSS en `cqw` + un calque `<canvas>` pour le
+    bord adouci, tiré de `masqueAdoucissement`) et le rendu sharp (`rendreCopieRetouchee`,
+    `lib/studioPivotRendu.ts`) lisent les mêmes nombres. Ne pas écrire une seconde formule.
+    « Pivoter » passe par ce même rendu et produit **les mêmes octets qu'avant** (vérifié au bit près).
+  - « **Enregistrer en Version N** » = `POST /api/studio/versions` `{ cle, skuSource, referenceIds,
+    retouche }` (`lib/studioVersionLot.ts`, dépendances injectées, Prisma dans
+    `lib/studioVersionServeur.ts`) : une copie retouchée par photo (`creerCopieRetouchee`,
+    `lib/studioCopie.ts` généralisé : empreinte de **ses** octets, original jamais touché, plafond
+    4 Mo), puis **toujours une nouvelle version**. **Plus d'étape Juger / Valider** pour ces copies.
+    La même retouche sur la même photo **réutilise** la copie (clé `cleRetouche`, index unique
+    `copieDeId, retoucheCle`) ; les copies pivotées d'avant (`angleCopie` seul) sont reprises comme
+    « angle seul, zoom » (`retoucheDeCopie`). Sans aucune retouche, la version montre les photos
+    d'origine elles-mêmes (rien n'est rendu). Tout est vérifié avant le premier rendu ; un échec en
+    cours de lot retire les copies créées par ce lot.
+  - **Versions** (`StudioVersion`, `StudioVersionPhoto`) : elles appartiennent au **coloris** (la
+    fiche), numérotées 2, 3… ; titre, description (tirets) et mots-clés **copiés** de la Version 1 à la
+    création, `skuAnnonce` saisi par Aramis (`PATCH /api/studio/versions/[id]`, seul champ
+    modifiable). ⚠️ **La Version 1 n'est jamais stockée** : c'est l'état actuel de l'annonce du sac
+    affiché dans l'en-tête (le sac cible, sinon le premier du coloris), relu à chaque affichage
+    (`chargerVersionsUn` : `Article.titreAnnonce/descriptionAnnonce/motsClesAnnonce` en LECTURE, images
+    de `whereImagesValidees`) ; son SKU est celui du sac, non modifiable.
+  - Écran **Versions** (`Versions.tsx`, section de la fiche après « Photos ») : une carte par version,
+    photos, case SKU, titre, description en trois blocs (tirets verrouillés, mots-clés, ligne SKU),
+    « Copier le titre » et « Copier la description ». ⚠️ Le format copié (`texteDescription`,
+    `lib/studioVersion.ts`) est : tirets, **une** ligne vide, mots-clés, puis le SKU **juste en
+    dessous** (un seul retour à la ligne). Il diffère volontairement de l'export de Mise en vente
+    (ligne vide aussi avant le SKU), qui n'a pas changé.
+  - Une photo (ou une de ses copies) montrée par une version ne se retire plus (409, et le menu le
+    dit) ; la clé `StudioVersionPhoto.referenceId` est en `NO ACTION` (vérifié : même un `DELETE` de
+    `User` échoue tant qu'il a des versions, comme avec les essais en `RESTRICT` : supprimer
+    d'abord `StudioVersion`, ce que fait le seed e2e). Les copies qu'une version
+    montre ne s'affichent plus sous leur photo sur la planche (elles sont dans « Versions »).
+  - Migration `20261117120000_studio_versions`, idempotente, **à coller dans Supabase AVANT le merge**.
+  - Hors de cette étape : « Reformuler » (étape 4), le choix de la version dans Mise en vente
+    (étape 5), la suppression de la génération (étape 6). « Pivoter la photo… » reste dans le menu.
 - **Avis IA** : plus jamais lancé à l'ouverture d'une fiche (c'était payant) ;
   seulement après une génération, ou par « Demander l'avis ». Un échec est rangé
   dans `verifIA` (`{ erreur: { code, message } }`, sans migration, jamais
@@ -400,7 +445,8 @@ s'appliquent pas à ces écrans.
   `app/api/hermes/**`, `app/api/sacbase/**` et `extension-vinted/*.js`
   n'importent aucun `lib/studio*` ; `lib/studio*`, `app/api/studio/**` et
   `app/studio/**` n'importent rien de la vente, de l'export ni de l'extension, et
-  n'écrivent jamais sur `Article` (ils le LISENT pour le statut des sacs). Côté
+  n'écrivent jamais sur `Article` (ils le LISENT pour le statut des sacs et, depuis le 17/11, pour
+  le texte de l'annonce actuelle : la Version 1). Côté
   vente, un seul fichier parle au Studio (`_referencesPhotos.ts`) et seulement à
   `/api/studio/references`, `/api/studio/annonce` et `/api/studio/image` ; la
   route de l'annonce ne rend que les images **validées par Aramis**, jamais selon
