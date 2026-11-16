@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId, notFound, unauthorized } from "@/lib/apiAuth";
-import { supprimerImage } from "@/lib/studioBlob";
 import { MAX_PRISES, nomPrise } from "@/lib/studioCases";
+import { supprimerFichiersOrphelins } from "@/lib/studioCopieServeur";
 import { estRole } from "@/lib/studioFiche";
 
 export const runtime = "nodejs";
@@ -51,24 +51,22 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   return NextResponse.json({ ok: true });
 }
 
-// DELETE /api/studio/references/[id] — retire une photo de la bibliothèque.
+// DELETE /api/studio/references/[id] — retire une photo de la bibliothèque, ou
+// une de ses copies pivotées. Retirer une photo retire aussi ses copies.
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
   const userId = await getUserId();
   if (!userId) return unauthorized();
   const { id } = await params;
   const ref = await prisma.studioReference.findFirst({ where: { id, userId }, select: { urlImage: true } });
   if (!ref) return notFound("Photo");
+  // Les copies pivotées partent avec leur photo (cascade en base) : on garde leurs fichiers à effacer.
+  const copies = await prisma.studioReference.findMany({ where: { userId, copieDeId: id }, select: { id: true, urlImage: true } });
   // RESTRICT en base : une photo qui a servi garde ses cases verrouillées.
-  if ((await prisma.studioEssai.count({ where: { referenceId: id } })) > 0) {
+  if ((await prisma.studioEssai.count({ where: { referenceId: { in: [id, ...copies.map((c) => c.id)] } } })) > 0) {
     return NextResponse.json({ error: "Cette photo a déjà servi : elle ne peut plus être supprimée." }, { status: 409 });
   }
   await prisma.studioReference.delete({ where: { id } });
-  // Le fichier peut servir à une autre ligne (même empreinte) : ne l'effacer que s'il est orphelin.
-  const encore = await prisma.studioReference.count({ where: { userId, urlImage: ref.urlImage } });
-  if (encore === 0) {
-    await supprimerImage(ref.urlImage, "references", userId).catch((e) =>
-      console.error("[studio] suppression blob référence :", e instanceof Error ? e.name : "erreur"),
-    );
-  }
+  // Un fichier peut servir à une autre ligne (même empreinte) : on ne l'efface que s'il est orphelin.
+  await supprimerFichiersOrphelins(userId, [ref.urlImage, ...copies.map((c) => c.urlImage)]);
   return NextResponse.json({ ok: true });
 }

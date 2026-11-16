@@ -359,6 +359,18 @@ model StudioReference {
   /// Nom de la prise (« Face · détail gauche »), cf. PRISES de lib/studioCases.ts.
   prise    String?
 
+  /// Copie pivotée (outil « Pivoter ») : la vraie photo dont celle-ci est la
+  /// copie, rendue sur le serveur par lib/studioPivotRendu.ts. null = vraie
+  /// photo. Une copie n'est JAMAIS une ligne du tableau (`ordre` null) : elle
+  /// s'affiche à côté de sa photo sur la planche et ne sert pas aux générations.
+  /// Cascade : retirer la photo retire ses copies (la route DELETE efface aussi
+  /// leurs fichiers).
+  copieDeId String?
+  copieDe   StudioReference?  @relation("StudioCopie", fields: [copieDeId], references: [id], onDelete: Cascade)
+  copies    StudioReference[] @relation("StudioCopie")
+  /// Angle de la copie, en degrés entiers de −45 à +45 (jamais 0). null hors copie.
+  angleCopie Int?
+
   createdAt DateTime @default(now())
 
   userId String
@@ -371,6 +383,9 @@ model StudioReference {
   @@index([colorisId])
   @@index([sku])
   @@index([colorisId, ordre])
+  /// Une seule copie par photo et par angle (deux clics ne créent pas deux copies).
+  /// Postgres ne compte pas les NULL comme égaux : les vraies photos n'y sont pas soumises.
+  @@unique([copieDeId, angleCopie])
 }
 
 /// Un prompt d'angle, éditable dans /parametres (onglet Studio) : une colonne
