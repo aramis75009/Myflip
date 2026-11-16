@@ -187,7 +187,7 @@ export async function chargerGrille(userId: string): Promise<DonneesGrille> {
         modele: true,
         coloris: true,
         // Toutes les photos, pas seulement celles du tableau : une photo gardée à la mise en vente (ordre null) prouve aussi qu'on a photographié ce coloris.
-        references: { select: { id: true, ordre: true } },
+        references: { select: { id: true, ordre: true, copieDeId: true } },
         essais: { select: { referenceId: true, angleId: true, decision: true, skuCible: true } },
       },
     }),
@@ -209,7 +209,8 @@ export async function chargerGrille(userId: string): Promise<DonneesGrille> {
     for (const e of etats.values()) if (e.kind === "libre") libres++;
     return {
       prises: lignes.length,
-      photos: b.references.length,
+      // Les copies pivotées (outil « Pivoter ») ne sont pas des photos de plus : ce sont des rendus d'une photo déjà comptée.
+      photos: b.references.filter((r) => r.copieDeId === null).length,
       libres,
       cases: etats.size,
       // Les essais du banc de test (sans photo de ligne) ne se jugent plus dans la fiche.
@@ -270,11 +271,17 @@ export async function chargerFiche(userId: string, cle: string) {
   if (!coloris && duCatalogue) coloris = await assurerColoris(userId, duCatalogue);
   if (!coloris) return null;
 
-  const [lignes, angles, essais, reglages] = await Promise.all([
+  const [lignes, copies, angles, essais, reglages] = await Promise.all([
     prisma.studioReference.findMany({
       where: { userId, colorisId: coloris.id, ordre: { not: null } },
       orderBy: [{ ordre: "asc" }, { createdAt: "asc" }],
       select: { id: true, ordre: true, prise: true, sku: true },
+    }),
+    // Les copies pivotées : jamais des lignes du tableau (ordre null), affichées à côté de leur photo sur la planche.
+    prisma.studioReference.findMany({
+      where: { userId, colorisId: coloris.id, copieDeId: { not: null } },
+      orderBy: [{ createdAt: "asc" }],
+      select: { id: true, copieDeId: true, angleCopie: true },
     }),
     anglesActifs(userId),
     prisma.studioEssai.findMany({
@@ -332,6 +339,7 @@ export async function chargerFiche(userId: string, cle: string) {
     sacs: sacs.map((s) => ({ sku: s.sku, statut: statutDe(s.sku) ?? s.statut, vendu: s.vendu })),
     cibles: sacsCibles(sacs, statutDe),
     lignes: lignes.map((l) => ({ id: l.id, ordre: l.ordre as number, prise: l.prise })),
+    copies: copies.flatMap((c) => (c.copieDeId && c.angleCopie !== null ? [{ id: c.id, copieDeId: c.copieDeId, angle: c.angleCopie }] : [])),
     angles,
     cases,
     promptMaitre: reglages.texte,
