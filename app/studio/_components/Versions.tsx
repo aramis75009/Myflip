@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
-import { Copy, ImageOff, Layers, Lock } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { Download, ImageOff, Layers, SlidersHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { pluriel } from "@/lib/format";
-import { toastErreur, toastSucces } from "@/lib/toast";
+import { toastErreur } from "@/lib/toast";
+import { ligneReglages } from "@/lib/studioReglagesVersion";
 import {
   lireSkuAnnonce,
   nomVersion,
-  texteDescription,
+  urlZipVersion,
   versionsAffichees,
   type PhotoVersion,
   type VersionAffichee,
@@ -18,30 +19,12 @@ import {
   type VersionUn,
 } from "@/lib/studioVersion";
 
-import { lireErreur } from "./envoi";
 import { SectionEtape } from "./SectionEtape";
+import TexteAnnonce from "./TexteAnnonce";
+import { patchVersion } from "./versionApi";
 
 const LIBELLE = "text-xs font-bold uppercase tracking-[0.05em] text-ink-3";
 const srcDe = (p: PhotoVersion) => `/api/studio/image?${p.type}=${p.id}`;
-
-/** Clipboard, with the old fallback when the API is refused (non-secure context, permission). */
-async function copier(texte: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(texte);
-    return true;
-  } catch {
-    const zone = document.createElement("textarea");
-    zone.value = texte;
-    zone.setAttribute("readonly", "");
-    zone.style.position = "fixed";
-    zone.style.opacity = "0";
-    document.body.appendChild(zone);
-    zone.select();
-    const ok = document.execCommand("copy");
-    zone.remove();
-    return ok;
-  }
-}
 
 /**
  * « Versions » of the bag (PRD 2026-11-16, §2): Version 1 is the current
@@ -49,15 +32,18 @@ async function copier(texte: string): Promise<boolean> {
  * keywords, its SKU), read again at every display and never stored; the next
  * ones are made by « Enregistrer en Version N » of the batch retouch panel.
  *
- * Each version: its photos, its listing SKU (typed by Aramis, saved), its title
- * and its description in three blocks — the dashes (read only, locked), the
- * keywords, the SKU line. « Copier la description » copies the dashes, ONE
- * empty line, the keywords and the SKU right below them (`texteDescription`).
- * No link and no action towards Vinted.
+ * Each version: its photos (one zip of them all, « Télécharger les N photos »),
+ * for Version 2 onwards the retouch settings that made it, its listing SKU
+ * (typed by Aramis, saved), its title and its description in three blocks — the
+ * dashes, the keywords, the SKU line (`TexteAnnonce`: editable by hand from
+ * Version 2, and « Reformuler »). « Copier la description » copies the dashes,
+ * ONE empty line, the keywords and the SKU right below them
+ * (`texteDescription`). No link and no action towards Vinted.
  */
 export default function Versions({
   ouverte,
   onBasculer,
+  cle,
   versionUn,
   versions,
   choisie,
@@ -66,6 +52,8 @@ export default function Versions({
 }: {
   ouverte: boolean;
   onBasculer: () => void;
+  /** The colourway of the sheet (key), for the zip of a version. */
+  cle: string;
   /** The current listing of the bag shown in the sheet; null without a bag. */
   versionUn: VersionUn | null;
   versions: readonly VersionEnBase[];
@@ -124,17 +112,49 @@ export default function Versions({
         })}
       </div>
 
-      <DetailVersion key={v.id ?? "v1"} version={v} skuSac={versionUn?.sku ?? null} onVersionModifiee={onVersionModifiee} />
+      <DetailVersion key={v.id ?? "v1"} version={v} cle={cle} skuSac={versionUn?.sku ?? null} onVersionModifiee={onVersionModifiee} />
     </SectionEtape>
+  );
+}
+
+/** The reading line of the retouch settings of a version (Version 2 onwards). */
+function LigneReglages({ retouches }: { retouches: NonNullable<VersionAffichee["retouches"]> }) {
+  const ligne = ligneReglages(retouches);
+  const idDetail = useId();
+  if (!ligne) return null;
+  return (
+    <p className="mt-1.5 flex items-start gap-1.5 text-sm text-ink-2">
+      <SlidersHorizontal size={14} className="mt-[3px] flex-none text-ink-3" aria-hidden />
+      <span>
+        <span className="text-ink-3">Retouches : </span>
+        <span
+          data-testid="version-reglages"
+          // The detail shows on hover (title), and is read by assistive tech through aria-describedby.
+          title={ligne.detail ?? undefined}
+          tabIndex={ligne.detail ? 0 : undefined}
+          aria-describedby={ligne.detail ? idDetail : undefined}
+          className={cn(ligne.detail && "cursor-help underline decoration-dotted underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus")}
+        >
+          {ligne.texte}
+        </span>
+        {ligne.detail && (
+          <span id={idDetail} className="sr-only whitespace-pre-line">
+            {ligne.detail}
+          </span>
+        )}
+      </span>
+    </p>
   );
 }
 
 function DetailVersion({
   version: v,
+  cle,
   skuSac,
   onVersionModifiee,
 }: {
   version: VersionAffichee;
+  cle: string;
   skuSac: string | null;
   onVersionModifiee: (v: VersionEnBase) => void;
 }) {
@@ -146,8 +166,17 @@ function DetailVersion({
   const lu = lireSkuAnnonce(saisie);
   const sku = lu.ok ? lu.sku : saisie.trim().toUpperCase() || null;
 
+  // One saving at a time for the whole version (SKU and text): each answer carries the entire version.
+  const file = useRef<Promise<unknown>>(Promise.resolve());
+  const enfiler = useCallback(<T,>(tache: () => Promise<T>): Promise<T> => {
+    const suite = file.current.then(tache, tache);
+    file.current = suite.catch(() => undefined);
+    return suite;
+  }, []);
+
   async function enregistrerSku() {
     if (premiere || !v.id || etat === "envoi") return;
+    const id = v.id;
     if (!lu.ok) {
       toastErreur(lu.message);
       return;
@@ -157,40 +186,43 @@ function DetailVersion({
       return;
     }
     setEtat("envoi");
-    try {
-      const res = await fetch(`/api/studio/versions/${v.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skuAnnonce: lu.sku }),
-      });
-      if (!res.ok) {
-        toastErreur(`SKU non enregistré : ${await lireErreur(res)}`);
-        setEtat("repos");
-        return;
-      }
-      const j = (await res.json()) as { version: VersionEnBase };
-      onVersionModifiee(j.version);
-      setEtat("enregistre");
-    } catch {
-      toastErreur("Connexion perdue : le SKU n’a pas été enregistré.");
+    const res = await enfiler(() => patchVersion(id, { skuAnnonce: lu.sku }));
+    if (!res.ok) {
+      toastErreur(`SKU non enregistré : ${res.message}`);
       setEtat("repos");
+      return;
     }
+    onVersionModifiee(res.version);
+    setEtat("enregistre");
   }
 
-  const nom = nomVersion(v.numero).replace(" (actuelle)", "");
-  async function copierTexte(texte: string, quoi: "titre" | "description") {
-    if (await copier(texte)) toastSucces(quoi === "titre" ? `Titre de la ${nom} copié.` : `Description de la ${nom} copiée.`);
-    else toastErreur("Copie refusée par le navigateur : sélectionne le texte à la main.");
-  }
-
-  const description = texteDescription({ tirets: v.description, motsCles: v.motsCles, sku });
+  const nbPhotos = v.photos.length;
+  const urlZip = urlZipVersion({ cle, numero: v.numero, sku: premiere ? skuSac : null });
+  const libelleZip = nbPhotos === 1 ? "Télécharger la photo" : `Télécharger les ${nbPhotos} photos`;
 
   return (
     <div id="version-detail" role="tabpanel" aria-labelledby={`version-${v.numero}-onglet`} className="mt-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex items-baseline gap-2">
-          <h3 className="text-md font-semibold text-ink">Photos de la version</h3>
-          <span className="font-mono text-xs font-medium text-ink-2">{v.photos.length}</span>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="flex items-baseline gap-2">
+              <h3 className="text-md font-semibold text-ink">Photos de la version</h3>
+              <span className="font-mono text-xs font-medium text-ink-2">{nbPhotos}</span>
+            </div>
+            {nbPhotos > 0 ? (
+              // One zip of every photo of the version, in order: 01.jpg, 02.jpg… (stored bytes, never recompressed).
+              <Button asChild variant="secondary" size="sm">
+                <a href={urlZip} download data-testid="version-telecharger">
+                  <Download size={14} aria-hidden /> {libelleZip}
+                </a>
+              </Button>
+            ) : (
+              <Button variant="secondary" size="sm" disabled>
+                <Download size={14} aria-hidden /> Aucune photo à télécharger
+              </Button>
+            )}
+          </div>
+          {!premiere && v.retouches && <LigneReglages retouches={v.retouches} />}
         </div>
         <div className="w-[260px] max-w-full">
           <div className="flex items-baseline justify-between gap-2">
@@ -251,64 +283,7 @@ function DetailVersion({
         </p>
       )}
 
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
-        <h3 className="text-md font-semibold text-ink">Texte de l’annonce</h3>
-        {premiere && <span className="text-sm text-ink-3">La Version 1 est l’annonce actuelle du sac.</span>}
-      </div>
-
-      <div className="mt-3 grid grid-cols-1 items-start gap-4 min-[1100px]:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-        <div className="rounded-md border border-line bg-surface-2 p-4">
-          <div className="mb-2 flex items-center justify-between gap-2.5">
-            <span className={LIBELLE}>Titre</span>
-            <span className="flex items-center gap-2.5">
-              <span className="font-mono text-xs text-ink-3">{v.titre.length} car.</span>
-              <Button variant="secondary" size="sm" disabled={!v.titre} onClick={() => void copierTexte(v.titre, "titre")}>
-                <Copy size={14} aria-hidden /> Copier le titre
-              </Button>
-            </span>
-          </div>
-          {v.titre ? (
-            <p className="text-md font-bold text-ink">{v.titre}</p>
-          ) : (
-            <p className="text-base text-ink-3">Pas encore de titre : l’annonce de ce sac n’a pas été générée.</p>
-          )}
-        </div>
-
-        <div className="rounded-md border border-line bg-surface-2 p-4">
-          <div className="flex items-center justify-between gap-2.5">
-            <span className={LIBELLE}>Description</span>
-            <Button variant="secondary" size="sm" disabled={!description} onClick={() => void copierTexte(description, "description")}>
-              <Copy size={14} aria-hidden /> Copier la description
-            </Button>
-          </div>
-          <div className="mt-2 rounded-sm border border-line bg-surface-3 p-3 text-ink-3">
-            <div className="mb-1.5 flex items-center justify-between gap-2.5">
-              <span className="text-xs font-bold uppercase tracking-[0.05em]">Tirets</span>
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold">
-                <Lock size={14} aria-hidden /> Ne change jamais
-              </span>
-            </div>
-            <p data-testid="version-tirets" className="whitespace-pre-line text-base leading-[1.6]" aria-readonly="true">
-              {v.description || "Pas encore de description."}
-            </p>
-          </div>
-          <div className="mt-2 rounded-sm border border-line bg-surface p-3">
-            <span className={cn(LIBELLE, "mb-1.5 block")}>Mots-clés</span>
-            <p data-testid="version-mots-cles" className={cn("text-base leading-[1.6]", v.motsCles ? "text-ink" : "text-ink-3")}>
-              {v.motsCles || "Pas encore de mots-clés."}
-            </p>
-          </div>
-          <div className="mt-2 rounded-sm border border-line bg-surface p-3">
-            <div className="mb-1.5 flex items-center justify-between gap-2.5">
-              <span className={LIBELLE}>Ligne SKU</span>
-              <span className="text-xs text-ink-3">reprend la case SKU</span>
-            </div>
-            <p data-testid="version-ligne-sku" className={cn("font-mono text-base", sku ? "text-ink" : "text-ink-3")}>
-              {sku ?? "SKU de l’annonce"}
-            </p>
-          </div>
-        </div>
-      </div>
+      <TexteAnnonce version={v} sku={sku} enfiler={enfiler} onVersionModifiee={onVersionModifiee} />
     </div>
   );
 }

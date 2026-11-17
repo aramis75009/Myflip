@@ -319,8 +319,54 @@ s'appliquent pas à ces écrans.
     d'abord `StudioVersion`, ce que fait le seed e2e). Les copies qu'une version
     montre ne s'affichent plus sous leur photo sur la planche (elles sont dans « Versions »).
   - Migration `20261117120000_studio_versions`, idempotente, **à coller dans Supabase AVANT le merge**.
-  - Hors de cette étape : « Reformuler » (étape 4), le choix de la version dans Mise en vente
-    (étape 5), la suppression de la génération (étape 6). « Pivoter la photo… » reste dans le menu.
+  - Hors de l'étape 2 : le choix de la version dans Mise en vente (étape 5), la suppression de la
+    génération (étape 6). « Pivoter la photo… » reste dans le menu.
+- **« Reformuler », texte modifiable à la main, zip des photos, réglages affichés** (17/11/2026, étape 4,
+  aucune migration : `titre`, `description`, `motsCles` existent déjà sur `StudioVersion`).
+  - **« Reformuler »** (Version 2 et suivantes seulement ; la Version 1 dit « elle n'est pas
+    reformulée ») : `POST /api/studio/versions/[id]/reformuler`, sans corps. Le serveur part du titre
+    et des mots-clés **enregistrés** de la version (ce qu'Aramis a corrigé à la main compris : l'écran
+    enregistre d'abord ce qui vient d'être tapé), fait **UN** appel au sélecteur d'IA des annonces
+    (`choisirIA("annonce", …)` + `genererAnnonce`, `lib/studioReformulationServeur.ts` ; aucun réglage
+    ni fournisseur de plus, aucune photo envoyée) et rend `{ proposition: { titre, motsCles } }`.
+    **N'écrit rien** : seul « Garder » enregistre (`PATCH` `{ titre, motsCles }`) ; « Proposer autre
+    chose » refait un appel ; fermer l'encadré n'enregistre rien. **Aucun appel sans clic** (pas de
+    reformulation à la création d'une version, pas de lot). Règles pures et testées :
+    `lib/studioReformulation.ts` (prompt, validation, diff mot à mot surligné, erreurs).
+  - ⚠️ **Jamais `description` (les tirets) ni `skuAnnonce` pour l'IA** : ils ne lui sont pas envoyés ;
+    le format de réponse d'annonce impose les trois clés, `description` y est demandée « sans objet » et
+    **jetée** à la lecture (`lireProposition` ne garde que `titre` et `motsCles`). Sortie inutilisable
+    (JSON illisible, titre > 100 caractères, mots-clés vides) : « Proposition inutilisable, réessaie »
+    (502), rien n'est enregistré ; panne du fournisseur (clé, crédits) : son message passe tel quel.
+  - ⚠️ **`lib/studioReformulationServeur.ts` est le SEUL fichier du Studio qui importe
+    `lib/fournisseurIA`** (texte). La génération d'images et l'avis IA restent sur OpenRouter, avec la
+    clé OpenRouter du compte ; `lib/studioReformulation.test.ts` le garde. **Jamais vérifié par un
+    appel réel** : le premier appel dira si le prompt rend un JSON utilisable chez chaque fournisseur.
+  - **Modifier à la main** (Version 2+ ; la Version 1 reste en lecture seule, refusée en 400) : titre,
+    tirets et mots-clés sont des champs (`TexteAnnonce.tsx`) enregistrés par `PATCH
+    /api/studio/versions/[id]` (`lireModificationVersion`, `lib/studioVersion.ts`) : **seuls les champs
+    présents dans le corps sont écrits**, un champ à la fois depuis l'écran (Entrée ou en quittant le
+    champ ; bouton « Enregistrer » pour les tirets). Une file (`enfiler`, `Versions.tsx`) envoie les
+    enregistrements un par un : chaque réponse porte la version entière, deux requêtes en vol feraient
+    reculer un champ. « Copier la description » copie la description telle qu'elle est à l'écran.
+  - **« Télécharger les N photos »**, sur chaque version, Version 1 comprise :
+    `GET /api/studio/versions/zip?cle=&numero=[&sku=]` (`lib/studioZip.ts`, dépendances injectées,
+    Prisma et stockage dans `lib/studioZipServeur.ts`). Un seul `.zip` nommé `<SKU>-version-<n>.zip`
+    (SKU d'annonce, sinon le sac, sinon le coloris), photos `01.jpg`, `02.jpg`… dans l'ordre de la
+    version (l'extension suit le vrai type : une image générée peut être en PNG ou WebP), **octets du
+    stockage tels quels** (entrées rangées sans compression), tout lu avant de répondre, **une photo
+    absente ou d'un autre compte refuse tout** (404). Aucun identifiant de photo ne vient du
+    navigateur : le serveur relit la version pour le compte. Bibliothèque : `fflate` (voir la PR).
+    ⚠️ Un lien `download` n'est pas interceptable par `page.route` : l'e2e vérifie le lien et les refus du
+    vrai serveur, le contenu du zip l'est par vitest et par `unzip -t`.
+  - **Réglages de retouche** sous le titre de la version (2+) : `ligneReglages`
+    (`lib/studioReglagesVersion.ts`, pur) lit les réglages sur les copies (`StudioReference.retouche`,
+    sinon `angleCopie` des anciennes copies « Pivoter » ; `VersionEnBase.retouches`, relu par
+    `versionEnBase`) : « Pivoté 8° (zoom) · Recadré 10 % · Cadre beige 4 %, bord adouci 35 % », réglages
+    neutres omis, « Photos d'origine » si rien n'est réglé, « Réglages variés » (détail au survol) quand
+    les photos diffèrent. Pas de ligne pour la Version 1.
+  - Hors de cette étape : le choix de la version dans Mise en vente (étape 5), la suppression de la
+    génération (étape 6).
 - **Avis IA** : plus jamais lancé à l'ouverture d'une fiche (c'était payant) ;
   seulement après une génération, ou par « Demander l'avis ». Un échec est rangé
   dans `verifIA` (`{ erreur: { code, message } }`, sans migration, jamais
@@ -621,7 +667,9 @@ fournisseur et ses modèles dans `/compte` (`components/compte/Integrations.tsx`
   pour Trello). Aucune variable `NEXT_PUBLIC_`.
 - ⚠️ **Le Studio IA (`lib/studio*`) n'en dépend PAS** : Ollama Cloud ne génère pas d'images,
   le Studio (génération et avis IA) reste sur OpenRouter avec la clé OpenRouter du compte, quel
-  que soit le fournisseur choisi. Ne pas le brancher sur `fournisseurIA`.
+  que soit le fournisseur choisi. Ne pas le brancher sur `fournisseurIA`. **Seule exception, du
+  texte** : « Reformuler » (`lib/studioReformulationServeur.ts`, 17/11/2026) utilise
+  `choisirIA("annonce", …)` et `genererAnnonce` sans image.
 - **Trois doutes de la documentation Ollama, JAMAIS vérifiés par un appel réel** (le premier
   appel en dira plus ; chacun a son filet) :
   1. forme de `image_url` : l'exemple Ollama l'écrit en chaîne, la forme OpenAI est un objet

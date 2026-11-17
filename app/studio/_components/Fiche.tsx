@@ -156,6 +156,7 @@ export default function Fiche({ fiche }: { fiche: FicheClient }) {
       <Versions
         ouverte={versionsOuverte}
         onBasculer={() => setVersionsOuverte((o) => !o)}
+        cle={coloris.cle}
         versionUn={versionUn}
         versions={versions}
         choisie={versionChoisie}
