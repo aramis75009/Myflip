@@ -9,7 +9,9 @@
 // ⚠️ Le Studio IA (`lib/studio*`) n'en dépend PAS : ni Ollama Cloud ni ce module
 // ne génèrent d'images, il appelle OpenRouter directement avec la clé OpenRouter
 // du compte, quel que soit le fournisseur choisi ici. Ne pas le brancher sur ce
-// module.
+// module. Seule exception, du TEXTE : « Reformuler » une version du Studio
+// (`lib/studioReformulationServeur.ts`) réécrit un titre et des mots-clés avec
+// `choisirIA("annonce", …)` et `genererAnnonce`, sans image.
 //
 // Pur et testé : `choisirIA`, `messageCleManquante`. Le reste n'aiguille que.
 
