@@ -1,6 +1,7 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
 
+import { RETOUCHE_NEUTRE, retoucheDeCopie } from "@/lib/studioRetouche";
 import type { VersionEnBase } from "@/lib/studioVersion";
 
 /**
@@ -17,7 +18,8 @@ export const SELECT_VERSION = {
   motsCles: true,
   skuAnnonce: true,
   createdAt: true,
-  photos: { orderBy: { ordre: "asc" }, select: { referenceId: true } },
+  // Les réglages se lisent sur la copie : `retouche` (JSON), ou `angleCopie` pour une copie « Pivoter » d'avant la refonte.
+  photos: { orderBy: { ordre: "asc" }, select: { referenceId: true, reference: { select: { copieDeId: true, retouche: true, angleCopie: true } } } },
 } satisfies Prisma.StudioVersionSelect;
 
 type LigneVersion = Prisma.StudioVersionGetPayload<{ select: typeof SELECT_VERSION }>;
@@ -32,4 +34,6 @@ export const versionEnBase = (v: LigneVersion): VersionEnBase => ({
   skuAnnonce: v.skuAnnonce,
   createdAt: v.createdAt.toISOString(),
   photos: v.photos.map((p) => p.referenceId),
+  // Une photo d'origine (pas une copie) n'a aucun réglage ; une copie dont la retouche ne se relit pas : null.
+  retouches: v.photos.map((p) => (p.reference.copieDeId === null ? RETOUCHE_NEUTRE : retoucheDeCopie(p.reference))),
 });
