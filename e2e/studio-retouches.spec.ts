@@ -179,9 +179,10 @@ test.describe("Studio, retouches par lot et versions", () => {
     await expect(onglet2).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("tab", { name: /^Version 1 \(actuelle\)/ })).toBeVisible();
     await expect(page.getByRole("list", { name: "Photos de la Version 2" }).getByRole("listitem")).toHaveCount(6);
-    await expect(page.getByText(TITRE, { exact: true })).toBeVisible();
-    await expect(page.getByTestId("version-tirets")).toHaveText(TIRETS);
-    await expect(page.getByTestId("version-mots-cles")).toHaveText(MOTS);
+    // Depuis l'étape 4, titre, tirets et mots-clés d'une version 2+ sont des champs modifiables à la main.
+    await expect(page.getByRole("textbox", { name: "Titre" })).toHaveValue(TITRE);
+    await expect(page.getByTestId("version-tirets")).toHaveValue(TIRETS);
+    await expect(page.getByTestId("version-mots-cles")).toHaveValue(MOTS);
 
     // Le SKU d'annonce : saisi, enregistré (PATCH), repris par la ligne SKU et par la carte.
     const sku = page.getByRole("textbox", { name: "SKU d’annonce" });
