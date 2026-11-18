@@ -459,7 +459,7 @@ export default function Integrations() {
       etat: dto.openrouter,
       source: dto.source.openrouter,
       test: "openrouter",
-      aide: "Sert quand tu choisis OpenRouter ci-dessous, et pour la génération d'images du Studio (Ollama Cloud ne génère pas d'images). Où la trouver : openrouter.ai/keys.",
+      aide: "Sert quand tu choisis OpenRouter ci-dessous. Où la trouver : openrouter.ai/keys.",
     },
     {
       cle: "anthropicKey",

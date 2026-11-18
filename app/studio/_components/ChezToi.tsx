@@ -12,13 +12,13 @@ import { Badge } from "../_ui";
 
 // /studio, the top of the home: the bags you have in hand, what each one still
 // needs, grouped by Commande (the number comes from FLIPO). Three tiles count
-// the states and filter the list (?etat=…): to photograph, to generate, ready.
+// the states and filter the list (?etat=…): to photograph, to retouch, ready.
 //
 // The state rules live in lib/studioChezToi.ts (pure, tested); this file only draws.
 
 const TONS_ETAT: Record<EtatSac, "warn" | "neutre" | "acc"> = {
   a_photographier: "warn",
-  a_generer: "neutre",
+  a_retoucher: "neutre",
   pret: "acc",
 };
 
@@ -36,8 +36,8 @@ export function VueChezToi({ sacs, etat, onEtat }: { sacs: SacChezToi[]; etat: E
           <div className="mt-1.5 text-md">{compte.total > 1 ? "sacs" : "sac"} chez toi</div>
         </div>
         <Tuile n={compte.a_photographier} titre="À prendre en photo" detail="Coloris sans vraie photo." avertissement actif={etat === "a_photographier"} onClick={() => basculer("a_photographier")} />
-        <Tuile n={compte.a_generer} titre="À générer" detail="Le coloris a ses photos, ce sac n’a pas encore d’images validées." actif={etat === "a_generer"} onClick={() => basculer("a_generer")} />
-        <Tuile n={compte.pret} titre="Prêts" detail="Images validées, l’annonce peut partir." actif={etat === "pret"} onClick={() => basculer("pret")} />
+        <Tuile n={compte.a_retoucher} titre="À retoucher" detail="Le coloris a ses photos : retouche-les en une version." actif={etat === "a_retoucher"} onClick={() => basculer("a_retoucher")} />
+        <Tuile n={compte.pret} titre="Prêts" detail="Son annonce a déjà ses images." actif={etat === "pret"} onClick={() => basculer("pret")} />
       </div>
 
       {groupes.length === 0 ? (

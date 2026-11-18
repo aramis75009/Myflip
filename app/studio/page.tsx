@@ -12,7 +12,8 @@ export const dynamic = "force-dynamic";
 type Params = Promise<Record<string, string | string[] | undefined>>;
 
 // /studio — tous les coloris du catalogue SacBase, rangés par prochaine action.
-// Les filtres viennent de l'URL (?generation=V2&filtre=a_juger&q=…).
+// Les filtres viennent de l'URL (?generation=V2&filtre=photographies&q=…) ;
+// `generation` est celle du sac (V1, V2, V3).
 //
 // Le squelette de chargement est ICI, dans la page, et non dans un
 // app/studio/loading.tsx : celui-ci envelopperait aussi /studio/[cle], dont le

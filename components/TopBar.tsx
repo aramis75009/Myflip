@@ -9,7 +9,7 @@ import ThemeToggle from "./ThemeToggle";
 
 // Page title + kicker per route. The kicker says what the screen holds and
 // is shown on desktop only (the bar keeps a single line on mobile). Exact
-// routes are matched first, so « /studio/bilan » wins over « /studio ».
+// routes are matched first, then a prefix (« /studio/<cle> » → « /studio »).
 const LABELS: Record<string, { title: string; sub?: string }> = {
   "/dashboard": { title: "Tableau de bord", sub: "VUE D'ENSEMBLE" },
   "/stock": { title: "Stock", sub: "INVENTAIRE COMPLET" },
@@ -21,8 +21,7 @@ const LABELS: Record<string, { title: string; sub?: string }> = {
   "/parametres": { title: "Réglages", sub: "MODÈLES IA" },
   "/compte": { title: "Mon compte", sub: "PROFIL & SÉCURITÉ" },
   "/demarrage": { title: "Démarrage" },
-  "/studio/bilan": { title: "Studio — Bilan", sub: "PHOTOS D’ANGLE IA" },
-  "/studio": { title: "Studio", sub: "PHOTOS D’ANGLE IA" },
+  "/studio": { title: "Studio", sub: "RETOUCHES ET VERSIONS" },
 };
 
 const INCONNUE = { title: "MyFlip", sub: "CONSOLE REVENTE" };

@@ -9,19 +9,14 @@ import {
   lireFiltres,
   listeAccueil,
   messageSurplus,
-  prochaineAction,
   regrouperParAction,
   repartirDepot,
   separerSansPhotos,
-  type EtatFiche,
 } from "./_parcours";
 
 const carte = (x: Partial<Parameters<typeof actionCarte>[0]> = {}) => ({
   chezMoi: 1,
   prises: 9,
-  libres: 20,
-  cases: 36,
-  aJuger: 0,
   prochain: "SDN3",
   ...x,
 });
@@ -50,11 +45,6 @@ describe("libelleStock", () => {
 });
 
 describe("actionCarte", () => {
-  it("judging comes first: money is already spent", () => {
-    expect(actionCarte(carte({ aJuger: 3 }))).toMatchObject({ genre: "juger", phrase: "Juger 3 images" });
-    expect(actionCarte(carte({ aJuger: 1 })).phrase).toBe("Juger 1 image");
-  });
-
   it("a bag at home without any photo is to photograph", () => {
     expect(actionCarte(carte({ prises: 0, chezMoi: 2 }))).toMatchObject({ genre: "photographier", phrase: "Photographier le sac" });
   });
@@ -64,27 +54,28 @@ describe("actionCarte", () => {
     expect(actionCarte(carte({ prises: 0, chezMoi: 1 })).detail).toBe("0 / 15 prises · 1 chez toi");
   });
 
-  it("photos and a target bag: generate for it", () => {
-    expect(actionCarte(carte())).toMatchObject({ genre: "generer", phrase: "Générer pour SDN3" });
+  it("photos and a target bag: retouch them into a version for it (AI generation removed on 17/11)", () => {
+    expect(actionCarte(carte())).toEqual({ genre: "retoucher", phrase: "Retoucher pour SDN3", detail: "9 / 15 prises" });
   });
 
-  it("nothing to prepare: never bought, every bag listed, or no free cell", () => {
+  it("nothing to prepare: never bought, or every bag listed", () => {
     expect(actionCarte(carte({ prises: 0, chezMoi: 0, prochain: null })).genre).toBe("rien");
     expect(actionCarte(carte({ prochain: null })).phrase).toBe("Rien à préparer");
-    expect(actionCarte(carte({ libres: 0 })).phrase).toBe("Plus de variante libre");
   });
 
   it("groups keep the work order and drop empty groups", () => {
-    const g = regrouperParAction([carte({ prochain: null }), carte({ aJuger: 2 }), carte()]);
-    expect(g.map((x) => x.genre)).toEqual(["juger", "generer", "rien"]);
+    const g = regrouperParAction([carte({ prochain: null }), carte({ prises: 0 }), carte()]);
+    expect(g.map((x) => x.genre)).toEqual(["photographier", "retoucher", "rien"]);
   });
 });
 
 describe("catalogue filters in the URL", () => {
   it("round-trips, and ignores unknown values", () => {
-    const f = lireFiltres(new URLSearchParams("generation=V2&filtre=a_juger&q=pink"));
-    expect(f).toEqual({ generation: "V2", filtre: "a_juger", q: "pink", etat: null });
-    expect(ecrireFiltres(f)).toBe("generation=V2&filtre=a_juger&q=pink");
+    const f = lireFiltres(new URLSearchParams("generation=V2&filtre=photographies&q=pink"));
+    expect(f).toEqual({ generation: "V2", filtre: "photographies", q: "pink", etat: null });
+    expect(ecrireFiltres(f)).toBe("generation=V2&filtre=photographies&q=pink");
+    // The « À juger » filter left with AI generation (17/11): an old link reads as no filter.
+    expect(lireFiltres(new URLSearchParams("filtre=a_juger")).filtre).toBeNull();
     expect(lireFiltres(new URLSearchParams("generation=V9&filtre=tout"))).toEqual({ generation: null, filtre: null, q: "", etat: null });
     expect(ecrireFiltres({ generation: null, filtre: null, q: "  ", etat: null })).toBe("");
     expect(lireFiltres(new URLSearchParams("filtre=photographies")).filtre).toBe("photographies");
@@ -99,7 +90,7 @@ describe("catalogue filters in the URL", () => {
   });
 
   it("the chez-toi state (?etat=) round-trips with the other filters, and an unknown state is ignored", () => {
-    for (const etat of ["a_photographier", "a_generer", "pret"] as const) {
+    for (const etat of ["a_photographier", "a_retoucher", "pret"] as const) {
       const f = lireFiltres(new URLSearchParams(`etat=${etat}`));
       expect(f).toEqual({ generation: null, filtre: null, q: "", etat });
       expect(ecrireFiltres(f)).toBe(`etat=${etat}`);
@@ -110,6 +101,8 @@ describe("catalogue filters in the URL", () => {
     for (const mauvais of ["tout", "PRET", "a_commander", "", "a_photographier_chez_toi"]) {
       expect(lireFiltres(new URLSearchParams({ etat: mauvais })).etat, mauvais).toBeNull();
     }
+    // The old « à générer » state (before 17/11) reads as « à retoucher ».
+    expect(lireFiltres(new URLSearchParams("etat=a_generer")).etat).toBe("a_retoucher");
   });
 
   it("FILTRES_VIDES writes an empty query", () => {
@@ -146,7 +139,7 @@ describe("listeAccueil", () => {
     for (const f of [
       { generation: "V1", filtre: null, q: "" },
       { generation: "V3", filtre: "jamais_photographies", q: "" },
-      { generation: "V2", filtre: "a_juger", q: "" },
+      { generation: "V2", filtre: "doublons", q: "" },
       { generation: null, filtre: "a_commander", q: "" },
       { generation: null, filtre: null, q: "blue" },
       { generation: "V1", filtre: "photographies", q: "zzz" },
@@ -180,10 +173,10 @@ describe("listeAccueil", () => {
   it("the other filters keep the grouping by action", () => {
     for (const filtre of [null, "photographies", "a_commander", "a_photographier_chez_toi"] as const) {
       const { sections } = listeAccueil(cartes, { ...tous, filtre });
-      expect(sections.map((s) => s.id).every((id) => ["juger", "photographier", "generer", "rien"].includes(id))).toBe(true);
+      expect(sections.map((s) => s.id).every((id) => ["photographier", "retoucher", "rien"].includes(id))).toBe(true);
     }
-    const g = listeAccueil([c("A", "V1", 1, 0, { prises: 0 }), c("B", "V1", 1, 2, { aJuger: 2 })], tous).sections;
-    expect(g.map((s) => s.titre)).toEqual(["À juger", "À photographier"]);
+    const g = listeAccueil([c("B", "V1", 1, 2), c("A", "V1", 1, 0, { prises: 0 })], tous).sections;
+    expect(g.map((s) => s.titre)).toEqual(["À photographier", "À retoucher"]);
   });
 });
 
@@ -194,42 +187,10 @@ describe("separerSansPhotos", () => {
       { chezMoi: 0, photos: 0 },
       { chezMoi: null, photos: 0 },
       { chezMoi: 3, photos: 0 },
-    ].map((x) => ({ ...x, generation: "V1", prises: 0, aJuger: 0 }));
+    ].map((x) => ({ ...x, generation: "V1", prises: 0 }));
     const r = separerSansPhotos(l);
     expect(r.chezToi).toEqual([l[0], l[3]]);
     expect(r.aCommander).toEqual([l[1], l[2]]);
-  });
-});
-
-describe("prochaineAction", () => {
-  const base: EtatFiche = { photos: 9, angles: 4, aJuger: 0, cible: "SDN3", choisies: 8, sansImage: 8, validees: 1 };
-
-  it("judging first, then photographing, then generating", () => {
-    expect(prochaineAction({ ...base, aJuger: 3 })).toMatchObject({ etape: "a-juger", titre: "Juger 3 images" });
-    expect(prochaineAction({ ...base, photos: 0 })).toMatchObject({ etape: "photos", titre: "Photographier le sac" });
-    expect(prochaineAction(base)).toMatchObject({ etape: "generation", titre: "Générer 8 variantes pour SDN3" });
-  });
-
-  it("no angle prompt: points to the Studio settings", () => {
-    expect(prochaineAction({ ...base, angles: 0 })).toMatchObject({ etape: "angles", reglages: true });
-  });
-
-  it("no target bag: nothing to prepare", () => {
-    expect(prochaineAction({ ...base, cible: null })).toMatchObject({ etape: "validees", titre: "Rien à préparer" });
-  });
-
-  it("photos without a free cell are named", () => {
-    const p = prochaineAction({ ...base, choisies: 0, sansImage: 2 });
-    expect(p).toMatchObject({ etape: "angles", titre: "Plus de case libre" });
-    expect(p.detail).toContain("2 photos n’ont plus d’angle libre pour SDN3");
-  });
-
-  it("everything covered: complete the board, then the bag is ready", () => {
-    expect(prochaineAction({ ...base, choisies: 0, sansImage: 0 })).toMatchObject({ etape: "photos", titre: "Compléter la planche" });
-    expect(prochaineAction({ ...base, photos: 15, choisies: 0, sansImage: 0, validees: 15 })).toMatchObject({
-      etape: "validees",
-      titre: "SDN3 est prêt",
-    });
   });
 });
 

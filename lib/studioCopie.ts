@@ -1,15 +1,16 @@
 import "server-only";
 import { createHash } from "node:crypto";
 
-import { estAngle, libelleAngle } from "./studioPivot";
-import { cleRetouche, estIdentite, estPivotSeul, lireRetouche, retoucheDePivot, type Retouche } from "./studioRetouche";
+import { libelleAngle } from "./studioPivot";
+import { cleRetouche, estIdentite, estPivotSeul, lireRetouche, type Retouche } from "./studioRetouche";
 
 /**
- * Création d'une COPIE RETOUCHÉE d'une vraie photo du Studio : pivotée seule
- * (bouton « Pivoter », 16/11) ou retouchée par lot (pivoter, recadrer, cadre ;
- * 17/11, PRD 2026-11-16 §8). Une seule orchestration pour les deux.
+ * Création d'une COPIE RETOUCHÉE d'une vraie photo du Studio, retouchée par lot
+ * (pivoter, recadrer, cadre ; 17/11, PRD 2026-11-16 §8). L'ancien bouton
+ * « Pivoter » (16/11, retiré le 17/11) passait par la même orchestration : ses
+ * copies sont des retouches « angle seul, zoom ».
  *
- * Orchestration à dépendances injectées, comme `lib/studioLancement.ts` : la
+ * Orchestration à dépendances injectées : la
  * route lui donne Prisma, le stockage et sharp ; les tests lui donnent des
  * faux, sans base ni réseau. Chaque dépendance est déjà scopée par `userId`
  * par l'appelant.
@@ -29,8 +30,7 @@ import { cleRetouche, estIdentite, estPivotSeul, lireRetouche, retoucheDePivot, 
  *   • une copie par photo et par retouche (`copieExistante`, clé `cleRetouche`) :
  *     la même retouche ne crée pas deux fois la même copie, elle rend l'existante
  *     (`deja_la` + `existante`), que le lot réutilise ;
- *   • la copie n'est jamais une ligne du tableau (`ordre` null) : elle ne sert
- *     pas aux générations.
+ *   • la copie n'est jamais une ligne du tableau (`ordre` null).
  */
 
 export type ReferenceSource = {
@@ -79,7 +79,6 @@ export type DepsCopie = {
 };
 
 export type CodeRefus =
-  | "angle_invalide"
   | "retouche_invalide"
   | "retouche_vide"
   | "introuvable"
@@ -92,10 +91,6 @@ export type ResultatRetouche =
   | { ok: true; id: string; retouche: Retouche; largeur: number; hauteur: number }
   | { ok: false; code: CodeRefus; message: string; existante?: string };
 
-export type ResultatCopie =
-  | { ok: true; id: string; angle: number; largeur: number; hauteur: number }
-  | { ok: false; code: CodeRefus; message: string; existante?: string };
-
 /** SHA-256 hexadécimal : le nom des fichiers de `references/` (cf. `EMPREINTE_RE`). */
 export const empreinteDe = (octets: Buffer): string => createHash("sha256").update(octets).digest("hex");
 
@@ -106,7 +101,7 @@ const refus = (code: CodeRefus, message: string, existante?: string) => ({
   ...(existante ? { existante } : {}),
 });
 
-/** Les messages de « Pivoter » (inchangés) pour une rotation seule, plus génériques sinon. */
+/** Les messages de l'ancien « Pivoter » (inchangés) pour une rotation seule, plus génériques sinon. */
 const messageDejaLa = (r: Retouche) => (estPivotSeul(r) ? `Une copie à ${libelleAngle(r.angle)} existe déjà.` : "Une copie identique existe déjà.");
 const messageRendu = (r: Retouche) => (estPivotSeul(r) ? "La photo n’a pas pu être pivotée." : "La photo n’a pas pu être retouchée.");
 
@@ -165,14 +160,4 @@ export async function creerCopieRetouchee(
     return refus("deja_la", messageDejaLa(retouche), rattrapee?.id);
   }
   return { ok: true, id: creee.id, retouche, largeur: rendu.largeur, hauteur: rendu.hauteur };
-}
-
-/** « Pivoter » (16/11) : la même orchestration, pour un angle seul en mode zoom. */
-export async function creerCopiePivotee(deps: DepsCopie, { referenceId, angle }: { referenceId: string; angle: unknown }): Promise<ResultatCopie> {
-  if (!estAngle(angle) || angle === 0) {
-    return refus("angle_invalide", "Angle : un entier de −45° à +45°, différent de 0°.");
-  }
-  const res = await creerCopieRetouchee(deps, { referenceId, retouche: retoucheDePivot(angle) });
-  if (!res.ok) return res;
-  return { ok: true, id: res.id, angle, largeur: res.largeur, hauteur: res.hauteur };
 }

@@ -267,49 +267,61 @@ describe("cloisonnement : le Studio n'atteint jamais la vente ni l'export", () =
 
   it("balaie bien les écrans et les routes du Studio (sentinelles)", () => {
     expect(fichiersStudioPages()).toEqual(
-      expect.arrayContaining(["app/studio/page.tsx", "app/studio/[cle]/page.tsx", "app/studio/bilan/page.tsx"]),
+      expect.arrayContaining(["app/studio/page.tsx", "app/studio/[cle]/page.tsx", "app/studio/_components/Planche.tsx", "app/studio/_components/Versions.tsx"]),
     );
     expect(fichiersStudioApi()).toEqual(
       expect.arrayContaining([
         "app/api/studio/references/route.ts",
-        "app/api/studio/essais/route.ts",
-        // Génération par API (plan du 19/10) : les routes qui paient et qui écrivent.
-        "app/api/studio/generations/route.ts",
-        "app/api/studio/modeles/route.ts",
-        "app/api/studio/modeles/favoris/route.ts",
-        // Variantes d'angle (20/10) : prompts, vignettes et le chemin vers l'annonce.
-        "app/api/studio/angles/route.ts",
-        "app/api/studio/reglages/route.ts",
+        "app/api/studio/references/[id]/route.ts",
+        // Vignettes et le chemin vers l'annonce (images IA validées avant le 17/11, toujours lues).
         "app/api/studio/vignette/route.ts",
         "app/api/studio/annonce/route.ts",
-        // Refonte du 22/10 : historique des tentatives d'une case.
-        "app/api/studio/historique/route.ts",
+        "app/api/studio/image/route.ts",
         // Retouches par lot (17/11) : versions d'un sac, qui LISENT l'annonce actuelle de l'Article.
         "app/api/studio/versions/route.ts",
         "app/api/studio/versions/[id]/route.ts",
+        "app/api/studio/versions/[id]/reformuler/route.ts",
+        "app/api/studio/versions/zip/route.ts",
       ]),
     );
     expect(fichiersStudioLib()).toEqual(
       expect.arrayContaining([
         "lib/studioBlob.ts",
         "lib/studioServeur.ts",
-        "lib/studioModeles.ts",
-        "lib/studioCatalogue.ts",
-        "lib/studioGeneration.ts",
-        "lib/studioLancement.ts",
         "lib/studioCases.ts",
-        "lib/studioPrompts.ts",
-        // Refonte du 22/10 : résultats par modèle, règles de décision, historique.
-        "lib/studioAgregats.ts",
-        "lib/studioDecision.ts",
-        "lib/studioHistorique.ts",
+        "lib/studioAnnonce.ts",
         // Retouches par lot (17/11).
         "lib/studioRetouche.ts",
         "lib/studioVersion.ts",
         "lib/studioVersionLot.ts",
         "lib/studioVersionServeur.ts",
+        "lib/studioReformulationServeur.ts",
       ]),
     );
+  });
+
+  it("la génération d'images IA est supprimée (17/11) : plus aucune route, aucun écran, aucun module", () => {
+    const tout = [...fichiersStudioLib(), ...fichiersStudioApi(), ...fichiersStudioPages()];
+    for (const parti of [
+      "app/api/studio/generations/route.ts",
+      "app/api/studio/essais/route.ts",
+      "app/api/studio/essais/[id]/verifier/route.ts",
+      "app/api/studio/modeles/route.ts",
+      "app/api/studio/angles/route.ts",
+      "app/api/studio/reglages/route.ts",
+      "app/api/studio/historique/route.ts",
+      "app/studio/bilan/page.tsx",
+      "app/studio/_components/Generation.tsx",
+      "app/studio/_components/FileAJuger.tsx",
+      "lib/studioGeneration.ts",
+      "lib/studioLancement.ts",
+      "lib/studioCatalogue.ts",
+      "lib/studioVerif.ts",
+    ]) {
+      expect(tout, parti).not.toContain(parti);
+    }
+    // Aucun appel vers l'API d'images d'OpenRouter ne reste côté Studio.
+    expect(tout.filter((f) => /\/images\/models|\/images\b["'`]|chat\/completions/.test(lire(f)))).toEqual([]);
   });
 
   it("n'expose aucun chemin d'écriture vers l'export ou l'extension : pas de route Studio sous api/listings, api/hermes ou api/sacbase", () => {

@@ -6,12 +6,10 @@
 // entre les routes (`/api/listings/generate`, `/api/chat`) et les trois
 // clients : les routes ne savent pas quel fournisseur parle.
 //
-// ⚠️ Le Studio IA (`lib/studio*`) n'en dépend PAS : ni Ollama Cloud ni ce module
-// ne génèrent d'images, il appelle OpenRouter directement avec la clé OpenRouter
-// du compte, quel que soit le fournisseur choisi ici. Ne pas le brancher sur ce
-// module. Seule exception, du TEXTE : « Reformuler » une version du Studio
-// (`lib/studioReformulationServeur.ts`) réécrit un titre et des mots-clés avec
-// `choisirIA("annonce", …)` et `genererAnnonce`, sans image.
+// Le Studio (`lib/studio*`) n'en utilise qu'une chose, du TEXTE : « Reformuler »
+// une version (`lib/studioReformulationServeur.ts`) réécrit un titre et des
+// mots-clés avec `choisirIA("annonce", …)` et `genererAnnonce`, sans image. La
+// génération d'images du Studio (OpenRouter direct) a été supprimée le 17/11/2026.
 //
 // Pur et testé : `choisirIA`, `messageCleManquante`. Le reste n'aiguille que.
 

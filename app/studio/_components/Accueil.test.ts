@@ -35,9 +35,6 @@ const carte = (cle: string, photos: number, chezMoi: number | null = 1): CarteCo
   nbSacs: chezMoi ?? 0,
   prises: photos,
   photos,
-  libres: 0,
-  cases: 0,
-  aJuger: 0,
   prochain: null,
 });
 
@@ -47,12 +44,11 @@ const donnees = (x: Partial<DonneesGrille> = {}): DonneesGrille => ({
   sacs: [
     sac("SDN54", 7, "a_photographier", { cle: "5040-red", coloris: "Sky Blue", generation: "V3" }),
     sac("SDN56", 7, "a_photographier", { cle: "5042-pink", coloris: "Pink" }),
-    sac("SDN52", 7, "a_generer", { coloris: "White Gold Label" }),
+    sac("SDN52", 7, "a_retoucher", { coloris: "White Gold Label" }),
     sac("SDN61", 7, "pret", { coloris: "Orange" }),
-    sac("SDN37", 5, "a_generer", { coloris: "Dark Blue", generation: "V2" }),
+    sac("SDN37", 5, "a_retoucher", { coloris: "Dark Blue", generation: "V2" }),
     sac("SDN34", 5, "pret", { coloris: "Black and White", generation: "V2" }),
   ],
-  nbAngles: 4,
   orphelines: 0,
   rattachees: 0,
   ...x,
@@ -73,8 +69,10 @@ describe("accueil /studio : la vue chez toi", () => {
   it("en tête, « N sacs chez toi » et les trois tuiles avec leur nombre", () => {
     expect(t).toContain("6 sacs chez toi");
     expect(t).toMatch(/2 À prendre en photo Coloris sans vraie photo\./);
-    expect(t).toMatch(/2 À générer Le coloris a ses photos/);
-    expect(t).toMatch(/2 Prêts Images validées/);
+    expect(t).toMatch(/2 À retoucher Le coloris a ses photos/);
+    expect(t).toMatch(/2 Prêts Son annonce a déjà ses images\./);
+    // La génération d'images IA est supprimée (17/11) : ni « À juger », ni « générer », ni « Réglages du Studio ».
+    expect(t).not.toMatch(/juger|générer|Génération|Réglages du Studio|prompt d’angle/i);
   });
 
   it("seule la tuile « à prendre en photo » a le ton d'avertissement", () => {
@@ -85,13 +83,13 @@ describe("accueil /studio : la vue chez toi", () => {
 
   it("les tuiles sont des boutons qui se coupent en deux colonnes sur téléphone", () => {
     expect(html).toContain("grid-cols-2");
-    expect(html.match(/<button[^>]*aria-pressed="false"[^>]*>\s*<span[^>]*>\d+<\/span><span[^>]*>(À prendre en photo|À générer|Prêts)</g)).toHaveLength(3);
+    expect(html.match(/<button[^>]*aria-pressed="false"[^>]*>\s*<span[^>]*>\d+<\/span><span[^>]*>(À prendre en photo|À retoucher|Prêts)</g)).toHaveLength(3);
   });
 
   it("les sacs sont rangés par Commande, la plus récente d'abord, avec le résumé", () => {
     expect(position(html, "Commande 7")).toBeLessThan(position(html, "Commande 5"));
-    expect(t).toContain("Commande 7 4 sacs chez toi · 2 à prendre en photo, 1 à générer, 1 prêt");
-    expect(t).toContain("Commande 5 2 sacs chez toi · 1 à générer, 1 prêt");
+    expect(t).toContain("Commande 7 4 sacs chez toi · 2 à prendre en photo, 1 à retoucher, 1 prêt");
+    expect(t).toContain("Commande 5 2 sacs chez toi · 1 à retoucher, 1 prêt");
   });
 
   it("une ligne par sac : SKU, coloris, génération, état, lien vers la fiche", () => {
@@ -103,7 +101,7 @@ describe("accueil /studio : la vue chez toi", () => {
     expect(html).toContain('src="/api/studio/vignette?cle=5039-black-pink"');
   });
 
-  it("dans la Commande 7 : à prendre en photo, puis à générer, puis prêt", () => {
+  it("dans la Commande 7 : à prendre en photo, puis à retoucher, puis prêt", () => {
     const ordre = ["SDN54", "SDN56", "SDN52", "SDN61"].map((sku) => position(html, `data-sac="${sku}"`));
     expect([...ordre].sort((a, b) => a - b)).toEqual(ordre);
   });
@@ -146,7 +144,7 @@ describe("accueil /studio : le filtre d'état", () => {
     expect(html).toContain('data-sac="SDN61"');
     expect(html).toContain('data-sac="SDN34"');
     expect(html).not.toContain('data-sac="SDN54"');
-    expect(texte(html)).toContain("Commande 7 4 sacs chez toi · 2 à prendre en photo, 1 à générer, 1 prêt");
+    expect(texte(html)).toContain("Commande 7 4 sacs chez toi · 2 à prendre en photo, 1 à retoucher, 1 prêt");
     expect(html).toMatch(/aria-pressed="true"[^>]*>\s*<span[^>]*>2<\/span><span[^>]*>Prêts/);
   });
 
@@ -158,7 +156,7 @@ describe("accueil /studio : le filtre d'état", () => {
   });
 
   it("un état sans sac : message et retour à tous les sacs", () => {
-    const d = donnees({ sacs: [sac("SDN1", 7, "a_generer")] });
+    const d = donnees({ sacs: [sac("SDN1", 7, "a_retoucher")] });
     const t = texte(rendre(d, { etat: "pret" }));
     expect(t).toContain("Aucun sac « Prêt » chez toi.");
     expect(t).toContain("Voir tous les sacs");
@@ -171,7 +169,7 @@ describe("accueil /studio : sans le numéro de Commande (FLIPO d'avant ce champ)
   const t = texte(html);
 
   it("les sacs forment un seul groupe « Chez toi », sans numéro", () => {
-    expect(t).toContain("Chez toi 6 sacs chez toi · 2 à prendre en photo, 2 à générer, 2 prêts");
+    expect(t).toContain("Chez toi 6 sacs chez toi · 2 à prendre en photo, 2 à retoucher, 2 prêts");
     expect(html).not.toMatch(/Commande \d/);
     expect(html.match(/data-sac="/g)).toHaveLength(6);
   });

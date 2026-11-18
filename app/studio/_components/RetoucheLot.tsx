@@ -101,7 +101,7 @@ export default function RetoucheLot({
   const maj = (p: Partial<ReglagesLot>) => onReglages({ ...reglages, ...p });
   const majCadre = (p: Partial<Cadre>) => onReglages({ ...reglages, cadreActif: true, cadre: { ...reglages.cadre, ...p } });
 
-  // ── Angle: slider and box stay in sync (same rules as « Pivoter ») ─────────
+  // ── Angle: slider and box stay in sync (same rules as the former « Pivoter ») ─
   const choisirAngle = (a: number) => {
     maj({ angle: Math.min(ANGLE_MAX, Math.max(ANGLE_MIN, a)) });
     setSaisie(null);

@@ -12,8 +12,8 @@ import type { DepsReformulation } from "@/lib/studioReformulation";
  * ⚠️ C'est le SEUL fichier du Studio qui parle à `lib/fournisseurIA` : la
  * reformulation est du texte, rédigé par le même sélecteur d'IA que l'annonce
  * (`choisirIA("annonce", …)` : fournisseur, modèle et clé du compte). La
- * génération d'images et l'avis IA du Studio, eux, restent sur OpenRouter et ne
- * s'y branchent pas (`lib/studioReformulation.test.ts` le garde).
+ * génération d'images et l'avis IA du Studio ont été supprimés le 17/11/2026
+ * (`lib/studioReformulation.test.ts` garde qu'aucun autre fichier du Studio n'y parle).
  *
  * Aucun réglage ni fournisseur de plus : ce qui est choisi dans « Mon compte »
  * pour les annonces sert ici. Aucune photo : `genererAnnonce` reçoit une liste

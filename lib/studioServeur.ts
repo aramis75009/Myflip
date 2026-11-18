@@ -2,11 +2,10 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { regrouperParCleStudio } from "@/lib/studioAlias";
 import { whereImagesValidees } from "@/lib/studioAnnonce";
-import { cleCase, etatsDesCases, nomPrise, sacsCibles, usageAngles, type EtatCase } from "@/lib/studioCases";
+import { nomPrise, sacsCibles } from "@/lib/studioCases";
 import { sacsChezToi, type SacChezToi } from "@/lib/studioChezToi";
 import { buildSkuIndex, getColoris, type SacbaseCatalogue, type SacbaseColoris, type SacbaseColorisSource } from "@/lib/studioColoris";
 import { planRattachement } from "@/lib/studioFiche";
-import { BUDGET_PAR_DEFAUT, type BudgetCompte } from "@/lib/studioModeles";
 import { libelleRetouche, retoucheDeCopie } from "@/lib/studioRetouche";
 import type { VersionUn } from "@/lib/studioVersion";
 import { SELECT_VERSION, versionEnBase } from "@/lib/studioVersionLecture";
@@ -15,8 +14,13 @@ import { SELECT_VERSION, versionEnBase } from "@/lib/studioVersionLecture";
  * Lectures et écritures du Studio en base. Toutes scopées par userId.
  *
  * ⚠️ Cloisonnement (spec §7) : ce module n'écrit jamais `Article`. Il le LIT
- * pour une seule question — le statut des sacs d'un coloris — parce qu'une
- * case se verrouille quand le sac qui l'a reçue a son annonce (règle du 20/10).
+ * pour le statut des sacs d'un coloris (sac « chez toi », sac à préparer) et
+ * pour le texte de l'annonce actuelle (la Version 1).
+ *
+ * La génération d'images IA a été retirée le 17/11/2026 : les tables
+ * `StudioEssai` (images IA validées, toujours lues pour les annonces),
+ * `StudioAngle`, `StudioEchec`, `StudioModeleFavori` et `StudioReglages`
+ * restent en base, sans écriture.
  */
 
 /** Statut MyFlip de chaque SKU demandé (lecture seule). Un SKU absent du stock n'y figure pas. */
@@ -41,49 +45,6 @@ export async function skusAvecImageValidee(userId: string, skus: readonly string
     distinct: ["skuCible"],
   });
   return new Set(lignes.flatMap((l) => (l.skuCible ? [l.skuCible] : [])));
-}
-
-/** Prompts d'angle actifs (colonnes du tableau), dans l'ordre. */
-export function anglesActifs(userId: string) {
-  return prisma.studioAngle.findMany({
-    where: { userId, archiveLe: null },
-    orderBy: [{ ordre: "asc" }, { createdAt: "asc" }],
-    select: { id: true, nom: true, angle: true, ordre: true },
-  });
-}
-
-/** Un réglage numérique de la base, ou sa valeur par défaut s'il est illisible (NaN, ≤ 0) : jamais un budget absurde. */
-const positifOuDefaut = (v: number | null | undefined, defaut: number): number =>
-  typeof v === "number" && Number.isFinite(v) && v > 0 ? v : defaut;
-
-/**
- * Les réglages du Studio du compte : prompt maître, budget par sac (€) et taux
- * (€ pour 1 $). Sans ligne en base, les défauts (1 €, 0,86) : aucune écriture à la lecture.
- */
-export async function lireReglages(
-  userId: string,
-): Promise<{ texte: string; modifieLe: Date | null } & BudgetCompte> {
-  const r = await prisma.studioReglages.findUnique({
-    where: { userId },
-    select: { promptMaitre: true, updatedAt: true, budgetParSacEur: true, tauxEurParUsd: true },
-  });
-  return {
-    texte: r?.promptMaitre ?? "",
-    modifieLe: r?.updatedAt ?? null,
-    budgetParSacEur: positifOuDefaut(r?.budgetParSacEur, BUDGET_PAR_DEFAUT.budgetParSacEur),
-    tauxEurParUsd: positifOuDefaut(r?.tauxEurParUsd, BUDGET_PAR_DEFAUT.tauxEurParUsd),
-  };
-}
-
-export async function lirePromptMaitre(userId: string): Promise<{ texte: string; modifieLe: Date | null }> {
-  const { texte, modifieLe } = await lireReglages(userId);
-  return { texte, modifieLe };
-}
-
-/** Budget par sac et taux du compte : ce que le serveur compare à chaque lancement. */
-export async function lireBudget(userId: string): Promise<BudgetCompte> {
-  const { budgetParSacEur, tauxEurParUsd } = await lireReglages(userId);
-  return { budgetParSacEur, tauxEurParUsd };
 }
 
 /** Crée le coloris à la première référence ou à la première ouverture (spec §4). */
@@ -154,10 +115,6 @@ export type CarteColoris = {
   prises: number;
   /** Toutes les vraies photos déjà importées pour ce coloris, tableau ou non (celles de la mise en vente n'ont pas de ligne). */
   photos: number;
-  /** Cases libres / cases du tableau (prises × prompts d'angle actifs). */
-  libres: number;
-  cases: number;
-  aJuger: number;
   /** Prochain sac à préparer : le premier sac sans annonce. */
   prochain: string | null;
 };
@@ -167,7 +124,6 @@ export type DonneesGrille = {
   cartes: CarteColoris[];
   /** Les sacs chez toi, un par SKU, avec ce qu'il leur manque (vue « chez toi » de l'accueil). Vide sans catalogue. */
   sacs: SacChezToi[];
-  nbAngles: number;
   orphelines: number;
   rattachees: number;
 };
@@ -182,7 +138,7 @@ export async function chargerGrille(userId: string): Promise<DonneesGrille> {
   const catalogue = source.kind === "off" ? [] : source.data.coloris;
   const skusCatalogue = catalogue.flatMap((c) => c.sacs.map((s) => s.sku));
 
-  const [lignesEnBase, angles, orphelines, statuts, skusValides] = await Promise.all([
+  const [lignesEnBase, orphelines, statuts, skusValides] = await Promise.all([
     prisma.studioColoris.findMany({
       where: { userId },
       select: {
@@ -191,10 +147,8 @@ export async function chargerGrille(userId: string): Promise<DonneesGrille> {
         coloris: true,
         // Toutes les photos, pas seulement celles du tableau : une photo gardée à la mise en vente (ordre null) prouve aussi qu'on a photographié ce coloris.
         references: { select: { id: true, ordre: true, copieDeId: true } },
-        essais: { select: { referenceId: true, angleId: true, decision: true, skuCible: true } },
       },
     }),
-    anglesActifs(userId),
     prisma.studioReference.count({ where: { userId, colorisId: null } }),
     statutsDesSkus(userId, skusCatalogue),
     skusAvecImageValidee(userId, skusCatalogue),
@@ -205,19 +159,11 @@ export async function chargerGrille(userId: string): Promise<DonneesGrille> {
   const parCle = new Map(enBase.map((c) => [c.cle, c]));
 
   const compter = (b: (typeof enBase)[number] | undefined) => {
-    if (!b) return { prises: 0, photos: 0, libres: 0, cases: 0, aJuger: 0 };
-    const lignes = b.references.filter((r) => r.ordre !== null);
-    const etats = etatsDesCases(lignes, angles, b.essais, statutDe);
-    let libres = 0;
-    for (const e of etats.values()) if (e.kind === "libre") libres++;
+    if (!b) return { prises: 0, photos: 0 };
     return {
-      prises: lignes.length,
-      // Les copies pivotées (outil « Pivoter ») ne sont pas des photos de plus : ce sont des rendus d'une photo déjà comptée.
+      prises: b.references.filter((r) => r.ordre !== null).length,
+      // Les copies retouchées ne sont pas des photos de plus : ce sont des rendus d'une photo déjà comptée.
       photos: b.references.filter((r) => r.copieDeId === null).length,
-      libres,
-      cases: etats.size,
-      // Les essais du banc de test (sans photo de ligne) ne se jugent plus dans la fiche.
-      aJuger: b.essais.filter((e) => e.referenceId && e.decision === null).length,
     };
   };
 
@@ -258,7 +204,7 @@ export async function chargerGrille(userId: string): Promise<DonneesGrille> {
   // Le catalogue est celui du Studio (alias déjà fusionné) : SDN60 sort sous 5880, avec les photos de la carte 5880.
   const sacs = sacsChezToi(catalogue, cartes, skusValides, statutDe);
 
-  return { sacbase: etatDe(source), cartes, sacs, nbAngles: angles.length, orphelines, rattachees };
+  return { sacbase: etatDe(source), cartes, sacs, orphelines, rattachees };
 }
 
 /**
@@ -274,7 +220,7 @@ export async function chargerFiche(userId: string, cle: string) {
   if (!coloris && duCatalogue) coloris = await assurerColoris(userId, duCatalogue);
   if (!coloris) return null;
 
-  const [lignes, copies, angles, essais, reglages, versions] = await Promise.all([
+  const [lignes, copies, servies, versions] = await Promise.all([
     prisma.studioReference.findMany({
       where: { userId, colorisId: coloris.id, ordre: { not: null } },
       orderBy: [{ ordre: "asc" }, { createdAt: "asc" }],
@@ -286,37 +232,18 @@ export async function chargerFiche(userId: string, cle: string) {
       orderBy: [{ createdAt: "asc" }],
       select: { id: true, copieDeId: true, angleCopie: true, retouche: true, _count: { select: { versionPhotos: true } } },
     }),
-    anglesActifs(userId),
+    // Les photos dont une ancienne image IA a été tirée (essai en RESTRICT) : ni retrait ni remplacement.
     prisma.studioEssai.findMany({
       where: { colorisId: coloris.id, coloris: { userId }, referenceId: { not: null } },
-      orderBy: [{ createdAt: "asc" }],
-      select: {
-        id: true,
-        referenceId: true,
-        angleId: true,
-        numero: true,
-        source: true,
-        modele: true,
-        coutEstimeUsd: true,
-        coutReelUsd: true,
-        dureeMs: true,
-        lancementId: true,
-        essaiParentId: true,
-        promptUtilise: true,
-        verifIA: true,
-        decision: true,
-        skuCible: true,
-        createdAt: true,
-        urlImage: true,
-      },
+      select: { referenceId: true },
+      distinct: ["referenceId"],
     }),
-    lireReglages(userId),
     prisma.studioVersion.findMany({ where: { userId, colorisId: coloris.id }, orderBy: { numero: "asc" }, select: SELECT_VERSION }),
   ]);
 
-  // Les noms de prise dépendent de la génération (les V3 ont leur liste) : une
-  // photo importée avant que sa génération ne soit connue est renommée ici, pour
-  // que la file à juger et l'annonce lisent le bon nom.
+  // Les noms de prise dépendent de la génération du sac (les V3 ont leur liste) :
+  // une photo importée avant que sa génération ne soit connue est renommée ici,
+  // pour que la planche et l'annonce lisent le bon nom.
   const generation = duCatalogue?.generation ?? null;
   if (generation) {
     const aRenommer = lignes.filter((l) => l.ordre !== null && l.prise !== nomPrise(l.ordre, generation));
@@ -333,20 +260,22 @@ export async function chargerFiche(userId: string, cle: string) {
     userId,
     sacs.map((s) => s.sku),
   );
-  const statuts = await statutsDesSkus(userId, [...sacs.map((s) => s.sku), ...essais.flatMap((e) => (e.skuCible ? [e.skuCible] : []))]);
+  const statuts = await statutsDesSkus(
+    userId,
+    sacs.map((s) => s.sku),
+  );
   const statutDe = (sku: string) => statuts.get(sku) ?? null;
-  const etats = etatsDesCases(lignes, angles, essais, statutDe);
-  const cases: Record<string, EtatCase> = {};
-  for (const l of lignes) for (const a of angles) cases[cleCase(l.id, a.id)] = etats.get(cleCase(l.id, a.id))!;
 
   return {
     sacbase: etatDe(source),
-    coloris: { id: coloris.id, cle: coloris.cle, modele: coloris.modele, coloris: coloris.coloris, details: coloris.details },
+    coloris: { id: coloris.id, cle: coloris.cle, modele: coloris.modele, coloris: coloris.coloris },
     generation,
     vignette: duCatalogue?.image ? `/api/studio/vignette?cle=${encodeURIComponent(cle)}` : null,
     sacs: sacs.map((s) => ({ sku: s.sku, statut: statutDe(s.sku) ?? s.statut, vendu: s.vendu })),
     cibles: sacsCibles(sacs, statutDe),
     lignes: lignes.map((l) => ({ id: l.id, ordre: l.ordre as number, prise: l.prise })),
+    /** Photos de la planche dont une ancienne image IA a été tirée : elles ne se retirent ni ne se remplacent. */
+    servies: servies.flatMap((e) => (e.referenceId ? [e.referenceId] : [])),
     // Sur la planche, seulement les copies qu'aucune version ne montre (les autres sont dans « Versions »).
     copies: copies.flatMap((c) => {
       const retouche = retoucheDeCopie(c);
@@ -357,13 +286,6 @@ export async function chargerFiche(userId: string, cle: string) {
     /** Versions 2, 3… du coloris, et la Version 1 (état actuel de l'annonce) de chaque sac. */
     versions: versions.map(versionEnBase),
     versionsUn,
-    angles,
-    cases,
-    promptMaitre: reglages.texte,
-    /** Budget par sac (€) et taux (€ pour 1 $) du compte : le devis de l'écran en a besoin, comme le serveur. */
-    budget: { budgetParSacEur: reglages.budgetParSacEur, tauxEurParUsd: reglages.tauxEurParUsd } satisfies BudgetCompte,
-    // L'URL privée du blob ne sort pas du serveur : l'écran passe par /api/studio/image.
-    essais: essais.map(({ urlImage, referenceId, ...e }) => ({ ...e, referenceId: referenceId as string, purge: !urlImage })),
   };
 }
 
@@ -405,50 +327,4 @@ export async function chargerVersionsUn(userId: string, skus: readonly string[])
       .map((e) => e.id);
     return { sku, titre: a?.titreAnnonce ?? "", description: a?.descriptionAnnonce ?? "", motsCles: a?.motsClesAnnonce ?? "", photos };
   });
-}
-
-/** L'onglet Studio de /parametres : prompt maître, prompts d'angle actifs et leur utilisation. */
-export async function chargerPromptsStudio(userId: string) {
-  const [maitre, angles, essais] = await Promise.all([
-    lireReglages(userId),
-    anglesActifs(userId),
-    prisma.studioEssai.findMany({
-      where: { coloris: { userId }, angle: { archiveLe: null } },
-      select: { colorisId: true, referenceId: true, angleId: true, decision: true, skuCible: true },
-    }),
-  ]);
-  const usage = usageAngles(essais);
-  return {
-    promptMaitre: maitre.texte,
-    modifieLe: maitre.modifieLe?.toISOString() ?? null,
-    budgetParSacEur: maitre.budgetParSacEur,
-    tauxEurParUsd: maitre.tauxEurParUsd,
-    angles: angles.map((a) => ({ ...a, cases: usage.get(a.id)?.cases ?? 0, skus: usage.get(a.id)?.skus ?? [] })),
-  };
-}
-
-export type DonneesPromptsStudio = Awaited<ReturnType<typeof chargerPromptsStudio>>;
-
-/** Les essais du compte, pour le bilan (dates et corrections comprises), avec les libellés des angles et des coloris. */
-export async function chargerBilan(userId: string) {
-  const [essais, echecs, angles, coloris] = await Promise.all([
-    prisma.studioEssai.findMany({
-      where: { coloris: { userId } },
-      select: {
-        colorisId: true,
-        angleId: true,
-        numero: true,
-        decision: true,
-        verifIA: true,
-        modele: true,
-        coutReelUsd: true,
-        essaiParentId: true,
-        createdAt: true,
-      },
-    }),
-    prisma.studioEchec.findMany({ where: { userId }, select: { modele: true, code: true, coutReelUsd: true, createdAt: true } }),
-    prisma.studioAngle.findMany({ where: { userId }, select: { id: true, nom: true, ordre: true, archiveLe: true } }),
-    prisma.studioColoris.findMany({ where: { userId }, select: { id: true, cle: true, modele: true, coloris: true } }),
-  ]);
-  return { essais, echecs, angles, coloris };
 }

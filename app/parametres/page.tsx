@@ -21,7 +21,6 @@ import { libelleModeleIA, modeleChoisi } from "@/lib/modelesIA";
 import { useIdentite } from "@/lib/useIdentite";
 import Modal from "@/components/Modal";
 import MetaPrompt from "@/components/parametres/MetaPrompt";
-import PromptsStudio, { usePromptsStudio } from "@/components/parametres/PromptsStudio";
 import Loader from "@/components/Loader";
 import { CardTitle, Frame, Module } from "@/components/console";
 
@@ -184,20 +183,6 @@ export default function PromptsPage() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // Onglet lu dans l'URL (?onglet=studio) après le montage : pas de
-  // useSearchParams, qui exigerait une frontière Suspense sur cette page client.
-  const [onglet, setOnglet] = useState<"annonces" | "studio">("annonces");
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("onglet") === "studio") setOnglet("studio");
-  }, []);
-  function changerOnglet(o: "annonces" | "studio") {
-    setOnglet(o);
-    const url = new URL(window.location.href);
-    if (o === "studio") url.searchParams.set("onglet", "studio");
-    else url.searchParams.delete("onglet");
-    window.history.replaceState(null, "", url);
-  }
-  const { data: studio } = usePromptsStudio();
 
   function openNew() {
     setEditId(null);
@@ -250,44 +235,9 @@ export default function PromptsPage() {
 
   const pending = create.isPending || update.isPending;
 
-  const onglets = (
-    <div className="inline-flex gap-0.5 rounded-md border border-line bg-surface p-1" role="tablist" aria-label="Prompts">
-      {(
-        [
-          ["annonces", "Annonces", String(prompts.length)],
-          ["studio", "Studio : variantes d’angle", studio ? `1 + ${studio.angles.length}` : ""],
-        ] as const
-      ).map(([o, nom, n]) => (
-        <button
-          key={o}
-          type="button"
-          role="tab"
-          aria-selected={onglet === o}
-          onClick={() => changerOnglet(o)}
-          className={`inline-flex min-h-10 items-center gap-2 rounded-md px-4 text-base font-semibold transition-colors ${
-            onglet === o ? "bg-ink text-bg" : "text-ink hover:bg-surface-2"
-          }`}
-        >
-          {nom}
-          {n && <span className={`font-mono text-xs font-medium ${onglet === o ? "opacity-75" : "text-ink-2"}`}>{n}</span>}
-        </button>
-      ))}
-    </div>
-  );
-
-  if (onglet === "studio") {
-    return (
-      <Frame>
-        {onglets}
-        <PromptsStudio />
-      </Frame>
-    );
-  }
-
   return (
     <Frame>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {onglets}
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <button
           onClick={openNew}
           className="inline-flex min-h-11 items-center gap-2 rounded-full bg-accent px-5 text-sm font-semibold text-accent-ink transition-colors hover:bg-accent-hover"

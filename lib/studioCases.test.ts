@@ -3,31 +3,16 @@ import {
   FILTRES_ACCUEIL,
   PRISES,
   bilanPhotos,
-  choixAutomatique,
-  cleCase,
-  etatCase,
-  etatsDesCases,
-  ligneCouverte,
   nomPrise,
   passeFiltres,
   prisesPour,
   estChezToi,
-  promptVariante,
   resoudreFiltre,
   sacsCibles,
-  sansFreresDuLancement,
-  usageAngles,
-  type EssaiCase,
 } from "./studioCases";
 
 const statuts: Record<string, string> = { SDN9: "Vendu", SDN12: "En vente", SDN15: "Photos prêtes", SDN16: "En stock" };
 const statutDe = (sku: string) => statuts[sku] ?? null;
-const e = (referenceId: string, angleId: string, decision: string | null, skuCible: string | null = "SDN15"): EssaiCase => ({
-  referenceId,
-  angleId,
-  decision,
-  skuCible,
-});
 
 describe("prises", () => {
   it("14 prises fixes plus une libre, nommées par leur numéro", () => {
@@ -45,80 +30,6 @@ describe("prises", () => {
     expect(nomPrise(2, "V1")).toBe("Face · détail gauche");
     expect(nomPrise(2, "V2")).toBe("Face · détail gauche");
     expect(nomPrise(2, null)).toBe("Face · détail gauche");
-  });
-});
-
-describe("promptVariante", () => {
-  it("met le prompt maître en tête, puis le prompt d'angle", () => {
-    expect(promptVariante(" Maître. ", " Angle: 4° clockwise. ")).toBe("Maître.\n\nAngle: 4° clockwise.");
-  });
-  it("sans prompt maître, n'envoie que l'angle", () => {
-    expect(promptVariante("  ", "Angle: closer.")).toBe("Angle: closer.");
-  });
-});
-
-describe("etatCase", () => {
-  it("libre sans essai", () => {
-    expect(etatCase([], statutDe)).toEqual({ kind: "libre" });
-  });
-  it("redevient libre quand tous ses essais sont rejetés (décision 1)", () => {
-    expect(etatCase([e("r", "a", "rejete"), e("r", "a", "rejete")], statutDe)).toEqual({ kind: "libre" });
-  });
-  it("à juger tant qu'un essai attend la décision", () => {
-    expect(etatCase([e("r", "a", "rejete"), e("r", "a", null)], statutDe)).toEqual({ kind: "a_juger" });
-  });
-  it("validée pour un sac encore sans annonce", () => {
-    expect(etatCase([e("r", "a", "valide", "SDN15")], statutDe)).toEqual({ kind: "validee", sku: "SDN15" });
-  });
-  it("en vente dès que le sac cible a son annonce (en vente ou vendu)", () => {
-    expect(etatCase([e("r", "a", "valide", "SDN12")], statutDe)).toEqual({ kind: "vente", sku: "SDN12" });
-    expect(etatCase([e("r", "a", "valide", "SDN9")], statutDe)).toEqual({ kind: "vente", sku: "SDN9" });
-  });
-  it("un SKU inconnu du stock garde la case verrouillée, comme validée", () => {
-    expect(etatCase([e("r", "a", "valide", "SDN99")], statutDe)).toEqual({ kind: "validee", sku: "SDN99" });
-  });
-  it("« en vente » l'emporte sur un autre essai à juger", () => {
-    expect(etatCase([e("r", "a", null), e("r", "a", "valide", "SDN12")], statutDe)).toEqual({ kind: "vente", sku: "SDN12" });
-  });
-});
-
-describe("tableau et choix automatique", () => {
-  const lignes = [{ id: "r1" }, { id: "r2" }, { id: "r3" }, { id: "r4" }];
-  const angles = [{ id: "v1" }, { id: "v2" }, { id: "v3" }];
-  const essais = [
-    e("r1", "v1", "valide", "SDN12"), // en vente
-    e("r2", "v1", "valide", "SDN12"),
-    e("r2", "v2", "valide", "SDN15"), // r2 couverte pour SDN15
-    e("r3", "v1", "valide", "SDN12"),
-    e("r3", "v2", null, "SDN15"), // r3 couverte (à juger)
-    e("r4", "v1", "rejete", "SDN15"), // rejet : r4/v1 libre, r4 pas couverte
-  ];
-  const etats = etatsDesCases(lignes, angles, essais, statutDe);
-
-  it("calcule l'état de chaque case", () => {
-    expect(etats.get(cleCase("r1", "v1"))).toEqual({ kind: "vente", sku: "SDN12" });
-    expect(etats.get(cleCase("r2", "v2"))).toEqual({ kind: "validee", sku: "SDN15" });
-    expect(etats.get(cleCase("r3", "v2"))).toEqual({ kind: "a_juger" });
-    expect(etats.get(cleCase("r4", "v1"))).toEqual({ kind: "libre" });
-    expect(etats.size).toBe(12);
-  });
-
-  it("une ligne est couverte par une image validée ou à juger pour le sac cible, pas par un rejet", () => {
-    expect(ligneCouverte("r2", essais, "SDN15")).toBe(true);
-    expect(ligneCouverte("r3", essais, "SDN15")).toBe(true);
-    expect(ligneCouverte("r4", essais, "SDN15")).toBe(false);
-    expect(ligneCouverte("r2", essais, "SDN16")).toBe(false);
-  });
-
-  it("choisit la première case libre de chaque ligne non couverte", () => {
-    const choix = choixAutomatique(lignes, angles, etats, essais, "SDN15");
-    expect(Object.fromEntries(choix)).toEqual({ r1: "v2", r2: null, r3: null, r4: "v1" });
-  });
-
-  it("rien à choisir quand toute la ligne est prise", () => {
-    const pleine = [e("r1", "v1", null), e("r1", "v2", null), e("r1", "v3", null)].map((x) => ({ ...x, skuCible: "SDN9" }));
-    const et = etatsDesCases([{ id: "r1" }], angles, pleine, statutDe);
-    expect(choixAutomatique([{ id: "r1" }], angles, et, pleine, "SDN15").get("r1")).toBeNull();
   });
 });
 
@@ -157,30 +68,15 @@ describe("estChezToi (la règle « chez toi » du Studio)", () => {
   });
 });
 
-describe("usageAngles", () => {
-  it("compte les cases prises par colonne et les sacs validés, sans les rejets", () => {
-    const u = usageAngles([
-      { ...e("r1", "v1", "valide", "SDN12"), colorisId: "c1" },
-      { ...e("r1", "v1", null), colorisId: "c1" }, // même case
-      { ...e("r2", "v1", "valide", "SDN18"), colorisId: "c2" },
-      { ...e("r3", "v2", "rejete"), colorisId: "c1" },
-    ]);
-    expect(u.get("v1")).toEqual({ cases: 2, skus: ["SDN12", "SDN18"] });
-    expect(u.has("v2")).toBe(false);
-  });
-});
-
 describe("passeFiltres", () => {
-  const c = { generation: "V3", chezMoi: 2, prises: 0, photos: 0, aJuger: 1 };
+  const c = { generation: "V3", chezMoi: 2, prises: 0, photos: 0 };
   it("filtre par génération", () => {
     expect(passeFiltres(c, "V3", null)).toBe(true);
     expect(passeFiltres(c, "V1", null)).toBe(false);
   });
-  it("doublons, à juger", () => {
+  it("doublons", () => {
     expect(passeFiltres(c, null, "doublons")).toBe(true);
     expect(passeFiltres({ ...c, chezMoi: 1 }, null, "doublons")).toBe(false);
-    expect(passeFiltres(c, null, "a_juger")).toBe(true);
-    expect(passeFiltres({ ...c, aJuger: 0 }, null, "a_juger")).toBe(false);
   });
   it("avec vraies photos : une photo suffit, même gardée hors du tableau ; sans vraies photos = le complément", () => {
     expect(passeFiltres(c, null, "photographies")).toBe(false);
@@ -230,7 +126,9 @@ describe("filtres d'URL : l'ancien identifiant", () => {
     expect(FILTRES_ACCUEIL).not.toContain("a_photographier");
     expect(resoudreFiltre("a_photographier")).toBe("a_photographier_chez_toi");
   });
-  it("ignore l'inconnu, y compris les clés héritées d'Object", () => {
+  it("ignore l'inconnu, y compris les clés héritées d'Object et l'ancien « a_juger » (génération supprimée le 17/11)", () => {
+    expect(FILTRES_ACCUEIL).not.toContain("a_juger");
+    expect(resoudreFiltre("a_juger")).toBeNull();
     expect(resoudreFiltre("tout")).toBeNull();
     expect(resoudreFiltre("toString")).toBeNull();
     expect(resoudreFiltre(null)).toBeNull();
@@ -239,7 +137,7 @@ describe("filtres d'URL : l'ancien identifiant", () => {
 });
 
 describe("bilanPhotos (le gros chiffre et les tuiles)", () => {
-  const carte = (generation: string, chezMoi: number | null, photos: number) => ({ generation, chezMoi, prises: 0, photos, aJuger: 0 });
+  const carte = (generation: string, chezMoi: number | null, photos: number) => ({ generation, chezMoi, prises: 0, photos });
   const cartes = [
     carte("V1", 1, 0), // chez toi, sans photos
     carte("V1", 0, 0), // à commander
@@ -259,48 +157,5 @@ describe("bilanPhotos (le gros chiffre et les tuiles)", () => {
   });
   it("catalogue vide", () => {
     expect(bilanPhotos([])).toEqual({ total: 0, sans: 0, avec: 0, chezToi: 0, aCommander: 0 });
-  });
-});
-
-describe("sansFreresDuLancement (comparaison de modèles)", () => {
-  type EssaiLance = EssaiCase & { lancementId: string | null; modele: string };
-  const l = (modele: string, lancementId: string | null, decision: string | null = null): EssaiLance => ({
-    referenceId: "r1",
-    angleId: "a1",
-    decision,
-    skuCible: "SDN15",
-    lancementId,
-    modele,
-  });
-
-  it("sets aside the essays of ANOTHER model of the same launch, so a late sibling request still sees a free case", () => {
-    const essais = [l("a/x", "L1"), l("b/y", "L1")];
-    expect(etatCase(essais, statutDe).kind).toBe("a_juger");
-    const vus = sansFreresDuLancement(essais, "L1", "c/z");
-    expect(vus).toEqual([]);
-    expect(etatCase(vus, statutDe).kind).toBe("libre");
-  });
-
-  it("keeps the essays of the SAME model in the same launch: a double click is still refused", () => {
-    const vus = sansFreresDuLancement([l("a/x", "L1")], "L1", "a/x");
-    expect(vus).toHaveLength(1);
-    expect(etatCase(vus, statutDe).kind).toBe("a_juger");
-  });
-
-  it("keeps the essays of another launch: the case really is taken", () => {
-    const vus = sansFreresDuLancement([l("a/x", "L0", "valide")], "L1", "b/y");
-    expect(etatCase(vus, statutDe).kind).toBe("validee");
-  });
-
-  it("never sets aside an essay without a launch (manual deposit)", () => {
-    const vus = sansFreresDuLancement([l("manuel", null)], "L1", "b/y");
-    expect(vus).toHaveLength(1);
-  });
-
-  it("does not mutate its input and keeps the order", () => {
-    const essais = [l("a/x", "L0"), l("b/y", "L1"), l("c/z", "L0")];
-    const copie = [...essais];
-    expect(sansFreresDuLancement(essais, "L1", "a/x").map((x) => x.modele)).toEqual(["a/x", "c/z"]);
-    expect(essais).toEqual(copie);
   });
 });
