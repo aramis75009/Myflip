@@ -1,7 +1,8 @@
 // Les deux contacts entre la mise en vente et le Studio, et eux seuls :
 //   1. les vraies photos d'un sac Hipobuy partent vers POST /api/studio/references ;
-//   2. les images que le Studio a générées ET qu'Aramis a VALIDÉES pour ce sac
-//      reviennent par GET /api/studio/annonce (règle du 20/10).
+//   2. les images que le Studio a générées ET qu'Aramis a VALIDÉES pour ce sac,
+//      et les versions qu'il y a enregistrées, reviennent par GET
+//      /api/studio/annonce (règle du 20/10 ; versions : étape 5 du PRD des retouches).
 // Aucun import de `lib/studio*` ici (le test lib/studioCloisonnement.test.ts le
 // vérifie) : on parle à des routes, pas à des modules.
 //
@@ -11,6 +12,7 @@
 // refuse tout ce qui n'est pas un sac Hipobuy du compte avant d'envoyer au Blob.
 
 import { compressImage } from "@/lib/imageProcessing";
+import { STUDIO_VIDE, lireReponseStudio, type PhotoStudio, type StudioDuSac } from "./_versionChoix";
 
 /** Taille visée par la spec (§8) : JPEG ~1600 px, sous les 4,5 Mo d'une requête Vercel. */
 const COTE_MAX = 1600;
@@ -82,33 +84,47 @@ export async function conserverReferences(
 }
 
 /**
- * Les images du Studio VALIDÉES par Aramis pour ce sac (règle du 20/10 : une
- * image générée et validée part dans l'annonce du sac choisi), en fichiers
- * prêts pour le pipeline photo, dans l'ordre des prises.
+ * Ce que le Studio sait d'un sac : ses images VALIDÉES par Aramis (règle du
+ * 20/10 : une image générée et validée part dans l'annonce du sac choisi), et,
+ * depuis l'étape 5 du PRD des retouches par lot, ses VERSIONS enregistrées
+ * (2, 3… : photos retouchées, titre, tirets, mots-clés, SKU d'annonce).
  *
- * Le second et dernier contact avec le Studio, toujours par une route : seule
- * la décision d'Aramis compte, le serveur ne rend que `decision = "valide"`.
- * Best-effort comme le reste : une panne rend [], jamais une erreur. Ces
- * fichiers ne doivent JAMAIS repartir vers `conserverReferences` : une image
- * générée n'est pas une vraie photo.
+ * Le second et dernier contact avec le Studio pour le texte et les photos, toujours
+ * par une route : seule la décision d'Aramis compte, le serveur ne rend que
+ * `decision = "valide"` et que les versions de CE compte. Best-effort comme le
+ * reste : une panne rend un Studio vide (pas de menu « Version », comportement
+ * d'avant), jamais une erreur.
  */
-export async function imagesValideesStudio(sku: string): Promise<{ essaiId: string; fichier: File }[]> {
+export async function annonceStudio(sku: string): Promise<StudioDuSac> {
   try {
     const res = await fetch(`/api/studio/annonce?sku=${encodeURIComponent(sku)}`, { cache: "no-store" });
-    if (!res.ok) return [];
-    const j = (await res.json()) as { images?: { essaiId?: unknown; ordre?: unknown }[] };
-    const images = (j.images ?? []).filter((i): i is { essaiId: string; ordre: number } => typeof i.essaiId === "string" && typeof i.ordre === "number");
-    const out: { essaiId: string; fichier: File }[] = [];
-    for (const i of images) {
-      const img = await fetch(`/api/studio/image?essai=${encodeURIComponent(i.essaiId)}`);
+    if (!res.ok) return STUDIO_VIDE;
+    return lireReponseStudio(await res.json());
+  } catch (e) {
+    console.warn("[mise-en-vente] Studio non lu :", e instanceof Error ? e.name : e);
+    return STUDIO_VIDE;
+  }
+}
+
+/**
+ * Les photos d'une version (ou les images validées de la Version 1) en
+ * fichiers prêts pour le pipeline photo, dans leur ordre. `prefixe` nomme les
+ * fichiers (« studio », « version-2 »). Ces fichiers ne doivent JAMAIS repartir
+ * vers `conserverReferences` : une image du Studio n'est pas une photo déposée
+ * à la main. Une photo illisible est sautée, jamais une erreur.
+ */
+export async function fichiersStudio(photos: readonly PhotoStudio[], prefixe: string): Promise<{ photo: PhotoStudio; fichier: File }[]> {
+  const out: { photo: PhotoStudio; fichier: File }[] = [];
+  for (const photo of photos) {
+    try {
+      const img = await fetch(`/api/studio/image?${photo.type === "ref" ? "ref" : "essai"}=${encodeURIComponent(photo.id)}`);
       if (!img.ok) continue;
       const blob = await img.blob();
       const ext = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : "jpg";
-      out.push({ essaiId: i.essaiId, fichier: new File([blob], `studio-${String(i.ordre).padStart(2, "0")}.${ext}`, { type: blob.type || "image/jpeg" }) });
+      out.push({ photo, fichier: new File([blob], `${prefixe}-${String(photo.ordre).padStart(2, "0")}.${ext}`, { type: blob.type || "image/jpeg" }) });
+    } catch (e) {
+      console.warn("[mise-en-vente] image Studio non chargée :", e instanceof Error ? e.name : e);
     }
-    return out;
-  } catch (e) {
-    console.warn("[mise-en-vente] images Studio non chargées :", e instanceof Error ? e.name : e);
-    return [];
   }
+  return out;
 }

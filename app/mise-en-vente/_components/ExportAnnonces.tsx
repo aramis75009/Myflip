@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { pickVintedMapping } from "@/lib/vintedMapping";
 import type { ArticleEnCours } from "../_reducer";
 import { cardCls, labelCls } from "../_ui";
+import { descriptionComplete, libelleVersion } from "../_versionChoix";
 
 type Props = {
   fiches: ArticleEnCours[];
@@ -94,7 +95,9 @@ export default function ExportAnnonces({
 
       {generees.map((f) => {
         const sku = f.article?.sku ?? f.sku;
-        const annonceComplete = `${f.annonce.description}\n\n${f.annonce.motsCles}\n\n${sku}`;
+        // Texte d'une version : le SKU de l'annonce est celui de la version (à défaut, celui du sac).
+        const skuAnnonce = f.texteDeVersion?.skuAnnonce ?? sku;
+        const annonceComplete = descriptionComplete(f.annonce, skuAnnonce);
         const doublon = doublons.has(f.sku.trim().toUpperCase());
         const mapping = pickVintedMapping(f.qcm.marque, f.qcm.categorie);
         const couleurManquante = mapping !== null && f.qcm.couleurs.length === 0;
@@ -124,7 +127,13 @@ export default function ExportAnnonces({
                   SKU en double — l&apos;autre annonce sera écrasée
                 </span>
               )}
-              {f.article?.titreAnnonce && !f.enregistre && (
+              {f.texteDeVersion && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1 text-xs font-bold text-ink-2">
+                  {libelleVersion(f.texteDeVersion.numero)}
+                  {skuAnnonce !== sku && <> · SKU d&apos;annonce {skuAnnonce}</>}
+                </span>
+              )}
+              {f.article?.titreAnnonce && !f.enregistre && f.texteDeVersion?.numero !== 1 && (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-warn-soft px-3 py-1 text-xs font-bold text-warn">
                   <AlertTriangle className="h-3.5 w-3.5" />
                   Annonce existante — sera remplacée

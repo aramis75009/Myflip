@@ -426,7 +426,21 @@ Desktop uniquement : les règles mobile de ce fichier ne s'appliquent pas à ces
 - **Vignettes** : `GET /api/studio/vignette?cle=` relaie `/img/…` de SacBase
   avec `SACBASE_STUDIO_TOKEN` (SacBase accepte ce jeton en GET sur `/img/*`
   depuis le 20/10) ; le chemin vient du catalogue, jamais du client.
-- **Non fait, connu** : la Mise en vente lit toujours les images IA validées, pas la version choisie
+- **Mise en vente : menu « Version »** (18/11/2026, étape 5 du PRD ; **aucune migration, aucun SQL**).
+  `GET /api/studio/annonce?sku=` rend maintenant `{ sku, images, versions }` : `versions` = les versions 2+ du
+  coloris du sac (`versionsDuSac`, `lib/studioServeur.ts` : coloris via SacBase, comme le reste du Studio ;
+  SacBase muet ou SKU inconnu = `[]`), avec texte, `skuAnnonce` et photos (`/api/studio/image?ref=`). Règles
+  pures dans `app/mise-en-vente/_versionChoix.ts` (aucun import `lib/studio*`, le cloisonnement tient ;
+  toujours les trois mêmes appels `/api/studio/*` côté vente). **Sans version 2+ : pas de menu, la Mise en
+  vente est exactement celle d'avant.** Avec : menu « Version » dans la carte Photos de l'étape 2, défaut
+  **Version 1** (le comportement d'avant), choix mémorisé **par SKU dans `localStorage["myflip-mev-version"]`**.
+  La version choisie remplace « toutes les images validées » par ses photos (les photos déposées à la main
+  restent), et apporte titre, tirets, mots-clés et SKU d'annonce. ⚠️ **L'IA ne rédige que si la version
+  choisie n'a aucun texte** (`texteSansIA` / `faudraitGenerer`) : Version 1 comprise quand le sac a un menu
+  (son texte = celui de l'Article, jamais réécrit). Le texte repris ne passe pas par la file de génération
+  (« Préparer l'annonce », droit à l'étape Annonces) ; `fiche.texteDeVersion` garde version et SKU du texte
+  (persisté en session). Format de copie inchangé : description, ligne vide, mots-clés, ligne vide, SKU (celui
+  de la version, à défaut celui du sac). L'extension Vinted et `myflip:publier-vinted` n'ont pas changé.
   (étape 5 du PRD) ; choisir plusieurs sacs d'un coup dans la fiche est hors périmètre.
 
 ---

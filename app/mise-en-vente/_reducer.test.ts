@@ -324,3 +324,69 @@ describe("article/maj — l'article enregistré remplace celui de la fiche", () 
     expect(reducerMev(e, { type: "article/maj", article: article("AUTRE") })).toBe(e);
   });
 });
+
+
+describe("choix de la version (étape 5 : menu « Version »)", () => {
+  const v2 = { numero: 2, titre: "T2", description: "- D2", motsCles: "m2", skuAnnonce: "SDN1-B", photos: [{ type: "ref" as const, id: "c1", ordre: 1 }] };
+  const resolue = (sku = "SDN1") => {
+    let e = etatInitial("f0");
+    e = reducerMev(e, { type: "sku/lookup", id: "f0", seq: 1 });
+    return reducerMev(e, { type: "sku/resolu", id: "f0", seq: 1, article: article(sku) });
+  };
+  const photoDe = (id: string, versionSource?: number) => ({ ...photo(id), ...(versionSource !== undefined ? { versionSource } : {}) });
+
+  it("une fiche neuve n'a pas de versions : version 1, texte non repris d'une version", () => {
+    const f = ficheVide("f0");
+    expect(f.studio).toBeNull();
+    expect(f.version).toBe(1);
+    expect(f.texteDeVersion).toBeNull();
+  });
+
+  it("studio/charge pose les versions et la version à afficher", () => {
+    const e = reducerMev(resolue(), { type: "studio/charge", id: "f0", studio: { images: [], versions: [v2] }, version: 2 });
+    expect(e.fiches[0].studio?.versions).toHaveLength(1);
+    expect(e.fiches[0].version).toBe(2);
+  });
+
+  it("changer de version retire les photos des AUTRES versions, jamais celles déposées à la main", () => {
+    let e = resolue();
+    e = reducerMev(e, { type: "photo/ajout", id: "f0", photos: [photoDe("main"), photoDe("u1", 1), photoDe("c1", 2)] });
+    e = reducerMev(e, { type: "photo/selection", id: "f0", photoId: "u1" });
+    e = reducerMev(e, { type: "photo/selection", id: "f0", photoId: "main" });
+    e = reducerMev(e, { type: "version/choix", id: "f0", version: 2 });
+    expect(e.fiches[0].version).toBe(2);
+    expect(e.fiches[0].photos.map((p) => p.id)).toEqual(["main", "c1"]);
+    // La photo retirée sort aussi de la sélection pour l'IA.
+    expect(e.fiches[0].selected).toEqual(["main"]);
+  });
+
+  it("une nouvelle saisie du SKU remet le menu à zéro (les versions étaient celles de l'ancien SKU)", () => {
+    let e = reducerMev(resolue(), { type: "studio/charge", id: "f0", studio: { images: [], versions: [v2] }, version: 2 });
+    e = reducerMev(e, { type: "sku/saisie", id: "f0", sku: "SDN2" });
+    expect(e.fiches[0].studio).toBeNull();
+    expect(e.fiches[0].version).toBe(1);
+  });
+
+  it("generation/ok garde la version et le SKU du texte ; une génération IA les efface", () => {
+    let e = resolue();
+    const resultat = { titre: "T2", description: "- D2", motsCles: "m2", promptNom: "Version 2" };
+    e = reducerMev(e, { type: "generation/ok", id: "f0", resultat, deVersion: { numero: 2, skuAnnonce: "SDN1-B" } });
+    expect(e.fiches[0].texteDeVersion).toEqual({ numero: 2, skuAnnonce: "SDN1-B" });
+    expect(e.fiches[0].annonce).toEqual({ titre: "T2", description: "- D2", motsCles: "m2" });
+    e = reducerMev(e, { type: "generation/ok", id: "f0", resultat: { ...resultat, promptNom: "IA" } });
+    expect(e.fiches[0].texteDeVersion).toBeNull();
+  });
+
+  it("fichePrete : une version qui a son texte n'exige pas 2 photos pour l'IA, mais taille et état restent requis", () => {
+    let e = reducerMev(resolue(), { type: "studio/charge", id: "f0", studio: { images: [], versions: [v2] }, version: 2 });
+    e = reducerMev(e, { type: "qcm", id: "f0", champ: "taille", valeur: "M" });
+    expect(fichePrete(e.fiches[0])).toBe(false);
+    e = reducerMev(e, { type: "qcm", id: "f0", champ: "etat", valeur: "Bon état" });
+    expect(fichePrete(e.fiches[0])).toBe(true);
+    expect(manquePourGenerer(e.fiches[0])).toEqual([]);
+    // Version 1 sans texte : l'IA doit rédiger, les 2 photos sont exigées comme avant.
+    e = reducerMev(e, { type: "version/choix", id: "f0", version: 1 });
+    expect(fichePrete(e.fiches[0])).toBe(false);
+    expect(manquePourGenerer(e.fiches[0])).toEqual(["2 photos sélectionnées"]);
+  });
+});

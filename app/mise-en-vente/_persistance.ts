@@ -39,6 +39,12 @@ type FicheSerialisee = {
   annonce: { titre: string; description: string; motsCles: string };
   /** Vrai si une annonce avait été générée : l'étape Export reste atteignable. */
   genere: boolean;
+  /**
+   * Version et SKU d'annonce du texte, quand il vient d'une version du Studio
+   * (étape 5 du PRD des retouches). Facultatif : une session écrite avant ce
+   * champ se relit sans lui, donc sans changer `VERSION`.
+   */
+  texteDeVersion?: { numero: number; skuAnnonce: string } | null;
 };
 
 type SessionSerialisee = {
@@ -58,6 +64,7 @@ export function serialiser(etat: EtatMev): SessionSerialisee {
       promptId: f.promptId,
       annonce: f.annonce,
       genere: f.generation.phase === "ok",
+      texteDeVersion: f.texteDeVersion,
     })),
   };
 }
@@ -69,6 +76,14 @@ export function serialiser(etat: EtatMev): SessionSerialisee {
  * mauvaise version, structure inconnue, tableau vide. Mieux vaut repartir
  * d'une session neuve qu'afficher un écran à moitié restauré.
  */
+/** Tout ce qui n'est pas exactement { numero entier ≥ 1, skuAnnonce texte } est ignoré : le SKU du sac s'applique. */
+function lireTexteDeVersion(brut: unknown): ArticleEnCours["texteDeVersion"] {
+  const t = brut as { numero?: unknown; skuAnnonce?: unknown } | null | undefined;
+  return t && typeof t.numero === "number" && Number.isInteger(t.numero) && t.numero >= 1 && typeof t.skuAnnonce === "string" && t.skuAnnonce !== ""
+    ? { numero: t.numero, skuAnnonce: t.skuAnnonce }
+    : null;
+}
+
 export function deserialiser(brut: unknown): EtatMev | null {
   if (!brut || typeof brut !== "object") return null;
   const s = brut as Partial<SessionSerialisee>;
@@ -85,6 +100,7 @@ export function deserialiser(brut: unknown): EtatMev | null {
       qcm: { ...base.qcm, ...(f.qcm ?? {}) },
       promptId: f.promptId ?? null,
       annonce: { ...base.annonce, ...(f.annonce ?? {}) },
+      texteDeVersion: lireTexteDeVersion(f.texteDeVersion),
       // Les photos sont perdues : la fiche redevient « prete » au mieux, et
       // l'appelant relance les recherches de SKU.
       generation: f.genere && f.annonce?.titre

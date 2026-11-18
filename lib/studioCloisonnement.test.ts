@@ -192,6 +192,7 @@ const FAMILLES_VENTE: {
     sentinelles: [
       "app/mise-en-vente/page.tsx",
       "app/mise-en-vente/_publierVinted.ts",
+      "app/mise-en-vente/_versionChoix.ts",
       "app/mise-en-vente/_components/ExportAnnonces.tsx",
     ],
   },
@@ -359,7 +360,8 @@ describe("cloisonnement : le Studio n'atteint jamais la vente ni l'export", () =
 
   it("une image générée ne repart jamais comme vraie photo : les images du Studio sautent conserverReferences", () => {
     const page = lire("app/mise-en-vente/page.tsx");
-    expect(page).toMatch(/await ajouterPhotos\(ficheId, [^\n]*\{ studio: true \}\);/);
+    // `{ studio: true }`, ou `{ studio: true, versionSource: n }` depuis l'étape 5 (versions du Studio) : dans les deux cas le drapeau `studio` y est.
+    expect(page).toMatch(/await ajouterPhotos\(ficheId, [^\n]*\{ studio: true(?:, versionSource: \w+)? \}\);/);
     expect(page).toMatch(/if \(!studio && pourStudio\.length > 0/);
   });
 

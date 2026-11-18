@@ -10,6 +10,7 @@
 // à faire, et elle tient en un switch.
 
 import { pluriel } from "@/lib/format";
+import { faudraitGenerer } from "./_versionChoix";
 import {
   fichePrete,
   manquePourGenerer,
@@ -72,9 +73,19 @@ export function descripteurBarre(etat: EtatMev): DescripteurBarre {
   }
 
   if (etat.etape === 2) {
-    const pretes = etat.fiches.filter(fichePrete).length;
+    const listePretes = etat.fiches.filter(fichePrete);
+    const pretes = listePretes.length;
+    // Version choisie avec son texte pour toutes les fiches prêtes : l'IA ne
+    // rédige rien, le bouton ne promet pas de génération.
+    const sansIA = pretes > 0 && listePretes.every((f) => !faudraitGenerer(f));
     return {
-      label: pretes > 1 ? `Générer les ${pretes} annonces` : "Générer l'annonce",
+      label: sansIA
+        ? pretes > 1
+          ? `Préparer les ${pretes} annonces`
+          : "Préparer l'annonce"
+        : pretes > 1
+          ? `Générer les ${pretes} annonces`
+          : "Générer l'annonce",
       intention: "generer",
       actif: pretes > 0,
       indice:
@@ -82,7 +93,7 @@ export function descripteurBarre(etat: EtatMev): DescripteurBarre {
           ? `${pluriel(pretes, "fiche prête", "fiches prêtes")} sur ${etat.fiches.length}`
           : `Il manque : ${manquePourGenerer(active).join(" · ")}`,
       ok: pretes > 0,
-      icone: "etincelles",
+      icone: sansIA ? "fleche" : "etincelles",
       variante: "primary",
       confirmation: null,
       retourPossible: true,

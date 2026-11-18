@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { regrouperParCleStudio } from "@/lib/studioAlias";
-import { whereImagesValidees } from "@/lib/studioAnnonce";
+import { versionsPourVente, whereImagesValidees, type VersionPourVente } from "@/lib/studioAnnonce";
 import { nomPrise, sacsCibles } from "@/lib/studioCases";
 import { sacsChezToi, type SacChezToi } from "@/lib/studioChezToi";
 import { buildSkuIndex, getColoris, type SacbaseCatalogue, type SacbaseColoris, type SacbaseColorisSource } from "@/lib/studioColoris";
@@ -327,4 +327,31 @@ export async function chargerVersionsUn(userId: string, skus: readonly string[])
       .map((e) => e.id);
     return { sku, titre: a?.titreAnnonce ?? "", description: a?.descriptionAnnonce ?? "", motsCles: a?.motsClesAnnonce ?? "", photos };
   });
+}
+
+/**
+ * Les versions enregistrées (2, 3…) du coloris d'un sac, pour le menu « Version »
+ * de la Mise en vente (étape 5 du PRD des retouches par lot). Lecture seule,
+ * scopée par userId. Le coloris du sac vient de SacBase (comme partout dans le
+ * Studio) : SacBase muet, ou SKU inconnu de lui = aucune version, donc la Mise
+ * en vente se comporte comme avant. Ne lève pas pour une panne de SacBase.
+ */
+export async function versionsDuSac(userId: string, sku: string): Promise<VersionPourVente[]> {
+  const source = await getColoris();
+  if (source.kind === "off") return [];
+  const cle = buildSkuIndex(source.data).get(sku);
+  if (!cle) return [];
+  const lignes = await prisma.studioVersion.findMany({
+    where: { userId, numero: { gte: 2 }, coloris: { userId, cle } },
+    orderBy: { numero: "asc" },
+    select: {
+      numero: true,
+      titre: true,
+      description: true,
+      motsCles: true,
+      skuAnnonce: true,
+      photos: { orderBy: { ordre: "asc" }, select: { referenceId: true } },
+    },
+  });
+  return versionsPourVente(lignes);
 }

@@ -19,6 +19,7 @@ import type { PromptTemplateDTO } from "@/lib/types";
 import { COULEURS_VINTED } from "@/lib/vintedReferentiels";
 import { pickVintedMapping } from "@/lib/vintedMapping";
 import { fichiersImages } from "../_fichiers";
+import { aUnTexte, faudraitGenerer, libelleVersion, versionsChoisissables } from "../_versionChoix";
 import {
   MAX_PHOTOS,
   MAX_SELECT,
@@ -76,6 +77,8 @@ type Props = {
   onRotation: (photoId: string, delta: number) => void;
   onSelection: (photoId: string) => void;
   onZoom: (photoId: string) => void;
+  /** Menu « Version » : le numéro de la version à publier. */
+  onVersion: (numero: number) => void;
   onQcm: (champ: keyof Qcm, valeur: string | boolean | number[]) => void;
   onPrompt: (promptId: string | null) => void;
   montrerChoixPrompt: boolean;
@@ -95,6 +98,7 @@ export default function FicheArticle({
   onRotation,
   onSelection,
   onZoom,
+  onVersion,
   onQcm,
   onPrompt,
   montrerChoixPrompt,
@@ -110,6 +114,7 @@ export default function FicheArticle({
   const idCategorie = `${base}-categorie`;
   const idDetails = `${base}-details`;
   const idPrix = `${base}-prix`;
+  const idVersion = `${base}-version`;
   const idCouleur = `${base}-couleur`;
 
   const dateEnregistree = fiche.article?.dateMiseEnVente
@@ -118,6 +123,12 @@ export default function FicheArticle({
   const [dateDraft, setDateDraft] = useState(dateEnregistree);
   // Resynchronise quand la version serveur change (enregistrement, autre fiche).
   useEffect(() => setDateDraft(dateEnregistree), [dateEnregistree]);
+
+  // Menu « Version » : seulement si le Studio a au moins une version enregistrée
+  // pour ce sac. Sinon la fiche est exactement celle d'avant.
+  const versions = useMemo(() => versionsChoisissables(fiche), [fiche]);
+  const versionChoisie = versions.find((v) => v.numero === fiche.version) ?? versions[0];
+  const ia = faudraitGenerer(fiche);
 
   const fileName = (i: number) =>
     `${fiche.article?.sku ?? "PHOTO"}_${String(i + 1).padStart(2, "0")}.jpg`;
@@ -291,20 +302,54 @@ export default function FicheArticle({
             : "outline outline-2 -outline-offset-2 outline-transparent"
         }`}
       >
+        {versionChoisie && (
+          <div className="mb-4 border-b border-line pb-4">
+            <label className={labelCls} htmlFor={idVersion}>
+              Version
+            </label>
+            <Select
+              id={idVersion}
+              value={String(versionChoisie.numero)}
+              onChange={(e) => onVersion(Number(e.target.value))}
+              className="mt-2"
+            >
+              {versions.map((v) => (
+                <option key={v.numero} value={v.numero}>
+                  {libelleVersion(v.numero)} · {v.photos.length} photo{v.photos.length > 1 ? "s" : ""}
+                  {aUnTexte(v) ? "" : " · sans texte"}
+                </option>
+              ))}
+            </Select>
+            <p className="mt-2 text-xs font-medium text-ink-3">
+              {ia
+                ? "Cette version n’a pas de texte : l’IA le rédigera."
+                : "Photos, titre, description et SKU de cette version : l’IA ne rédige rien."}
+            </p>
+          </div>
+        )}
+
         <div className="mb-1 flex items-center justify-between">
           <h2 className="font-sans text-md font-bold">Photos</h2>
-          <span
-            className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-              fiche.selected.length >= MIN_SELECT
-                ? "bg-pos-soft text-pos"
-                : "bg-surface-2 text-ink-3"
-            }`}
-          >
-            {fiche.selected.length} / {MAX_SELECT}
-          </span>
+          {ia && (
+            <span
+              className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                fiche.selected.length >= MIN_SELECT
+                  ? "bg-pos-soft text-pos"
+                  : "bg-surface-2 text-ink-3"
+              }`}
+            >
+              {fiche.selected.length} / {MAX_SELECT}
+            </span>
+          )}
         </div>
         <p className="mb-3.5 text-sm font-medium text-ink-3">
-          Choisis {MIN_SELECT} à {MAX_SELECT} photos pour l&apos;IA. L&apos;ordre = priorité.
+          {ia ? (
+            <>
+              Choisis {MIN_SELECT} à {MAX_SELECT} photos pour l&apos;IA. L&apos;ordre = priorité.
+            </>
+          ) : (
+            <>Ces photos partent avec l&apos;annonce.</>
+          )}
         </p>
 
         <div className="grid grid-cols-2 gap-2.5">
