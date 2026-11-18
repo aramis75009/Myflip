@@ -278,7 +278,7 @@ function DetailVersion({
       ) : (
         <p className="mt-2 max-w-[65ch] text-base text-ink-2">
           {premiere
-            ? `Aucune image validée pour ${skuSac ?? "ce sac"} : la Version 1 n’a pas de photo du Studio.`
+            ? `L’annonce de ${skuSac ?? "ce sac"} n’a pas encore de photo du Studio : la Version 1 n’en montre aucune.`
             : "Cette version n’a pas de photo."}
         </p>
       )}

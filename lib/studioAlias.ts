@@ -63,11 +63,11 @@ export function fusionnerAliasCatalogue(
 
 /**
  * Les lignes `StudioColoris` lues en base, regroupées par clé Studio : une
- * ligne source (5883) qui existe encore compte pour sa cible (5880), photos et
- * essais compris, au lieu de revenir comme carte « hors catalogue ». Libellés
+ * ligne source (5883) qui existe encore compte pour sa cible (5880), photos
+ * comprises, au lieu de revenir comme carte « hors catalogue ». Libellés
  * de la ligne cible si elle existe, sinon de la première ligne du groupe.
  */
-export function regrouperParCleStudio<T extends { cle: string; references: readonly unknown[]; essais: readonly unknown[] }>(
+export function regrouperParCleStudio<T extends { cle: string; references: readonly unknown[] }>(
   lignes: readonly T[],
   alias: ReadonlyMap<string, string> = ALIAS_COLORIS_STUDIO,
 ): T[] {
@@ -83,7 +83,6 @@ export function regrouperParCleStudio<T extends { cle: string; references: reado
       ...base,
       cle,
       references: groupe.flatMap((l) => [...l.references]) as unknown as T["references"],
-      essais: groupe.flatMap((l) => [...l.essais]) as unknown as T["essais"],
     };
   });
 }

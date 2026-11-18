@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Camera, CheckCheck, Scale, Search, Settings2, Sparkles, X } from "lucide-react";
+import { ArrowRight, Camera, CheckCheck, Search, SlidersHorizontal, X } from "lucide-react";
 
 import { Frame } from "@/components/console";
 import { Button } from "@/components/ui/button";
@@ -18,9 +18,9 @@ import { VueChezToi } from "./ChezToi";
 
 // /studio — on top, the bags you have in hand (« N sacs chez toi », three tiles,
 // the bags grouped by Commande: ChezToi.tsx). Under it, the catalogue as a LIST
-// OF ACTIONS: every colourway says, verb first, what is left to do (judge,
-// photograph, generate), grouped in work order. Generation, filter, search and
-// the chez-toi state live in the URL (?generation=V2&filtre=a_juger&q=…&etat=pret),
+// OF ACTIONS: every colourway says, verb first, what is left to do (photograph,
+// retouch), grouped in work order. Bag generation (V1, V2, V3), filter, search and
+// the chez-toi state live in the URL (?generation=V2&filtre=photographies&q=…&etat=pret),
 // so a reload or the way back from a sheet keeps them.
 //
 // Between the two, one line counts the WHOLE catalogue: « N coloris sans vraies
@@ -31,21 +31,18 @@ const FILTRES: { id: FiltreAccueil | null; nom: string }[] = [
   { id: null, nom: "Tous" },
   { id: "photographies", nom: "Avec vraies photos" },
   { id: "jamais_photographies", nom: "Sans vraies photos" },
-  { id: "a_juger", nom: "À juger" },
   { id: "doublons", nom: "Doublons chez toi" },
 ];
 
-const ICONES: Record<GenreAction, typeof Scale> = {
-  juger: Scale,
+const ICONES: Record<GenreAction, typeof Camera> = {
   photographier: Camera,
-  generer: Sparkles,
+  retoucher: SlidersHorizontal,
   rien: CheckCheck,
 };
 
 const TONS: Record<GenreAction, string> = {
-  juger: "bg-warn-soft text-ink",
   photographier: "bg-accent text-accent-ink",
-  generer: "bg-accent-soft text-ink",
+  retoucher: "bg-accent-soft text-ink",
   rien: "bg-surface-2 text-ink-2",
 };
 
@@ -83,22 +80,7 @@ export default function Accueil({ donnees, filtresInitiaux }: { donnees: Donnees
             <p className="mt-1 text-base text-ink-2">{pluriel(donnees.orphelines, "photo non rattachée", "photos non rattachées")}</p>
           )}
         </div>
-        <Button asChild variant="secondary" size="sm">
-          <Link href="/parametres?onglet=studio">
-            <Settings2 size={15} aria-hidden /> Réglages du Studio
-          </Link>
-        </Button>
       </header>
-
-      {donnees.nbAngles === 0 && (
-        <p role="status" className="rounded-md border border-warn bg-warn-soft px-4 py-2.5 text-base text-ink">
-          Aucun prompt d’angle : rien ne peut être généré.{" "}
-          <Link href="/parametres?onglet=studio" className="font-semibold underline underline-offset-2">
-            Ajoute-les dans les Réglages du Studio
-          </Link>
-          .
-        </p>
-      )}
 
       {donnees.sacbase.kind !== "off" && <VueChezToi sacs={donnees.sacs} etat={f.etat} onEtat={(etat) => changer({ etat })} />}
 
@@ -251,7 +233,6 @@ function Carte({ c }: { c: CarteColoris }) {
   const Icone = ICONES[action.genre];
   const chezMoi = c.chezMoi ?? 0;
   const stock = libelleStock(c);
-  const prises = c.cases - c.libres;
 
   return (
     <Link
@@ -291,14 +272,10 @@ function Carte({ c }: { c: CarteColoris }) {
           </span>
         </div>
 
-        <dl className="grid grid-cols-2 gap-x-4 text-sm">
+        <dl className="text-sm">
           <div>
             <dt className="text-ink-2">Vraies photos</dt>
             <dd className="font-mono font-semibold">{c.prises ? `${c.prises} / 15` : c.photos ? `${c.photos} hors tableau` : "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-ink-2">Variantes utilisées</dt>
-            <dd className="font-mono font-semibold">{c.cases ? `${prises} / ${c.cases}` : "—"}</dd>
           </div>
         </dl>
 

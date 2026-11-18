@@ -9,6 +9,9 @@ const QUALITE = 0.85;
 
 export const ACCEPT = "image/*,.heic,.heif";
 
+/** Files in name order, numbers compared as numbers (photo-2 before photo-10): the order of a drop on the board. */
+export const parNom = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, "fr", { numeric: true });
+
 const estHeic = (f: File) => /\.(heic|heif)$/i.test(f.name) || /image\/hei[cf]/i.test(f.type);
 
 export const MESSAGE_HEIC =

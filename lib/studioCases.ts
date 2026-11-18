@@ -1,9 +1,11 @@
-// Le tableau de la fiche coloris : une ligne par vraie photo (une prise), une
-// colonne par prompt d'angle, une case = photo × angle.
+// Les prises de la planche (une vraie photo par prise), le sac cible d'un
+// coloris et les filtres de l'accueil /studio.
 //
 // PUR et isomorphe : ni base, ni réseau. Les écrans et les routes lui passent
-// des lignes déjà lues ; c'est ce qui permet de tester les règles de
-// verrouillage sans base.
+// des lignes déjà lues ; c'est ce qui permet de tester les règles sans base.
+//
+// Le tableau photo × prompt d'angle (cases, verrous, choix automatique) a été
+// retiré avec la génération d'images IA le 17/11/2026.
 
 /**
  * Les prises d'un sac, toujours les mêmes, dans l'ordre où on les fait. Liste
@@ -63,136 +65,6 @@ export const nomPrise = (ordre: number, generation?: string | null) => prisesPou
  */
 export const STATUTS_SANS_ANNONCE: ReadonlySet<string> = new Set(["En stock", "Photos prêtes"]);
 
-/**
- * Le texte envoyé pour une case : le prompt maître en tête, puis le prompt
- * d'angle. Dans Gemini, le maître est collé une fois par conversation ; par
- * l'API il n'y a pas de conversation, d'où sa répétition à chaque appel.
- */
-export function promptVariante(maitre: string, angle: string): string {
-  const m = maitre.trim();
-  const a = angle.trim();
-  return m ? `${m}\n\n${a}` : a;
-}
-
-// ── État d'une case ─────────────────────────────────────────────────────────
-
-export type EssaiCase = {
-  referenceId: string | null;
-  angleId: string;
-  decision: string | null;
-  skuCible: string | null;
-};
-
-export type EtatCase =
-  | { kind: "vente"; sku: string }
-  | { kind: "validee"; sku: string | null }
-  | { kind: "a_juger" }
-  | { kind: "libre" };
-
-/**
- * L'état d'une case, d'après ses essais NON rejetés (décision 1 du 20/10 : une
- * case rejetée sans correction redevient libre).
- *
- * - un essai validé pour un sac dont l'annonce existe → « vente » (verrouillée) ;
- * - un essai validé pour un sac encore sans annonce → « validée » ;
- * - un essai sans décision → « à juger » ;
- * - sinon → « libre ».
- *
- * `statutDe(sku)` rend le statut MyFlip du sac, null s'il est inconnu. Un SKU
- * inconnu (sac supprimé) n'est pas « en vente » : la case reste validée, donc
- * verrouillée quand même.
- */
-export function etatCase(essais: readonly EssaiCase[], statutDe: (sku: string) => string | null): EtatCase {
-  const vivants = essais.filter((e) => e.decision !== "rejete");
-  const valides = vivants.filter((e) => e.decision === "valide");
-  for (const v of valides) {
-    if (!v.skuCible) continue;
-    const statut = statutDe(v.skuCible);
-    if (statut !== null && !STATUTS_SANS_ANNONCE.has(statut)) return { kind: "vente", sku: v.skuCible };
-  }
-  if (valides.length > 0) return { kind: "validee", sku: valides[0].skuCible };
-  if (vivants.length > 0) return { kind: "a_juger" };
-  return { kind: "libre" };
-}
-
-/**
- * Comparaison de modèles : les requêtes d'un même lancement (même `lancementId`)
- * visent la MÊME case, chacune avec un modèle. Elles partent ensemble, mais une
- * qui démarre en retard verrait la case « à juger » à cause de l'essai d'un
- * frère et se ferait refuser (409 `case_prise`). On écarte donc, du calcul de
- * l'état de la case, les essais d'un AUTRE modèle du même lancement. Le même
- * modèle sur le même lancement n'est pas écarté : un doublon (double clic)
- * reste refusé. Les essais sans lancement (dépôts manuels) ne sont jamais écartés.
- */
-export function sansFreresDuLancement<T extends { lancementId?: string | null; modele?: string }>(
-  essais: readonly T[],
-  lancementId: string,
-  modele: string,
-): T[] {
-  return essais.filter((e) => !(e.lancementId != null && e.lancementId === lancementId && e.modele !== undefined && e.modele !== modele));
-}
-
-export const cleCase = (referenceId: string, angleId: string) => `${referenceId}:${angleId}`;
-
-/** Les états de toutes les cases du tableau, par `cleCase`. */
-export function etatsDesCases(
-  lignes: readonly { id: string }[],
-  angles: readonly { id: string }[],
-  essais: readonly EssaiCase[],
-  statutDe: (sku: string) => string | null,
-): Map<string, EtatCase> {
-  const parCase = new Map<string, EssaiCase[]>();
-  for (const e of essais) {
-    if (!e.referenceId) continue;
-    const k = cleCase(e.referenceId, e.angleId);
-    parCase.set(k, [...(parCase.get(k) ?? []), e]);
-  }
-  const out = new Map<string, EtatCase>();
-  for (const l of lignes) {
-    for (const a of angles) {
-      const k = cleCase(l.id, a.id);
-      out.set(k, etatCase(parCase.get(k) ?? [], statutDe));
-    }
-  }
-  return out;
-}
-
-/**
- * La ligne a-t-elle déjà son image pour ce sac (validée ou à juger) ? Une photo
- * ne donne qu'une image par annonce : une ligne couverte n'a pas de choix
- * automatique.
- */
-export function ligneCouverte(referenceId: string, essais: readonly EssaiCase[], skuCible: string | null): boolean {
-  if (!skuCible) return false;
-  return essais.some((e) => e.referenceId === referenceId && e.skuCible === skuCible && e.decision !== "rejete");
-}
-
-/**
- * Le choix automatique : pour chaque ligne non couverte, la première case libre
- * (dans l'ordre des colonnes). null = rien à choisir sur cette ligne.
- */
-export function choixAutomatique(
-  lignes: readonly { id: string }[],
-  angles: readonly { id: string }[],
-  etats: ReadonlyMap<string, EtatCase>,
-  essais: readonly EssaiCase[],
-  skuCible: string | null,
-): Map<string, string | null> {
-  const out = new Map<string, string | null>();
-  for (const l of lignes) {
-    if (ligneCouverte(l.id, essais, skuCible)) {
-      out.set(l.id, null);
-      continue;
-    }
-    const libre = angles.find((a) => etats.get(cleCase(l.id, a.id))?.kind === "libre");
-    out.set(l.id, libre?.id ?? null);
-  }
-  return out;
-}
-
-/** La case peut-elle être générée (ni prise, ni à juger, ni validée) ? */
-export const caseLibre = (e: EtatCase | undefined) => e?.kind === "libre";
-
 // ── Sac cible ───────────────────────────────────────────────────────────────
 
 export type SacCatalogue = { sku: string; statut: string; vendu: boolean };
@@ -208,40 +80,12 @@ export function estChezToi(s: SacCatalogue, statutDe: (sku: string) => string | 
   return !s.vendu && STATUTS_SANS_ANNONCE.has(statut);
 }
 
-/** Les sacs qui peuvent recevoir des images : ceux chez toi, encore sans annonce. */
+/** Les sacs à préparer : ceux chez toi, encore sans annonce. Le premier donne la Version 1 de la fiche. */
 export function sacsCibles(sacs: readonly SacCatalogue[], statutDe: (sku: string) => string | null): string[] {
   return sacs
     .filter((s) => estChezToi(s, statutDe))
     .map((s) => s.sku)
     .sort((a, b) => a.localeCompare(b, "fr", { numeric: true }));
-}
-
-// ── Utilisation d'un prompt d'angle ─────────────────────────────────────────
-
-export type UsageAngle = { cases: number; skus: string[] };
-
-/**
- * Cases prises par un angle, tous coloris confondus : une case avec au moins
- * un essai non rejeté. C'est ce qui interdit de supprimer ou de réécrire
- * l'angle (décision 2 du 20/10 : une modification crée une nouvelle version).
- */
-export function usageAngles(essais: readonly (EssaiCase & { colorisId?: string })[]): Map<string, UsageAngle> {
-  const cases = new Map<string, Set<string>>();
-  const skus = new Map<string, Set<string>>();
-  for (const e of essais) {
-    if (e.decision === "rejete") continue;
-    const k = `${e.colorisId ?? ""}:${e.referenceId ?? "∅"}`;
-    cases.set(e.angleId, (cases.get(e.angleId) ?? new Set()).add(k));
-    if (e.skuCible && e.decision === "valide") skus.set(e.angleId, (skus.get(e.angleId) ?? new Set()).add(e.skuCible));
-  }
-  const out = new Map<string, UsageAngle>();
-  for (const [angleId, c] of cases) {
-    out.set(angleId, {
-      cases: c.size,
-      skus: [...(skus.get(angleId) ?? [])].sort((a, b) => a.localeCompare(b, "fr", { numeric: true })),
-    });
-  }
-  return out;
 }
 
 // ── Accueil ─────────────────────────────────────────────────────────────────
@@ -252,7 +96,6 @@ export const estGeneration = (v: unknown): v is Generation => GENERATIONS.includ
 
 export const FILTRES_ACCUEIL = [
   "doublons",
-  "a_juger",
   "a_photographier_chez_toi",
   "a_commander",
   "photographies",
@@ -279,14 +122,12 @@ export type CarteAccueil = {
   prises: number;
   /** Toutes les vraies photos importées, tableau ou non (celles de la mise en vente n'ont pas de ligne). */
   photos: number;
-  aJuger: number;
 };
 
 /** Le coloris passe-t-il les filtres de l'accueil ? `null` = pas de filtre. */
 export function passeFiltres(c: CarteAccueil, generation: Generation | null, filtre: FiltreAccueil | null): boolean {
   if (generation && c.generation !== generation) return false;
   if (filtre === "doublons") return (c.chezMoi ?? 0) >= 2;
-  if (filtre === "a_juger") return c.aJuger > 0;
   // « Avec vraies photos » : au moins une vraie photo importée, où qu'elle soit rangée.
   if (filtre === "photographies") return c.photos > 0;
   // « Sans vraies photos » : le complément, ce qu'il reste à photographier ou à acheter.

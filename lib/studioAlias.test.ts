@@ -117,29 +117,27 @@ describe("fusionnerAliasCatalogue", () => {
 });
 
 describe("regrouperParCleStudio (cartes « connues en base »)", () => {
-  type Ligne = { cle: string; modele: string; coloris: string; references: { id: string }[]; essais: { id: string }[] };
-  const ligne = (cle: string, modele: string, refs: string[], essais: string[] = []): Ligne => ({
+  type Ligne = { cle: string; modele: string; coloris: string; references: { id: string }[] };
+  const ligne = (cle: string, modele: string, refs: string[]): Ligne => ({
     cle,
     modele,
     coloris: "Black Gold",
     references: refs.map((id) => ({ id })),
-    essais: essais.map((id) => ({ id })),
   });
 
-  it("une ligne 5883 encore en base est absorbée par 5880 : photos et essais comptent pour 5880", () => {
-    const lignes = [ligne("5039-black-pink", "5039", ["p1"]), ligne(SOURCE, "5883", ["a", "b"], ["e1"]), ligne(CIBLE, "5880", ["c"], ["e2"])];
+  it("une ligne 5883 encore en base est absorbée par 5880 : ses photos comptent pour 5880", () => {
+    const lignes = [ligne("5039-black-pink", "5039", ["p1"]), ligne(SOURCE, "5883", ["a", "b"]), ligne(CIBLE, "5880", ["c"])];
     const out = regrouperParCleStudio(lignes);
     expect(out.map((l) => l.cle)).toEqual(["5039-black-pink", CIBLE]);
     const c = out.find((l) => l.cle === CIBLE)!;
     expect(c.modele).toBe("5880");
     expect(c.references.map((r) => r.id).sort()).toEqual(["a", "b", "c"]);
-    expect(c.essais.map((e) => e.id).sort()).toEqual(["e1", "e2"]);
   });
 
   it("seule la ligne 5883 existe : elle devient la carte 5880, jamais une carte 5883", () => {
-    const out = regrouperParCleStudio([ligne(SOURCE, "5883", ["a"], ["e1"])]);
+    const out = regrouperParCleStudio([ligne(SOURCE, "5883", ["a"])]);
     expect(out).toHaveLength(1);
-    expect(out[0]).toMatchObject({ cle: CIBLE, references: [{ id: "a" }], essais: [{ id: "e1" }] });
+    expect(out[0]).toMatchObject({ cle: CIBLE, references: [{ id: "a" }] });
   });
 
   it("sans ligne source : les lignes sont rendues telles quelles", () => {

@@ -246,7 +246,6 @@ décalages voisins (0 et 1) partageraient le port 4011.
   React lève « A tree hydrated but some attributes… » (console.error). Attendre `__reactFiber$`.
 - Le nombre d'appels de catalogue reçus par les faux serveurs dépend du cache du serveur
   (OpenRouter 10 min, SacBase 60 s) : il varie d'un appel autour de l'unité entre deux lancements.
-- Le délai du PATCH de la sonde S3 (5 à 8 ms) varie d'un lancement à l'autre ; son état, non.
 
 - `next dev` réécrit `next-env.d.ts` (référence à `<distDir>/types/routes.d.ts`)
   et ajoute `.next-e2e-<port>.nosync/types/**/*.ts` à `tsconfig.json`. La ligne

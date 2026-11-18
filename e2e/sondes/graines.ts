@@ -25,11 +25,16 @@
 import bcrypt from "bcryptjs";
 import { Prisma, PrismaClient } from "@prisma/client";
 
-import { nomPrise, promptVariante } from "@/lib/studioCases";
-import { MODELE_MANUEL } from "@/lib/studioFiche";
+import { nomPrise } from "@/lib/studioCases";
 
 import { MOT_DE_PASSE_E2E } from "../compte-test";
 import { DATABASE_URL_E2E, estUrlLocale } from "../outils/environnement";
+
+// Données d'avant le 17/11/2026 (génération d'images IA supprimée du Studio) : la valeur par
+// défaut de `StudioEssai.modele` et le texte rangé dans `promptUtilise` (prompt maître, puis
+// prompt d'angle), recopiés ici pour recréer des essais comme ceux qui restent en base.
+const MODELE_MANUEL = "manuel";
+const promptVariante = (maitre: string, angle: string) => (maitre.trim() ? `${maitre.trim()}\n\n${angle.trim()}` : angle.trim());
 
 export const COMPTE_SONDE = {
   id: "e2esonde0000000000000001",

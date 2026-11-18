@@ -269,17 +269,8 @@ export const ROUTES: EntreeRoute[] = [
     chemin: "/parametres",
     compte: "demo",
     statut: 200,
-    attente: (p) => [p.getByRole("tab", { name: /^Annonces/, selected: true }), texte(p, /^Prompt par défaut$/)],
-    description: "Prompts, onglet Annonces (5 prompts).",
-  },
-  {
-    id: "parametres.onglet-studio",
-    etude: "/parametres",
-    chemin: "/parametres?onglet=studio",
-    compte: "demo",
-    statut: 200,
-    attente: (p) => [p.getByRole("tab", { name: /^Studio/, selected: true }), p.getByRole("heading", { name: "Prompt maître" })],
-    description: "Prompts, onglet Studio (prompt maître + 4 angles).",
+    attente: (p) => [texte(p, "MODÈLES ENREGISTRÉS"), texte(p, /^Prompt par défaut$/)],
+    description: "Prompts des annonces (5 prompts). L'onglet Studio est parti avec la génération d'images (17/11).",
   },
   {
     id: "compte",
@@ -311,18 +302,18 @@ export const ROUTES: EntreeRoute[] = [
   },
   {
     id: "studio.fiche.black-pink",
-    ...fiche("5039-black-pink", "Black Pink", (p) => [p.getByRole("heading", { name: /^À juger/ }), texte(p, /^1 \/ 3$/), p.getByRole("heading", { name: /^Génération/ })]),
-    description: "Fiche la plus remplie : 9/15 prises avec trous, file « À juger » 3 images, tableau des cases.",
+    ...fiche("5039-black-pink", "Black Pink", (p) => [p.getByRole("heading", { level: 2, name: /^Photos/ }), p.getByRole("heading", { level: 2, name: /^Versions/ })]),
+    description: "Fiche la plus remplie : 9/15 prises avec trous, puis les versions (la Version 1 montre les images IA validées avant le 17/11).",
   },
   {
     id: "studio.fiche.elite-v3",
     ...fiche("elite-v3-black-gold", "Black Gold"),
-    description: "Fiche V3 : 6/15 prises (noms de prises V3), aucun essai à juger.",
+    description: "Fiche V3 : 6/15 prises (noms de prises V3).",
   },
   {
     id: "studio.fiche.navy-orange",
-    ...fiche("5040-navy-orange", "Navy Orange", (p) => [p.getByRole("heading", { name: /^À juger/ })]),
-    description: "Fiche V2 : 5 prises, 1 image à juger.",
+    ...fiche("5040-navy-orange", "Navy Orange", (p) => [p.getByRole("heading", { level: 2, name: /^Versions/ })]),
+    description: "Fiche V2 : 5 prises.",
   },
   {
     id: "studio.fiche.white-volt",
@@ -338,16 +329,6 @@ export const ROUTES: EntreeRoute[] = [
     id: "studio.fiche.hors-catalogue",
     ...fiche("ancien-coloris-test", "Olive", (p) => [texte(p, "Hors catalogue SacBase")]),
     description: "Fiche d'un coloris absent de SacBase (pas de vignette).",
-  },
-  {
-    id: "studio.bilan",
-    etude: "/studio/bilan",
-    chemin: "/studio/bilan",
-    compte: "demo",
-    statut: 200,
-    attente: (p) => [texte(p, /RÉUSSITE AU 1ER ESSAI/), texte(p, "Par modèle")],
-    informatifMobile: STUDIO_INFORMATIF,
-    description: "Bilan : 20 essais, 3 échecs, coûts connus et inconnus.",
   },
 
   // ── 404 ──────────────────────────────────────────────────────────────────
@@ -494,16 +475,6 @@ export const ROUTES_NEUF: EntreeRoute[] = [
     attente: (p) => [texte(p, /^6 coloris · /)],
     informatifMobile: STUDIO_INFORMATIF,
     description: "Studio d'un compte sans donnée propre (catalogue SacBase seul).",
-  },
-  {
-    id: "studio.bilan",
-    etude: "/studio/bilan",
-    chemin: "/studio/bilan",
-    compte: "neuf",
-    statut: 200,
-    attente: (p) => [texte(p, "Aucun essai.")],
-    informatifMobile: STUDIO_INFORMATIF,
-    description: "Bilan sans essai.",
   },
 ];
 

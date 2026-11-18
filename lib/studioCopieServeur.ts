@@ -26,7 +26,7 @@ export async function supprimerFichiersOrphelins(userId: string, urls: readonly 
 }
 
 /**
- * Les dépendances réelles de `creerCopieRetouchee` (et de `creerCopiePivotee`) :
+ * Les dépendances réelles de `creerCopieRetouchee` :
  * Prisma scopé par `userId`, le stockage privé de `lib/studioBlob.ts`, et le
  * rendu sharp.
  */

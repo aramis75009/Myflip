@@ -12,14 +12,23 @@ import { estChezToi, type SacCatalogue } from "@/lib/studioCases";
 // ── État d'un sac ───────────────────────────────────────────────────────────
 
 /** Ce qu'il manque à un sac chez toi, dans l'ordre du travail. */
-export const ETATS_SAC = ["a_photographier", "a_generer", "pret"] as const;
+export const ETATS_SAC = ["a_photographier", "a_retoucher", "pret"] as const;
 export type EtatSac = (typeof ETATS_SAC)[number];
 export const estEtatSac = (v: unknown): v is EtatSac => ETATS_SAC.includes(v as EtatSac);
+
+/**
+ * Un état lu dans l'URL (`?etat=`) ; null s'il est inconnu. L'identifiant d'avant le 17/11,
+ * `a_generer` (génération d'images IA, supprimée), se lit comme `a_retoucher`.
+ */
+export function lireEtatSac(v: unknown): EtatSac | null {
+  if (v === "a_generer") return "a_retoucher";
+  return estEtatSac(v) ? v : null;
+}
 
 /** Le mot de la pastille d'un sac. */
 export const LIBELLES_ETAT: Readonly<Record<EtatSac, string>> = {
   a_photographier: "À prendre en photo",
-  a_generer: "À générer",
+  a_retoucher: "À retoucher",
   pret: "Prêt",
 };
 
@@ -28,17 +37,18 @@ export const LIBELLES_ETAT: Readonly<Record<EtatSac, string>> = {
  * - `photosDuColoris` : les vraies photos du coloris du sac (`CarteColoris.photos`,
  *   tableau ou non) ;
  * - `aImageValidee` : ce SKU a au moins une image validée, au sens de
- *   `whereImagesValidees` (lib/studioAnnonce.ts), la règle de GET /api/studio/annonce.
+ *   `whereImagesValidees` (lib/studioAnnonce.ts), la règle de GET /api/studio/annonce
+ *   (images IA validées avant le 17/11, toujours dans les annonces).
  *
  * « Prêt » passe en premier : si l'annonce reçoit déjà une image du SKU, il est
  * prêt, quoi qu'on compte comme photos sur la carte (un SKU qui a changé de
  * coloris garde ses images validées). Sinon, un coloris sans aucune vraie photo
  * veut une prise de vue (« à prendre en photo »), un coloris photographié veut
- * des images (« à générer »).
+ * ses retouches (« à retoucher »).
  */
 export function etatSac(photosDuColoris: number, aImageValidee: boolean): EtatSac {
   if (aImageValidee) return "pret";
-  return photosDuColoris === 0 ? "a_photographier" : "a_generer";
+  return photosDuColoris === 0 ? "a_photographier" : "a_retoucher";
 }
 
 // ── Les sacs chez toi ───────────────────────────────────────────────────────
@@ -106,19 +116,19 @@ export type CompteEtats = Record<EtatSac, number> & { total: number };
 
 /** Le nombre de sacs dans chaque état, et le total. */
 export function compterEtats(sacs: readonly { etat: EtatSac }[]): CompteEtats {
-  const c: CompteEtats = { a_photographier: 0, a_generer: 0, pret: 0, total: sacs.length };
+  const c: CompteEtats = { a_photographier: 0, a_retoucher: 0, pret: 0, total: sacs.length };
   for (const s of sacs) c[s.etat]++;
   return c;
 }
 
 /**
- * « 10 sacs chez toi · 4 à prendre en photo, 5 à générer, 1 prêt » : seules les
+ * « 10 sacs chez toi · 4 à prendre en photo, 5 à retoucher, 1 prêt » : seules les
  * parties non nulles, « sac » et « prêt » au singulier à 1 (et à 0, comme le français).
  */
 export function resumeEtats(c: CompteEtats): string {
   const parties = [
     c.a_photographier > 0 ? `${c.a_photographier} à prendre en photo` : null,
-    c.a_generer > 0 ? `${c.a_generer} à générer` : null,
+    c.a_retoucher > 0 ? `${c.a_retoucher} à retoucher` : null,
     c.pret > 0 ? pluriel(c.pret, "prêt", "prêts") : null,
   ].filter((p): p is string => p !== null);
   return [pluriel(c.total, "sac chez toi", "sacs chez toi"), ...(parties.length > 0 ? [parties.join(", ")] : [])].join(" · ");
@@ -134,11 +144,11 @@ export type GroupeCommande = {
   commande: number | null;
   /** Le résumé de TOUT le groupe, que le filtre d'état soit actif ou non. */
   resume: string;
-  /** Les sacs à montrer : ceux de l'état demandé, à prendre en photo d'abord, puis à générer, puis prêts. */
+  /** Les sacs à montrer : ceux de l'état demandé, à prendre en photo d'abord, puis à retoucher, puis prêts. */
   sacs: SacChezToi[];
 };
 
-const RANG_ETAT: Readonly<Record<EtatSac, number>> = { a_photographier: 0, a_generer: 1, pret: 2 };
+const RANG_ETAT: Readonly<Record<EtatSac, number>> = { a_photographier: 0, a_retoucher: 1, pret: 2 };
 const parSku = (a: { sku: string }, b: { sku: string }) => a.sku.localeCompare(b.sku, "fr", { numeric: true });
 
 /**
@@ -147,7 +157,7 @@ const parSku = (a: { sku: string }, b: { sku: string }) => a.sku.localeCompare(b
  * - Un sac sans numéro de Commande va dans un groupe à part, en dernier. Si AUCUN
  *   sac n'a de numéro (FLIPO d'avant ce champ), c'est le seul groupe et il s'appelle
  *   « Chez toi », sans numéro ; sinon il s'appelle « Commande inconnue ».
- * - Dans un groupe : à prendre en photo, puis à générer, puis prêts, chacun par SKU.
+ * - Dans un groupe : à prendre en photo, puis à retoucher, puis prêts, chacun par SKU.
  * - `etat` ne garde que les sacs de cet état dans chaque groupe (un groupe sans
  *   sac visible disparaît) ; le résumé reste celui du groupe entier.
  */

@@ -8,6 +8,7 @@ import {
   estEtatSac,
   etatSac,
   grouperParCommande,
+  lireEtatSac,
   resumeEtats,
   sacsChezToi,
   type CarteDuSac,
@@ -62,9 +63,9 @@ describe("etatSac", () => {
     expect(etatSac(0, false)).toBe("a_photographier");
   });
 
-  it("à générer : le coloris a des vraies photos, mais le SKU n'a aucune image validée", () => {
-    expect(etatSac(1, false)).toBe("a_generer");
-    expect(etatSac(15, false)).toBe("a_generer");
+  it("à retoucher : le coloris a des vraies photos, mais le SKU n'a aucune image validée", () => {
+    expect(etatSac(1, false)).toBe("a_retoucher");
+    expect(etatSac(15, false)).toBe("a_retoucher");
   });
 
   it("prêt : au moins une image validée pour ce SKU, quelles que soient les photos de la carte", () => {
@@ -75,11 +76,19 @@ describe("etatSac", () => {
   });
 
   it("trois états, dans l'ordre du travail, chacun avec son mot", () => {
-    expect([...ETATS_SAC]).toEqual(["a_photographier", "a_generer", "pret"]);
-    expect(LIBELLES_ETAT).toEqual({ a_photographier: "À prendre en photo", a_generer: "À générer", pret: "Prêt" });
+    expect([...ETATS_SAC]).toEqual(["a_photographier", "a_retoucher", "pret"]);
+    expect(LIBELLES_ETAT).toEqual({ a_photographier: "À prendre en photo", a_retoucher: "À retoucher", pret: "Prêt" });
     expect(estEtatSac("pret")).toBe(true);
     expect(estEtatSac("PRET")).toBe(false);
     expect(estEtatSac(null)).toBe(false);
+  });
+
+  it("lit l'état de l'URL ; l'ancien « a_generer » (génération supprimée le 17/11) se lit « a_retoucher »", () => {
+    expect(lireEtatSac("pret")).toBe("pret");
+    expect(lireEtatSac("a_retoucher")).toBe("a_retoucher");
+    expect(lireEtatSac("a_generer")).toBe("a_retoucher");
+    expect(lireEtatSac("inconnu")).toBeNull();
+    expect(lireEtatSac(null)).toBeNull();
   });
 });
 
@@ -111,10 +120,10 @@ describe("sacsChezToi", () => {
     expect(sacs.map((x) => x.sku)).toEqual(["SDN4", "SDN6", "SDN8"]);
   });
 
-  it("à prendre en photo / à générer / prêt, d'après les photos du coloris et les images validées du SKU", () => {
+  it("à prendre en photo / à retoucher / prêt, d'après les photos du coloris et les images validées du SKU", () => {
     const sacs = sacsChezToi(cat.coloris, cartesDe(cat, { "5039-black-pink": 15 }), new Set(["SDN6"]), statutDe);
     expect(sacs.map((x) => [x.sku, x.etat])).toEqual([
-      ["SDN4", "a_generer"], // Black Pink : 15 photos, aucune image validée pour SDN4
+      ["SDN4", "a_retoucher"], // Black Pink : 15 photos, aucune image validée pour SDN4
       ["SDN6", "pret"], // Red : aucune photo, mais une image validée pour SDN6
       ["SDN8", "a_photographier"], // Sky Blue : aucune photo, aucune image
     ]);
@@ -122,7 +131,7 @@ describe("sacsChezToi", () => {
 
   it("une image validée pour un AUTRE sac du coloris ne rend pas celui-ci prêt", () => {
     const sacs = sacsChezToi(cat.coloris, cartesDe(cat, { "5039-black-pink": 15 }), new Set(["SDN3"]), aucunStatut);
-    expect(sacs.find((x) => x.sku === "SDN4")?.etat).toBe("a_generer");
+    expect(sacs.find((x) => x.sku === "SDN4")?.etat).toBe("a_retoucher");
     expect(sacs.find((x) => x.sku === "SDN3")?.etat).toBe("pret");
   });
 
@@ -169,7 +178,7 @@ describe("l'alias Studio : SDN60 apparaît sous Black Gold 5880", () => {
     // Après l'alias, la carte du Studio est celle de 5880 ; ses photos sont celles de 5880 ET de 5883 (regrouperParCleStudio).
     const sacs = sacsChezToi(catalogue.coloris, cartesDe(catalogue, { "5880-black-gold": 15 }), new Set(), aucunStatut);
     const sdn60 = sacs.find((x) => x.sku === "SDN60");
-    expect(sdn60).toMatchObject({ cle: "5880-black-gold", coloris: "Black Gold", modele: "5880", generation: "V2", commande: 7, etat: "a_generer" });
+    expect(sdn60).toMatchObject({ cle: "5880-black-gold", coloris: "Black Gold", modele: "5880", generation: "V2", commande: 7, etat: "a_retoucher" });
     expect(sacs.some((x) => x.cle === "5883-black-gold")).toBe(false);
   });
 
@@ -190,31 +199,31 @@ describe("l'alias Studio : SDN60 apparaît sous Black Gold 5880", () => {
 
 describe("compterEtats", () => {
   it("compte chaque état et le total", () => {
-    const sacs = [s("SDN1", 1, "pret"), s("SDN2", 1, "a_generer"), s("SDN3", 1, "a_generer"), s("SDN4", 1, "a_photographier"), s("SDN5", null, "pret")];
-    expect(compterEtats(sacs)).toEqual({ a_photographier: 1, a_generer: 2, pret: 2, total: 5 });
+    const sacs = [s("SDN1", 1, "pret"), s("SDN2", 1, "a_retoucher"), s("SDN3", 1, "a_retoucher"), s("SDN4", 1, "a_photographier"), s("SDN5", null, "pret")];
+    expect(compterEtats(sacs)).toEqual({ a_photographier: 1, a_retoucher: 2, pret: 2, total: 5 });
   });
 
   it("les trois états font toujours le total", () => {
-    const c = compterEtats([s("SDN1", 1, "pret"), s("SDN2", 2, "a_generer")]);
-    expect(c.a_photographier + c.a_generer + c.pret).toBe(c.total);
+    const c = compterEtats([s("SDN1", 1, "pret"), s("SDN2", 2, "a_retoucher")]);
+    expect(c.a_photographier + c.a_retoucher + c.pret).toBe(c.total);
   });
 
   it("aucun sac : tout à zéro", () => {
-    expect(compterEtats([])).toEqual({ a_photographier: 0, a_generer: 0, pret: 0, total: 0 });
+    expect(compterEtats([])).toEqual({ a_photographier: 0, a_retoucher: 0, pret: 0, total: 0 });
   });
 });
 
 describe("resumeEtats (accord et parties nulles)", () => {
-  const c = (a_photographier: number, a_generer: number, pret: number) => ({ a_photographier, a_generer, pret, total: a_photographier + a_generer + pret });
+  const c = (a_photographier: number, a_retoucher: number, pret: number) => ({ a_photographier, a_retoucher, pret, total: a_photographier + a_retoucher + pret });
 
   it("la phrase de la maquette", () => {
-    expect(resumeEtats(c(4, 5, 1))).toBe("10 sacs chez toi · 4 à prendre en photo, 5 à générer, 1 prêt");
-    expect(resumeEtats(c(0, 1, 1))).toBe("2 sacs chez toi · 1 à générer, 1 prêt");
+    expect(resumeEtats(c(4, 5, 1))).toBe("10 sacs chez toi · 4 à prendre en photo, 5 à retoucher, 1 prêt");
+    expect(resumeEtats(c(0, 1, 1))).toBe("2 sacs chez toi · 1 à retoucher, 1 prêt");
   });
 
   it("n'affiche que les parties non nulles", () => {
     expect(resumeEtats(c(5, 0, 0))).toBe("5 sacs chez toi · 5 à prendre en photo");
-    expect(resumeEtats(c(0, 5, 0))).toBe("5 sacs chez toi · 5 à générer");
+    expect(resumeEtats(c(0, 5, 0))).toBe("5 sacs chez toi · 5 à retoucher");
     expect(resumeEtats(c(0, 0, 5))).toBe("5 sacs chez toi · 5 prêts");
     expect(resumeEtats(c(2, 0, 3))).toBe("5 sacs chez toi · 2 à prendre en photo, 3 prêts");
   });
@@ -222,7 +231,7 @@ describe("resumeEtats (accord et parties nulles)", () => {
   it("accorde au singulier : un sac, un prêt", () => {
     expect(resumeEtats(c(0, 0, 1))).toBe("1 sac chez toi · 1 prêt");
     expect(resumeEtats(c(1, 0, 0))).toBe("1 sac chez toi · 1 à prendre en photo");
-    expect(resumeEtats(c(0, 1, 0))).toBe("1 sac chez toi · 1 à générer");
+    expect(resumeEtats(c(0, 1, 0))).toBe("1 sac chez toi · 1 à retoucher");
   });
 
   it("au pluriel dès deux", () => {
@@ -240,15 +249,15 @@ describe("grouperParCommande, avec le numéro de Commande", () => {
   // La maquette : Commande 7 (10 sacs), Commande 5 (5 sacs), Commande 2 (2 sacs), dans le désordre.
   const sacs: SacChezToi[] = [
     s("SDN61", 7, "pret"),
-    s("SDN52", 7, "a_generer"),
+    s("SDN52", 7, "a_retoucher"),
     s("SDN54", 7, "a_photographier"),
-    s("SDN37", 5, "a_generer"),
+    s("SDN37", 5, "a_retoucher"),
     s("SDN11", 2, "pret"),
-    s("SDN53", 7, "a_generer"),
+    s("SDN53", 7, "a_retoucher"),
     s("SDN56", 7, "a_photographier"),
     s("SDN34", 5, "pret"),
-    s("SDN14", 2, "a_generer"),
-    s("SDN9", 7, "a_generer"), // SDN9 avant SDN52 : tri numérique, pas alphabétique
+    s("SDN14", 2, "a_retoucher"),
+    s("SDN9", 7, "a_retoucher"), // SDN9 avant SDN52 : tri numérique, pas alphabétique
   ];
 
   it("la Commande la plus récente d'abord, avec son titre", () => {
@@ -265,23 +274,23 @@ describe("grouperParCommande, avec le numéro de Commande", () => {
     expect(g.map((x) => x.titre)).toEqual(["Commande 100", "Commande 10", "Commande 9"]);
   });
 
-  it("dans chaque Commande : à prendre en photo, puis à générer, puis prêts, chacun par SKU", () => {
+  it("dans chaque Commande : à prendre en photo, puis à retoucher, puis prêts, chacun par SKU", () => {
     const [c7] = grouperParCommande(sacs);
     expect(c7.sacs.map((x) => [x.sku, x.etat])).toEqual([
       ["SDN54", "a_photographier"],
       ["SDN56", "a_photographier"],
-      ["SDN9", "a_generer"],
-      ["SDN52", "a_generer"],
-      ["SDN53", "a_generer"],
+      ["SDN9", "a_retoucher"],
+      ["SDN52", "a_retoucher"],
+      ["SDN53", "a_retoucher"],
       ["SDN61", "pret"],
     ]);
   });
 
   it("le résumé de chaque Commande compte tous ses sacs", () => {
     expect(grouperParCommande(sacs).map((x) => x.resume)).toEqual([
-      "6 sacs chez toi · 2 à prendre en photo, 3 à générer, 1 prêt",
-      "2 sacs chez toi · 1 à générer, 1 prêt",
-      "2 sacs chez toi · 1 à générer, 1 prêt",
+      "6 sacs chez toi · 2 à prendre en photo, 3 à retoucher, 1 prêt",
+      "2 sacs chez toi · 1 à retoucher, 1 prêt",
+      "2 sacs chez toi · 1 à retoucher, 1 prêt",
     ]);
   });
 
@@ -289,7 +298,7 @@ describe("grouperParCommande, avec le numéro de Commande", () => {
     const g = grouperParCommande(sacs, "a_photographier");
     expect(g.map((x) => x.titre)).toEqual(["Commande 7"]);
     expect(g[0].sacs.map((x) => x.sku)).toEqual(["SDN54", "SDN56"]);
-    expect(g[0].resume).toBe("6 sacs chez toi · 2 à prendre en photo, 3 à générer, 1 prêt");
+    expect(g[0].resume).toBe("6 sacs chez toi · 2 à prendre en photo, 3 à retoucher, 1 prêt");
 
     const prets = grouperParCommande(sacs, "pret");
     expect(prets.map((x) => [x.titre, x.sacs.map((y) => y.sku)])).toEqual([
@@ -320,19 +329,19 @@ describe("grouperParCommande, avec le numéro de Commande", () => {
 });
 
 describe("grouperParCommande, sans le numéro de Commande (FLIPO d'avant ce champ)", () => {
-  const sacs = [s("SDN12", null, "pret"), s("SDN3", null, "a_photographier"), s("SDN5", null, "a_generer")];
+  const sacs = [s("SDN12", null, "pret"), s("SDN3", null, "a_photographier"), s("SDN5", null, "a_retoucher")];
 
   it("un seul groupe « Chez toi », sans numéro, tous les sacs triés par état", () => {
     const g = grouperParCommande(sacs);
     expect(g).toHaveLength(1);
-    expect(g[0]).toMatchObject({ id: "chez-toi", titre: "Chez toi", commande: null, resume: "3 sacs chez toi · 1 à prendre en photo, 1 à générer, 1 prêt" });
+    expect(g[0]).toMatchObject({ id: "chez-toi", titre: "Chez toi", commande: null, resume: "3 sacs chez toi · 1 à prendre en photo, 1 à retoucher, 1 prêt" });
     expect(g[0].sacs.map((x) => x.sku)).toEqual(["SDN3", "SDN5", "SDN12"]);
   });
 
   it("le filtre d'état marche de même", () => {
     const g = grouperParCommande(sacs, "pret");
     expect(g.map((x) => [x.titre, x.sacs.map((y) => y.sku)])).toEqual([["Chez toi", ["SDN12"]]]);
-    expect(grouperParCommande([s("SDN1", null, "a_generer")], "pret")).toEqual([]);
+    expect(grouperParCommande([s("SDN1", null, "a_retoucher")], "pret")).toEqual([]);
   });
 
   it("le titre ne porte jamais de numéro", () => {
@@ -342,7 +351,7 @@ describe("grouperParCommande, sans le numéro de Commande (FLIPO d'avant ce cham
 
 describe("grouperParCommande, numéros pour une partie des sacs seulement", () => {
   it("les sacs sans numéro forment un dernier groupe « Commande inconnue »", () => {
-    const g = grouperParCommande([s("SDN1", null, "pret"), s("SDN2", 3, "pret"), s("SDN3", 6, "a_generer")]);
+    const g = grouperParCommande([s("SDN1", null, "pret"), s("SDN2", 3, "pret"), s("SDN3", 6, "a_retoucher")]);
     expect(g.map((x) => [x.id, x.titre, x.commande])).toEqual([
       ["commande-6", "Commande 6", 6],
       ["commande-3", "Commande 3", 3],
@@ -406,10 +415,10 @@ describe("du catalogue reçu jusqu'aux groupes", () => {
     const g = groupes(false);
     expect(g.map((x) => [x.titre, x.commande])).toEqual([["Chez toi", null]]);
     expect(g[0].sacs.map((x) => [x.sku, x.etat])).toEqual([
-      ["SDN3", "a_generer"],
-      ["SDN60", "a_generer"],
+      ["SDN3", "a_retoucher"],
+      ["SDN60", "a_retoucher"],
       ["SDN4", "pret"],
     ]);
-    expect(g[0].resume).toBe("3 sacs chez toi · 2 à générer, 1 prêt");
+    expect(g[0].resume).toBe("3 sacs chez toi · 2 à retoucher, 1 prêt");
   });
 });

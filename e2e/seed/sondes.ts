@@ -22,10 +22,15 @@
 
 import { Prisma, type PrismaClient } from "@prisma/client";
 
-import { nomPrise, promptVariante } from "@/lib/studioCases";
-import { MODELE_MANUEL } from "@/lib/studioFiche";
+import { nomPrise } from "@/lib/studioCases";
 
 import { verifierBaseLocale } from "./seed-e2e";
+
+// Données d'avant le 17/11/2026 (génération d'images IA supprimée du Studio) : la valeur par
+// défaut de `StudioEssai.modele` et le texte rangé dans `promptUtilise` (prompt maître, puis
+// prompt d'angle), recopiés ici pour recréer des essais comme ceux qui restent en base.
+const MODELE_MANUEL = "manuel";
+const promptVariante = (maitre: string, angle: string) => (maitre.trim() ? `${maitre.trim()}\n\n${angle.trim()}` : angle.trim());
 
 const HOTE_BLOB = "e2e.private.blob.vercel-storage.com";
 const PREFIXE_ID = "e2e-sonde-";

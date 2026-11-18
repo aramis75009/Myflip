@@ -11,7 +11,6 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const STATUT: Record<CodeRefusLot, number> = {
-  angle_invalide: 400,
   retouche_invalide: 400,
   retouche_vide: 400,
   photos_invalides: 400,

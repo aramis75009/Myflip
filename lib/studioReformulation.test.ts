@@ -400,7 +400,7 @@ describe("la reformulation ne part que sur un clic, et le Studio ne dépend d'un
   const sources = [...balayer("lib"), ...balayer("app"), ...balayer("components")].map((f) => [f, sansCommentaires(readFileSync(path.join(RACINE, f), "utf8"))] as const);
   const importeurs = (motif: RegExp) => sources.filter(([, src]) => motif.test(src)).map(([f]) => f);
 
-  it("seul lib/studioReformulationServeur.ts, côté Studio, parle à lib/fournisseurIA (génération d'images et avis IA restent sur OpenRouter)", () => {
+  it("seul lib/studioReformulationServeur.ts, côté Studio, parle à lib/fournisseurIA (le Studio n'a plus d'autre IA depuis le 17/11)", () => {
     const studio = importeurs(/from\s*["']@\/lib\/fournisseurIA["']|from\s*["']\.\/fournisseurIA["']/).filter((f) => /studio/i.test(f));
     expect(studio).toEqual(["lib/studioReformulationServeur.ts"]);
   });

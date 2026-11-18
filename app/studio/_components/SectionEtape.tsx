@@ -5,16 +5,14 @@ import type { DragEventHandler, ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
 
-import type { Etape } from "../_parcours";
+/** The two sections of a colourway sheet: the board of photos, then the versions of the bag. */
+export type Section = "photos" | "versions";
 
-/** The five steps, plus « versions » (retouches par lot, 17/11), which is not a step of the next action. */
-export type Section = Etape | "versions";
-
-export const idEtape = (e: Section) => `etape-${e}`;
+export const idSection = (e: Section) => `etape-${e}`;
 
 /**
- * One step of a colourway sheet: number, title, one-line state, and actions
- * that stay reachable while the step is folded (« Ajouter des photos »).
+ * One section of a colourway sheet: mark, title, one-line state, and actions
+ * that stay reachable while the section is folded (« Ajouter des photos »).
  *
  * Accordion pattern: the heading holds the toggle button (aria-expanded);
  * the whole header row is its click area. Folded, the body stays MOUNTED
@@ -27,7 +25,6 @@ export function SectionEtape({
   resume,
   actions,
   ouverte,
-  courante = false,
   onBasculer,
   onDragOver,
   onDragLeave,
@@ -36,15 +33,13 @@ export function SectionEtape({
   children,
 }: {
   etape: Section;
-  /** The step number, or a mark for a section outside the numbered steps. */
+  /** The mark of the section (an icon). */
   numero: ReactNode;
   titre: string;
-  /** State of the step, always visible (« 9 / 15 prises »). */
+  /** State of the section, always visible (« 9 / 15 prises »). */
   resume: ReactNode;
   actions?: ReactNode;
   ouverte: boolean;
-  /** The step that holds the next action: marked by the filled number and a hidden label. */
-  courante?: boolean;
   onBasculer: () => void;
   onDragOver?: DragEventHandler<HTMLElement>;
   onDragLeave?: DragEventHandler<HTMLElement>;
@@ -52,7 +47,7 @@ export function SectionEtape({
   survolee?: boolean;
   children: ReactNode;
 }) {
-  const id = idEtape(etape);
+  const id = idSection(etape);
   return (
     <section
       id={id}
@@ -61,18 +56,14 @@ export function SectionEtape({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       className={cn(
-        "scroll-mt-4 rounded-lg border bg-surface transition-colors duration-fast",
-        courante ? "border-line-strong" : "border-line",
+        "scroll-mt-4 rounded-lg border border-line bg-surface transition-colors duration-fast",
         survolee && "border-accent bg-accent-soft",
       )}
     >
       <div className="group relative flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2">
         <span
           aria-hidden="true"
-          className={cn(
-            "flex h-8 w-8 flex-none items-center justify-center rounded-full font-mono text-sm font-bold",
-            courante ? "bg-accent text-accent-ink" : "bg-surface-2 text-ink-2",
-          )}
+          className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-surface-2 font-mono text-sm font-bold text-ink-2"
         >
           {numero}
         </span>
@@ -86,7 +77,6 @@ export function SectionEtape({
             className="rounded-sm text-left after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
           >
             {titre}
-            {courante && <span className="sr-only"> (prochaine action)</span>}
           </button>
         </h2>
         <span id={`${id}-resume`} className="min-w-0 flex-1 text-base text-ink-2">

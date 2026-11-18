@@ -9,9 +9,9 @@
  *  - garde d'écriture sur /api/** (e2e/outils/ecritures.ts) : aucune écriture
  *    n'atteint le serveur ; un état qui en dépend est rendu par une réponse
  *    SIMULÉE (page.route), notée dans le rapport ;
- *  - sur /studio/<cle>, AUCUNE touche n'est jamais pressée (V et R valident ou
- *    rejettent sur-le-champ) : seulement des clics sur des boutons sans effet
- *    serveur, écritures bloquées en plus ;
+ *  - sur /studio/<cle>, seulement des clics sur des boutons sans effet
+ *    serveur, écritures bloquées en plus (la file « À juger » et ses touches V
+ *    et R sont parties avec la génération d'images IA le 17/11/2026) ;
  *  - les boîtes natives (confirm, beforeunload) n'apparaissent pas sur une
  *    capture : leur texte est vérifié par un test à part (celles qui sont
  *    devenues des AlertDialog le sont par « confirmation destructive ») ;
@@ -143,17 +143,14 @@ async function cocher(c: Ctx, sku: string) {
   await expect(visible(caseSku)).toBeChecked();
 }
 
-// Fiche Studio la plus remplie (file « À juger » de 3 images).
+// Fiche Studio la plus remplie (9 / 15 prises, des versions).
 const FICHE = "/studio/5039-black-pink";
 async function attendreFiche(page: Page) {
   await expect(page.getByRole("heading", { level: 1, name: "Black Pink" })).toBeVisible();
-  await expect(page.getByText("PROCHAINE ACTION", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: /^Photos/ })).toBeVisible();
 }
 
-/**
- * Déplie une étape de la fiche (Photos, Angles, Génération, À juger, Validées) : depuis le
- * parcours du 22/10, seule l'étape de la prochaine action s'ouvre au chargement.
- */
+/** Déplie une section de la fiche (Photos, Versions) si elle est repliée. */
 async function ouvrirEtape(page: Page, nom: string) {
   const bouton = page.getByRole("heading", { level: 2, name: new RegExp(`^${nom}`) }).getByRole("button");
   if ((await bouton.getAttribute("aria-expanded")) !== "true") await bouton.click();
@@ -967,21 +964,6 @@ const ETATS: DefEtat[] = [
 
   // ── Paramètres (Prompts) ──
   {
-    id: "params.tabs",
-    etude: ["params.tabs"],
-    vue: "both",
-    compte: "demo",
-    chemin: "/parametres",
-    executer: async (c) => {
-      await aller(c.page, "/parametres", "demo");
-      await expect(visible(c.page.getByText(/^Prompt par défaut$/))).toBeVisible();
-      await c.page.getByRole("tab", { name: /^Studio/ }).click();
-      await expect(c.page.getByRole("tab", { name: /^Studio/ })).toHaveAttribute("aria-selected", "true");
-      await expect(c.page.getByRole("heading", { name: "Prompt maître" })).toBeVisible();
-      await c.capture();
-    },
-  },
-  {
     id: "params.prompt-modal",
     etude: ["params.prompt-modal"],
     vue: "both",
@@ -1018,26 +1000,6 @@ const ETATS: DefEtat[] = [
       await c.page.getByRole("button", { name: "Obtenir le méta-prompt" }).click();
       await expect(c.page.getByRole("dialog", { name: "Méta-prompt" })).toBeVisible();
       await c.capture();
-    },
-  },
-  {
-    id: "params.studio-editors",
-    etude: ["params.studio-editors"],
-    vue: "desktop",
-    compte: "demo",
-    chemin: "/parametres?onglet=studio",
-    executer: async (c) => {
-      const { page } = c;
-      await aller(page, "/parametres?onglet=studio", "demo");
-      await expect(page.getByRole("heading", { name: "Prompt maître" })).toBeVisible();
-      await page.getByRole("button", { name: "Modifier", exact: true }).first().click();
-      await expect(page.getByRole("textbox", { name: "Prompt maître" })).toBeVisible();
-      await c.capture("prompt-maitre");
-      await page.reload();
-      await expect(page.getByRole("heading", { name: "Prompt maître" })).toBeVisible();
-      await page.getByRole("button", { name: "Nouveau prompt d’angle" }).click();
-      await expect(page.getByPlaceholder("8° à droite")).toBeVisible();
-      await c.capture("nouvel-angle");
     },
   },
 
@@ -1208,7 +1170,9 @@ const ETATS: DefEtat[] = [
     chemin: "/studio",
     executer: async (c) => {
       await aller(c.page, "/studio", "demo");
-      await expect(c.page.getByRole("note")).toContainText("Images générées par IA");
+      // Le bandeau « Images générées par IA » est parti avec la génération (17/11) ; reste « en chantier ».
+      await expect(c.page.getByRole("note")).toContainText("Studio en chantier");
+      await expect(c.page.getByText(/Images générées par IA/)).toHaveCount(0);
       await expect(c.page.getByText(/SacBase (injoignable|non configuré)/)).toHaveCount(0);
       await c.capture();
     },
@@ -1225,9 +1189,11 @@ const ETATS: DefEtat[] = [
       await expect(page.getByText(/^7 coloris · /)).toBeVisible();
       const filtre = page.getByRole("group", { name: "Filtre" });
       const generation = page.getByRole("group", { name: "Génération" });
-      await filtre.getByRole("button", { name: /^À juger/ }).click();
-      await expect(filtre.getByRole("button", { name: /^À juger/ })).toHaveAttribute("aria-pressed", "true");
-      await c.capture("a-juger", { pleinePage: true });
+      // Le filtre « À juger » est parti avec la génération (17/11) : on capture « Avec vraies photos ».
+      await expect(filtre.getByRole("button", { name: /^À juger/ })).toHaveCount(0);
+      await filtre.getByRole("button", { name: /^Avec vraies photos/ }).click();
+      await expect(filtre.getByRole("button", { name: /^Avec vraies photos/ })).toHaveAttribute("aria-pressed", "true");
+      await c.capture("avec-photos", { pleinePage: true });
       await filtre.getByRole("button", { name: /^Tous/ }).click();
       await generation.getByRole("button", { name: /^V3/ }).click();
       await expect(generation.getByRole("button", { name: /^V3/ })).toHaveAttribute("aria-pressed", "true");
@@ -1237,21 +1203,6 @@ const ETATS: DefEtat[] = [
       await expect(page.getByText("Aucun coloris pour « zzz-aucun ».")).toBeVisible();
       await expect(page.getByRole("button", { name: "Effacer les filtres" })).toBeVisible();
       await c.capture("aucun-resultat", { pleinePage: true });
-    },
-  },
-  {
-    id: "studio.fiche-details-ia",
-    etude: ["studio.fiche-details-ia"],
-    vue: "desktop",
-    compte: "demo",
-    chemin: FICHE,
-    executer: async (c) => {
-      await aller(c.page, FICHE, "demo");
-      await attendreFiche(c.page);
-      const bouton = c.page.getByRole("button", { name: /^Détails vérifiés par l.IA/ });
-      await bouton.click();
-      await expect(bouton).toHaveAttribute("aria-expanded", "true");
-      await c.capture();
     },
   },
   {
@@ -1292,152 +1243,6 @@ const ETATS: DefEtat[] = [
       await c.page.keyboard.press("Escape");
       await c.page.keyboard.press("Escape");
       await expect(menu).toHaveCount(0);
-    },
-  },
-  {
-    id: "studio.file-a-juger",
-    etude: ["studio.file-a-juger"],
-    vue: "desktop",
-    compte: "demo",
-    chemin: FICHE,
-    executer: async (c) => {
-      const { page } = c;
-      await aller(page, FICHE, "demo");
-      await attendreFiche(page);
-      // Aucune touche : V/R valident ou rejettent. Navigation à la souris seulement.
-      const titre = page.getByRole("heading", { name: "À juger" });
-      await titre.scrollIntoViewIfNeeded();
-      for (const [rang, suffixe] of [["1 / 3", "image-1"], ["2 / 3", "image-2"], ["3 / 3", "image-3"]] as const) {
-        if (rang !== "1 / 3") await page.getByRole("button", { name: "Image suivante" }).click();
-        await expect(page.getByText(rang, { exact: true })).toBeVisible();
-        await expect(page.getByText(/Avis de l.IA/)).toBeVisible();
-        await c.capture(suffixe);
-      }
-    },
-  },
-  {
-    id: "studio.correction-panel",
-    etude: ["studio.correction-panel"],
-    vue: "desktop",
-    compte: "demo",
-    chemin: FICHE,
-    executer: async (c) => {
-      await aller(c.page, FICHE, "demo");
-      await attendreFiche(c.page);
-      const bouton = c.page.getByRole("button", { name: /^Corriger un détail/ });
-      await bouton.scrollIntoViewIfNeeded();
-      await bouton.click();
-      await expect(bouton).toHaveAttribute("aria-expanded", "true");
-      await c.capture();
-    },
-  },
-  {
-    id: "studio.confirmation-depense",
-    etude: ["studio.confirmation-depense"],
-    vue: "desktop",
-    compte: "demo",
-    chemin: FICHE,
-    executer: async (c) => {
-      const { page } = c;
-      await aller(page, FICHE, "demo");
-      await attendreFiche(page);
-      // Tarif inconnu : la confirmation est exigée avant toute requête. Si la
-      // requête partait quand même, la garde d'écriture la bloquerait et le test échouerait.
-      await ouvrirEtape(page, "Génération");
-      await page.getByRole("button", { name: /^E2E: Tarif inconnu/ }).click();
-      await page.getByRole("button", { name: /^Générer \d+ images?/ }).click();
-      const dialogue = page.getByRole("alertdialog", { name: "Confirmer la dépense" });
-      await expect(dialogue).toBeVisible();
-      await dialogue.scrollIntoViewIfNeeded();
-      await c.capture();
-      await dialogue.getByRole("button", { name: "Annuler" }).click();
-      await expect(dialogue).toBeHidden();
-    },
-  },
-  {
-    id: "studio.mode-generation",
-    etude: ["studio.mode-generation"],
-    vue: "desktop",
-    compte: "demo",
-    chemin: FICHE,
-    executer: async (c) => {
-      await aller(c.page, FICHE, "demo");
-      await attendreFiche(c.page);
-      await ouvrirEtape(c.page, "Génération");
-      const onglet = c.page.getByRole("tab", { name: "À la main, dans Gemini" });
-      await onglet.click();
-      await expect(onglet).toHaveAttribute("aria-selected", "true");
-      await onglet.scrollIntoViewIfNeeded();
-      await c.capture();
-    },
-  },
-  {
-    id: "studio.cases-choix",
-    etude: ["studio.cases-choix"],
-    vue: "desktop",
-    compte: "demo",
-    chemin: FICHE,
-    executer: async (c) => {
-      const { page } = c;
-      await aller(page, FICHE, "demo");
-      await attendreFiche(page);
-      await ouvrirEtape(page, "Angles");
-      const tableau = page.getByRole("table", { name: /Photos × prompts d.angle/ });
-      await tableau.scrollIntoViewIfNeeded();
-      await page.getByRole("button", { name: "Tout décocher" }).click();
-      await expect(tableau.getByRole("button", { name: "Choisie", pressed: true })).toHaveCount(0);
-      await c.capture("aucune");
-      await page.getByRole("button", { name: "Choisir automatiquement" }).click();
-      await expect(tableau.getByRole("button", { name: "Choisie", pressed: true }).first()).toBeVisible();
-      await c.capture("automatique");
-    },
-  },
-  {
-    id: "studio.modeles-catalogue",
-    etude: ["studio.modeles-catalogue"],
-    vue: "desktop",
-    compte: "demo",
-    chemin: FICHE,
-    executer: async (c) => {
-      const { page } = c;
-      const r = await retenir(page, { chemin: "/api/studio/modeles", methode: "GET" });
-      c.simule("GET /api/studio/modeles retenue, puis 500");
-      await aller(page, FICHE, "demo");
-      await r.vue;
-      await ouvrirEtape(page, "Génération");
-      const chargement = page.getByText("Chargement du catalogue…");
-      await expect(chargement).toBeVisible();
-      await calme(page, "catalogue des modèles en chargement");
-      await chargement.scrollIntoViewIfNeeded();
-      await c.capture("chargement", IMMEDIAT);
-      r.liberer(repondreJson(500, { error: "Catalogue injoignable (simulation e2e)." }));
-      const indisponible = visible(page.getByText(/Catalogue indisponible/));
-      await expect(indisponible).toBeVisible();
-      await c.capture("indisponible");
-    },
-  },
-  {
-    id: "studio.modeles-selection",
-    etude: ["studio.modeles-catalogue"],
-    vue: "desktop",
-    compte: "demo",
-    chemin: FICHE,
-    executer: async (c) => {
-      const { page } = c;
-      await aller(page, FICHE, "demo");
-      await attendreFiche(page);
-      await ouvrirEtape(page, "Génération");
-      const cher = page.getByRole("button", { name: /^E2E: Modèle cher/ });
-      await cher.scrollIntoViewIfNeeded();
-      await cher.click();
-      await expect(cher).toHaveAttribute("aria-pressed", "true");
-      await c.capture("modele-cher");
-      // Un second modèle, trouvé par la recherche : la sélection devient une comparaison.
-      await page.getByRole("searchbox", { name: "Rechercher un modèle" }).fill("seedream");
-      const seedream = page.getByRole("button", { name: /^ByteDance Seed: Seedream/ });
-      await seedream.click();
-      await expect(seedream).toHaveAttribute("aria-pressed", "true");
-      await c.capture("autre-modele");
     },
   },
 
@@ -1652,6 +1457,42 @@ const ETATS: DefEtat[] = [
 
 /** États de l'étude volontairement NON capturés, avec la raison. */
 const NON_CAPTURES: { id: string; raison: string }[] = [
+  {
+    id: "params.tabs",
+    raison: "Onglets supprimés le 17/11/2026 : le seul autre onglet (Studio : prompt maître et prompts d'angle) est parti avec la génération d'images IA.",
+  },
+  {
+    id: "params.studio-editors",
+    raison: "Supprimé avec la génération d'images IA du Studio (17/11/2026, PRD 2026-11-16 étape 6) : l'écran n'existe plus.",
+  },
+  {
+    id: "studio.cases-choix",
+    raison: "Supprimé avec la génération d'images IA du Studio (17/11/2026, PRD 2026-11-16 étape 6) : l'écran n'existe plus.",
+  },
+  {
+    id: "studio.confirmation-depense",
+    raison: "Supprimé avec la génération d'images IA du Studio (17/11/2026, PRD 2026-11-16 étape 6) : l'écran n'existe plus.",
+  },
+  {
+    id: "studio.correction-panel",
+    raison: "Supprimé avec la génération d'images IA du Studio (17/11/2026, PRD 2026-11-16 étape 6) : l'écran n'existe plus.",
+  },
+  {
+    id: "studio.fiche-details-ia",
+    raison: "Supprimé avec la génération d'images IA du Studio (17/11/2026, PRD 2026-11-16 étape 6) : l'écran n'existe plus.",
+  },
+  {
+    id: "studio.file-a-juger",
+    raison: "Supprimé avec la génération d'images IA du Studio (17/11/2026, PRD 2026-11-16 étape 6) : l'écran n'existe plus.",
+  },
+  {
+    id: "studio.mode-generation",
+    raison: "Supprimé avec la génération d'images IA du Studio (17/11/2026, PRD 2026-11-16 étape 6) : l'écran n'existe plus.",
+  },
+  {
+    id: "studio.modeles-catalogue",
+    raison: "Supprimé avec la génération d'images IA du Studio (17/11/2026, PRD 2026-11-16 étape 6) : l'écran n'existe plus.",
+  },
   { id: "shell.logout", raison: "signOut détruit la session du contexte ; jamais déclenché." },
   { id: "shell.welcome-modal", raison: "N'existe plus dans le code (remplacée par la carte de démarrage, capturée : etat.dashboard.demarrage-card)." },
   { id: "stock.delete-confirm", raison: "AlertDialog (L1, M1), pas capturée : son titre et son annulation sont vérifiés par le test « confirmation destructive : stock » (aucune requête)." },

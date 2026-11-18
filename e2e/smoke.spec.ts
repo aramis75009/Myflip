@@ -44,17 +44,8 @@ test.describe("faux serveurs", () => {
     test.skip(test.info().project.name !== "desktop-clair", "Vérifié une fois, pas dans chaque projet.");
   });
 
-  test("OpenRouter factice : catalogue, tarifs, clé exigée, compteur", async ({ request }) => {
+  test("OpenRouter factice : annonce, clé exigée, compteur", async ({ request }) => {
     const avant = (await appelsFaux(request, "openrouter")).compteur;
-
-    const liste = await request.get(`${URL_OPENROUTER}/images/models`);
-    expect(liste.status()).toBe(200);
-    const ids = ((await liste.json()) as { data: { id: string }[] }).data.map((m) => m.id);
-    expect(ids).toEqual(expect.arrayContaining(["qwen/qwen-image-2.1-turbo", "e2e/modele-cher", "recraft/recraft-v4.1-flash"]));
-
-    const cher = await request.get(`${URL_OPENROUTER}/images/models/e2e/modele-cher/endpoints`);
-    expect(((await cher.json()) as { endpoints: { pricing: { cost_usd: number }[] }[] }).endpoints[0].pricing[1].cost_usd).toBe(0.134);
-    expect((await request.get(`${URL_OPENROUTER}/images/models/e2e/tarif-inconnu/endpoints`)).status()).toBe(404);
 
     expect((await request.post(`${URL_OPENROUTER}/chat/completions`, { data: { model: "x", messages: [] } })).status()).toBe(401);
     const annonce = await request.post(`${URL_OPENROUTER}/chat/completions`, {
@@ -65,15 +56,11 @@ test.describe("faux serveurs", () => {
     const contenu = ((await annonce.json()) as { choices: { message: { content: string } }[] }).choices[0].message.content;
     expect(JSON.parse(contenu)).toMatchObject({ titre: expect.any(String), motsCles: expect.any(String) });
 
-    const image = await request.post(`${URL_OPENROUTER}/images`, {
-      headers: { Authorization: "Bearer e2e-fausse-cle-test" },
-      data: { model: "qwen/qwen-image-2.1-turbo", prompt: "e2e", n: 1 },
-    });
-    const b64 = ((await image.json()) as { data: { b64_json: string }[] }).data[0].b64_json;
-    expect([...Buffer.from(b64, "base64").subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    const cle = await request.get(`${URL_OPENROUTER}/key`, { headers: { Authorization: "Bearer e2e-fausse-cle-test" } });
+    expect(cle.status()).toBe(200);
 
     // ≥ : un autre worker peut faire appeler le faux serveur par Next en même temps.
-    expect((await appelsFaux(request, "openrouter")).compteur).toBeGreaterThanOrEqual(avant + 6);
+    expect((await appelsFaux(request, "openrouter")).compteur).toBeGreaterThanOrEqual(avant + 3);
   });
 
   test("SacBase factice : jeton exigé, catalogue du seed, vignette image", async ({ request }) => {
@@ -135,21 +122,6 @@ test.describe("connecté (compte demo)", () => {
     expect(appels.filter((a) => a.type === "coloris" && a.statut === 200 && a.bearer).length).toBeGreaterThanOrEqual(1);
     expect(appels.filter((a) => a.type === "image" && a.statut === 200 && a.bearer).length).toBeGreaterThanOrEqual(1);
     expect(journalConsole.erreurs.filter((e) => e.type === "pageerror")).toEqual([]);
-  });
-
-  test("/studio/bilan lit le catalogue côté serveur sur le faux OpenRouter", async ({ page, request }) => {
-    test.skip(test.info().project.name !== "desktop-clair", "Vérifié une fois, pas dans chaque projet.");
-    const avant = (await appelsFaux(request, "openrouter")).appels.filter((a) => a.type === "catalogue").length;
-    await page.goto("/studio/bilan");
-    await expect(page).toHaveURL(/\/studio\/bilan$/);
-
-    const etat = await appelsFaux(request, "openrouter");
-    const catalogues = etat.appels.filter((a) => a.type === "catalogue");
-    test.info().annotations.push({ type: "faux OpenRouter", description: `catalogue lu ${catalogues.length - avant} fois pendant ce test` });
-    // Cumulatif : le serveur garde le catalogue 10 min, un autre spec a pu le charger avant.
-    expect(catalogues.length).toBeGreaterThanOrEqual(1);
-    // Le modèle « texte seul » est écarté SANS demande de tarif.
-    expect(etat.appels.filter((a) => a.type === "tarif" && a.modele === "recraft/recraft-v4.1-flash")).toEqual([]);
   });
 });
 

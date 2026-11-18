@@ -58,9 +58,9 @@ export type EffortReflexion = "low" | "medium" | "high";
  *
  * Ollama Cloud est le défaut depuis le 03/11/2026 (plus de crédit OpenRouter).
  * OpenRouter reste en secours : son code, son catalogue et sa clé sont intacts,
- * et un compte le choisit dans « Mon compte ». Le Studio IA (génération et avis
- * sur les images, `lib/studio*`) n'est PAS concerné : Ollama Cloud ne génère pas
- * d'images, il reste sur OpenRouter quel que soit ce réglage.
+ * et un compte le choisit dans « Mon compte ». Le Studio n'en utilise que le
+ * texte (« Reformuler », `lib/studioReformulationServeur.ts`) : sa génération
+ * d'images a été supprimée le 17/11/2026.
  */
 export type FournisseurIA = "ollama" | "openrouter" | "anthropic";
 
@@ -112,9 +112,8 @@ export type UsageIA = "annonce" | "chat";
  */
 export const MODELE_PAR_DEFAUT = "google/gemini-3.6-flash";
 // ⚠️ « Par défaut » = défaut du fournisseur OpenRouter. Le fournisseur par défaut
-// de l'application est Ollama Cloud (`MODELE_OLLAMA_PAR_DEFAUT`, plus bas) ;
-// celui-ci reste lu par `lib/studioVerif.ts` (avis IA du Studio, qui lit des
-// images via OpenRouter) : ne pas le remplacer par un identifiant Ollama.
+// de l'application est Ollama Cloud (`MODELE_OLLAMA_PAR_DEFAUT`, plus bas) :
+// ne pas le remplacer par un identifiant Ollama.
 
 export const MODELES_PROPOSES: ModelePropose[] = [
   {

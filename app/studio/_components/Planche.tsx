@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ImagePlus, SlidersHorizontal, Upload, X } from "lucide-react";
+import { Camera, ImagePlus, SlidersHorizontal, Upload, X } from "lucide-react";
 
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { Button, IconButton } from "@/components/ui/button";
@@ -13,10 +13,8 @@ import { MAX_PRISES, nomPrise } from "@/lib/studioCases";
 import type { VersionEnBase } from "@/lib/studioVersion";
 
 import { deplacer, messageSurplus, repartirDepot } from "../_parcours";
-import { ACCEPT, changerPrise, fichiersImages, lireErreur, preparer, remplacerPhoto } from "./envoi";
-import { parNom } from "./lancer";
+import { ACCEPT, changerPrise, fichiersImages, lireErreur, parNom, preparer, remplacerPhoto } from "./envoi";
 import MenuPhoto from "./MenuPhoto";
-import PivoterPhoto from "./PivoterPhoto";
 import RetoucheLot, { REGLAGES_INITIAUX, type ReglagesLot } from "./RetoucheLot";
 import { SectionEtape } from "./SectionEtape";
 
@@ -28,8 +26,9 @@ export const REFUS_PHOTO_SERVIE = "Cette photo a déjà servi à une variante : 
 
 type Photo = { id: string; ordre: number };
 /**
- * A retouched copy of a board photo that no version shows (made by « Pivoter »,
- * or left by an earlier batch): shown next to its photo, never a cell of its own.
+ * A retouched copy of a board photo that no version shows (made by the former
+ * « Pivoter » tool, or left by an earlier batch): shown next to its photo, never
+ * a cell of its own.
  */
 export type CopieRetouchee = { id: string; copieDeId: string; libelle: string };
 
@@ -37,17 +36,16 @@ const avecFichiers = (e: DragEvent) => Array.from(e.dataTransfer.types).includes
 const num = (o: number) => String(o).padStart(2, "0");
 
 /**
- * Step 1, the board: 15 cells, one per shot. ONE way to arrange it: drag a
- * photo onto its shot (on an occupied cell, both swap); from the keyboard, the
- * photo's menu offers « Déplacer vers… ». A drop of files fills the free
- * cells and NAMES what does not fit. Each photo can be replaced or removed;
- * a photo that already gave a variant cannot (the API refuses it, and the
- * menu says so beforehand). « Pivoter » saves a straightened COPY, shown in
- * the same cell under the photo; the photo itself is never touched.
+ * The board: 15 cells, one per shot. ONE way to arrange it: drag a photo onto
+ * its shot (on an occupied cell, both swap); from the keyboard, the photo's
+ * menu offers « Déplacer vers… ». A drop of files fills the free cells and
+ * NAMES what does not fit. Each photo can be replaced or removed; a photo that
+ * already gave a variant (former AI images, kept in base) cannot (the API
+ * refuses it, and the menu says so beforehand).
  *
  * Batch retouch (17/11): each photo has a checkbox; « Retoucher N photos »
  * opens ONE panel for all of them, whose « Enregistrer » makes a new version
- * of the bag with a retouched copy of each.
+ * of the bag with a retouched copy of each. The photo itself is never touched.
  */
 export default function Planche({
   cle,
@@ -59,9 +57,7 @@ export default function Planche({
   skuSource,
   numeroSuivant,
   onVersionCreee,
-  numero,
   ouverte,
-  courante,
   onBasculer,
 }: {
   cle: string;
@@ -69,7 +65,7 @@ export default function Planche({
   lignes: readonly Photo[];
   /** Retouched copies outside any version, to show under their photo. */
   copies: readonly CopieRetouchee[];
-  /** Photos with at least one variant (any decision): neither removable nor replaceable. */
+  /** Photos a former AI image was made from (any decision): neither removable nor replaceable. */
   servies: ReadonlySet<string | null>;
   /** Photos a version shows (themselves or a copy): not removable. */
   enVersion: ReadonlySet<string>;
@@ -77,9 +73,7 @@ export default function Planche({
   skuSource: string | null;
   numeroSuivant: number;
   onVersionCreee: (v: VersionEnBase) => void;
-  numero: number;
   ouverte: boolean;
-  courante: boolean;
   onBasculer: () => void;
 }) {
   const router = useRouter();
@@ -114,7 +108,6 @@ export default function Planche({
   const [annonce, setAnnonce] = useState("");
   const [enCours, setEnCours] = useState<{ id: string; texte: string } | null>(null);
   const [retrait, setRetrait] = useState<Photo | null>(null);
-  const [pivot, setPivot] = useState<Photo | null>(null);
   const [copieARetirer, setCopieARetirer] = useState<{ copie: CopieRetouchee; ordre: number } | null>(null);
   // Batch retouch: the checked photos, the panel, and its settings (kept between two openings).
   const [coches, setCoches] = useState<ReadonlySet<string>>(() => new Set());
@@ -283,10 +276,9 @@ export default function Planche({
   return (
     <SectionEtape
       etape="photos"
-      numero={numero}
+      numero={<Camera size={15} aria-hidden />}
       titre="Photos"
       ouverte={ouverte}
-      courante={courante}
       onBasculer={onBasculer}
       survolee={survol === "section"}
       onDragOver={(e) => {
@@ -417,7 +409,6 @@ export default function Planche({
                     dansUneVersion={enVersion.has(photo.id)}
                     desactive={!!occupation}
                     onDeplacer={(o) => void ranger(photo.id, o)}
-                    onPivoter={() => setPivot(photo)}
                     onRemplacer={() => {
                       aRemplacer.current = photo;
                       inputRemplacement.current?.click();
@@ -529,8 +520,6 @@ export default function Planche({
         pendingLabel="Retrait…"
         onConfirm={() => copieARetirer && void retirerCopie(copieARetirer.copie)}
       />
-
-      <PivoterPhoto photo={pivot} nom={pivot ? nom(pivot.ordre) : ""} onFermer={() => setPivot(null)} />
 
       <RetoucheLot
         ouvert={panneau}

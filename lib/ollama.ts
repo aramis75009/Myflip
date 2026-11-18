@@ -430,7 +430,7 @@ export async function posterOllama(corps: object, cle: string, etiquette: string
 /**
  * Demande l'annonce, et la redemande UNE fois si la réponse est inutilisable.
  *
- * Dépendances injectées (comme `lib/studioLancement.ts`) pour tester la relance
+ * Dépendances injectées pour tester la relance
  * sans réseau. La relance redit au modèle POURQUOI sa réponse a été refusée.
  * Seule `ErreurReponseOllama` relance : une erreur du fournisseur, déjà passée
  * par les essais de `posterOllama`, remonte telle quelle.

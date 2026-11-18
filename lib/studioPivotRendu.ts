@@ -2,13 +2,11 @@ import "server-only";
 import sharp from "sharp";
 
 import { TAILLE_MAX_OCTETS } from "./studioBlob";
-import { estAngle } from "./studioPivot";
 import {
   FOND_RETOUCHE,
   estIdentite,
   geometrieRetouche,
   masqueAdoucissement,
-  retoucheDePivot,
   rgbDe,
   zoneDeRendu,
   type GeometrieRetouche,
@@ -73,16 +71,6 @@ export class RenduImpossible extends Error {
 type Brut = { data: Buffer; info: { width: number; height: number; channels: number } };
 const depuisBrut = (b: Brut) =>
   sharp(b.data, { raw: { width: b.info.width, height: b.info.height, channels: b.info.channels as 1 | 2 | 3 | 4 } });
-
-/** Copie pivotée (« Pivoter ») : angle seul, mode zoom. */
-export async function rendreCopiePivotee(
-  source: Buffer,
-  angle: number,
-  options: { fond?: Fond; maxOctets?: number } = {},
-): Promise<CopieRendue> {
-  if (!estAngle(angle) || angle === 0) throw new RangeError("Angle invalide.");
-  return rendreCopieRetouchee(source, retoucheDePivot(angle), options);
-}
 
 export async function rendreCopieRetouchee(
   source: Buffer,
