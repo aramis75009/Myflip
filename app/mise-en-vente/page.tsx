@@ -45,7 +45,8 @@ import {
   type DelaiVinted,
 } from "./_delaiVinted";
 import { ecrire, effacer, lire } from "./_persistance";
-import { conserverReferences, estSacHipobuy, imagesValideesStudio } from "./_referencesPhotos";
+import { annonceStudio, conserverReferences, estSacHipobuy, fichiersStudio } from "./_referencesPhotos";
+import { choixInitial, choixMemorise, memoriserChoix, texteSansIA, type StudioDuSac } from "./_versionChoix";
 import {
   extensionPresente,
   publierVinted as orchestrerPublicationVinted,
@@ -216,7 +217,7 @@ export default function MiseEnVentePage() {
         return;
       }
       dispatch({ type: "sku/resolu", id, seq, article: match });
-      if (estSacHipobuy(match.commandeFournisseur)) void ajouterImagesStudio(id, match.sku);
+      if (estSacHipobuy(match.commandeFournisseur)) void chargerStudio(id, match.sku);
     } catch (err) {
       dispatch({
         type: "sku/echec",
@@ -227,24 +228,70 @@ export default function MiseEnVentePage() {
     }
   }
 
-  // ── Images du Studio ────────────────────────────────────────────────────
-  // Les images validées pour ce sac dans le Studio rejoignent ses photos dès
-  // que le SKU est résolu. Chaque essai n'est ajouté qu'une fois par fiche,
+  // ── Studio : images validées et versions du sac ─────────────────────────
+  // Dès que le SKU est résolu, le Studio dit ce qu'il sait du sac : ses images
+  // validées (Version 1) et ses versions enregistrées (2, 3…). Sans version, rien
+  // ne change : pas de menu, les images validées rejoignent les photos comme
+  // avant. Avec des versions, le menu « Version » choisit lesquelles ajouter ;
+  // par défaut la Version 1 (le comportement d'avant), sauf choix mémorisé.
+  // Chaque photo n'est ajoutée qu'une fois par fiche (clé « version:type:id »),
   // même si le SKU est recherché à nouveau.
   const studioAjoutesRef = useRef<Record<string, Set<string>>>({});
-  async function ajouterImagesStudio(ficheId: string, sku: string) {
-    const images = await imagesValideesStudio(sku);
+
+  async function chargerStudio(ficheId: string, sku: string) {
+    const studio = await annonceStudio(sku);
+    const f = etatRef.current.fiches.find((x) => x.id === ficheId);
+    // Le SKU a pu changer pendant l'attente : ces versions ne sont plus les siennes.
+    if (!f || f.article?.sku !== sku) return;
+    const version = choixInitial(studio.versions, choixMemorise(sku));
+    dispatch({ type: "studio/charge", id: ficheId, studio, version });
+    await ajouterPhotosVersion(ficheId, sku, version, studio);
+  }
+
+  async function ajouterPhotosVersion(ficheId: string, sku: string, numero: number, studio: StudioDuSac) {
+    const photos = numero === 1 ? studio.images : (studio.versions.find((v) => v.numero === numero)?.photos ?? []);
     const deja = (studioAjoutesRef.current[ficheId] ??= new Set());
-    const nouvelles = images.filter((i) => !deja.has(i.essaiId));
+    const cle = (p: { type: string; id: string }) => `${numero}:${p.type}:${p.id}`;
+    const aCharger = photos.filter((p) => !deja.has(cle(p)));
+    if (aCharger.length === 0) return;
+    const prets = await fichiersStudio(aCharger, numero === 1 ? "studio" : `version-${numero}`);
+    // Une autre version a pu être choisie pendant le chargement : ces photos ne sont plus voulues.
+    if (etatRef.current.fiches.find((x) => x.id === ficheId)?.version !== numero) return;
+    const nouvelles = prets.filter((p) => !deja.has(cle(p.photo)));
     if (nouvelles.length === 0) return;
-    nouvelles.forEach((i) => deja.add(i.essaiId));
-    await ajouterPhotos(ficheId, nouvelles.map((i) => i.fichier), { studio: true });
-    toast.success(`${nouvelles.length} image${nouvelles.length > 1 ? "s" : ""} du Studio ajoutée${nouvelles.length > 1 ? "s" : ""} à ${sku}.`);
+    nouvelles.forEach((p) => deja.add(cle(p.photo)));
+    await ajouterPhotos(ficheId, nouvelles.map((p) => p.fichier), { studio: true, versionSource: numero });
+    const n = nouvelles.length;
+    toast.success(
+      numero === 1
+        ? `${n} image${n > 1 ? "s" : ""} du Studio ajoutée${n > 1 ? "s" : ""} à ${sku}.`
+        : `${n} photo${n > 1 ? "s" : ""} de la Version ${numero} ajoutée${n > 1 ? "s" : ""} à ${sku}.`,
+    );
+  }
+
+  /** Menu « Version » : retient le choix, retire les photos des autres versions, ajoute celles de la nouvelle. */
+  async function choisirVersion(ficheId: string, numero: number) {
+    const f = etatRef.current.fiches.find((x) => x.id === ficheId);
+    if (!f?.article || !f.studio || f.version === numero) return;
+    const sku = f.article.sku;
+    memoriserChoix(sku, numero);
+    // Les photos des autres versions vont être retirées : on les oublie, pour pouvoir les remettre si on y revient.
+    const deja = studioAjoutesRef.current[ficheId];
+    if (deja) for (const k of [...deja]) if (!k.startsWith(`${numero}:`)) deja.delete(k);
+    dispatch({ type: "version/choix", id: ficheId, version: numero });
+    await ajouterPhotosVersion(ficheId, sku, numero, f.studio);
   }
 
   // ── Photos ──────────────────────────────────────────────────────────────
-  /** `studio` : images générées et validées, qui ne repartent pas comme références. */
-  async function ajouterPhotos(ficheId: string, files: File[], { studio = false }: { studio?: boolean } = {}) {
+  /**
+   * `studio` : images ou versions du Studio, qui ne repartent pas comme références.
+   * `versionSource` : le numéro de la version qui les fournit (pour les retirer au changement de version).
+   */
+  async function ajouterPhotos(
+    ficheId: string,
+    files: File[],
+    { studio = false, versionSource }: { studio?: boolean; versionSource?: number } = {},
+  ) {
     if (files.length === 0) return;
     const cible = etatRef.current.fiches.find((f) => f.id === ficheId);
     const place = MAX_PHOTOS - (cible?.photos.length ?? 0);
@@ -264,6 +311,7 @@ export default function MiseEnVentePage() {
           rotation: 0,
           url: URL.createObjectURL(blob),
           blob,
+          ...(versionSource !== undefined ? { versionSource } : {}),
         });
       } catch {
         // Un fichier illisible disparaissait sans un mot dans l'ancienne
@@ -318,15 +366,39 @@ export default function MiseEnVentePage() {
   }
 
   // ── Étape 3 : la file de génération ─────────────────────────────────────
-  async function genererFiches(ids: string[]) {
-    if (ids.length === 0) return;
-    setGenEnCours(true);
-    setLotGeneration(ids);
-    dispatch({ type: "etape", etape: 3 });
+  async function genererFiches(tous: string[]) {
+    if (tous.length === 0) return;
     // Le canvas pleine résolution ne sert plus qu'aux rotations : le libérer
     // ici fait tomber la mémoire retenue d'environ 48 Mo à ~4 Mo par photo.
     // `blob` reste intact — c'est lui qui part sur Vinted.
     dispatch({ type: "photo/liberer-base" });
+
+    // La version choisie a son texte : il est repris tel quel, SANS appeler l'IA
+    // (une version qui a un texte n'est jamais réécrite). Seules les fiches dont
+    // la version n'a pas de texte passent par la file de génération.
+    const ids: string[] = [];
+    for (const id of tous) {
+      const f = etatRef.current.fiches.find((x) => x.id === id);
+      const repris = f && texteSansIA(f);
+      if (!repris) {
+        ids.push(id);
+        continue;
+      }
+      dispatch({
+        type: "generation/ok",
+        id,
+        resultat: { titre: repris.titre, description: repris.description, motsCles: repris.motsCles, promptNom: `Version ${repris.numero}` },
+        deVersion: { numero: repris.numero, skuAnnonce: repris.skuAnnonce },
+      });
+    }
+    if (ids.length === 0) {
+      dispatch({ type: "etape", etape: 4 });
+      return;
+    }
+
+    setGenEnCours(true);
+    setLotGeneration(ids);
+    dispatch({ type: "etape", etape: 3 });
 
     for (const id of ids) {
       const f = etatRef.current.fiches.find((x) => x.id === id);
@@ -662,6 +734,7 @@ export default function MiseEnVentePage() {
                       dispatch({ type: "photo/selection", id: fiche.id, photoId })
                     }
                     onZoom={(photoId) => setZoom({ ficheId: fiche.id, photoId })}
+                    onVersion={(numero) => void choisirVersion(fiche.id, numero)}
                     onQcm={(champ, valeur) =>
                       dispatch({ type: "qcm", id: fiche.id, champ, valeur })
                     }

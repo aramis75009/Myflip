@@ -214,3 +214,28 @@ describe("poids du bouton principal", () => {
     }
   });
 });
+
+
+describe("étape 2 — version choisie avec son texte (étape 5 du PRD)", () => {
+  const v2 = { numero: 2, titre: "T2", description: "- D2", motsCles: "m2", skuAnnonce: null, photos: [] };
+
+  it("le bouton ne promet pas de génération quand toutes les fiches prêtes ont un texte de version", () => {
+    let e = reducerMev(ficheComplete(etatInitial("f0"), "f0", "PRL1", 1), { type: "etape", etape: 2 });
+    expect(descripteurBarre(e).label).toBe("Générer l'annonce");
+    e = reducerMev(e, { type: "studio/charge", id: "f0", studio: { images: [], versions: [v2] }, version: 2 });
+    const d = descripteurBarre(e);
+    expect(d.label).toBe("Préparer l'annonce");
+    expect(d.icone).toBe("fleche");
+    expect(d.actif).toBe(true);
+    expect(d.intention).toBe("generer");
+  });
+
+  it("dès qu'une fiche prête doit passer par l'IA, le bouton redit « Générer »", () => {
+    let e = reducerMev(ficheComplete(etatInitial("f0"), "f0", "PRL1", 1), { type: "etape", etape: 2 });
+    e = reducerMev(e, { type: "studio/charge", id: "f0", studio: { images: [], versions: [v2] }, version: 2 });
+    e = reducerMev(e, { type: "fiche/ajout", id: "f1" });
+    e = ficheComplete(e, "f1", "LAC3", 1);
+    expect(descripteurBarre(e).label).toBe("Générer les 2 annonces");
+    expect(descripteurBarre(e).icone).toBe("etincelles");
+  });
+});

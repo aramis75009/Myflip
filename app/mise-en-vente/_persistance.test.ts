@@ -128,3 +128,35 @@ describe("meriteSauvegarde", () => {
     expect(meriteSauvegarde(e)).toBe(true);
   });
 });
+
+
+describe("texte d'une version du Studio (étape 5)", () => {
+  it("garde la version et le SKU d'annonce du texte : le SKU copié reste celui du texte après un rechargement", () => {
+    let e = etatInitial("f0");
+    e = reducerMev(e, { type: "sku/saisie", id: "f0", sku: "SDN3" });
+    e = reducerMev(e, {
+      type: "generation/ok",
+      id: "f0",
+      resultat: { titre: "T2", description: "- D2", motsCles: "m2", promptNom: "Version 2" },
+      deVersion: { numero: 2, skuAnnonce: "SDN3-B" },
+    });
+    const r = deserialiser(JSON.parse(JSON.stringify(serialiser(e))))!;
+    expect(r.fiches[0].texteDeVersion).toEqual({ numero: 2, skuAnnonce: "SDN3-B" });
+    expect(r.fiches[0].generation.phase).toBe("ok");
+  });
+
+  it("une session écrite avant ce champ se relit : texte de l'IA, SKU du sac", () => {
+    const ancienne = { version: 2, active: "f0", fiches: [{ id: "f0", sku: "SDN3", qcm: {}, promptId: null, annonce: { titre: "T", description: "D", motsCles: "M" }, genere: true }] };
+    const r = deserialiser(ancienne)!;
+    expect(r.fiches[0].texteDeVersion).toBeNull();
+    expect(r.fiches[0].version).toBe(1);
+    expect(r.fiches[0].studio).toBeNull();
+  });
+
+  it("ignore un champ mal formé", () => {
+    for (const mauvais of [{ numero: 0, skuAnnonce: "X" }, { numero: 2, skuAnnonce: "" }, { numero: "2", skuAnnonce: "X" }, "x"]) {
+      const brut = { version: 2, active: "f0", fiches: [{ id: "f0", sku: "SDN3", qcm: {}, promptId: null, annonce: { titre: "T", description: "", motsCles: "" }, genere: true, texteDeVersion: mauvais }] };
+      expect(deserialiser(brut)!.fiches[0].texteDeVersion).toBeNull();
+    }
+  });
+});

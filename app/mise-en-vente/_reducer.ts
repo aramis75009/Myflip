@@ -30,6 +30,7 @@
 
 import type { ArticleDTO } from "@/lib/types";
 import type { GenerateResult } from "@/lib/hooks";
+import { faudraitGenerer, type StudioDuSac } from "./_versionChoix";
 
 /** Plafond de fiches par session. Au-delà, le rail devient illisible et la
  *  file d'attente séquentielle dépasse la patience de qui la regarde. */
@@ -103,6 +104,13 @@ export type Photo = {
   rotation: number;
   url: string;
   blob: Blob;
+  /**
+   * Numéro de la version du Studio qui a fourni cette photo (1 = images
+   * validées, 2+ = une version enregistrée). Absent : photo déposée à la main.
+   * Sert à retirer les photos d'une version quand on en choisit une autre,
+   * sans jamais toucher à celles qu'Aramis a ajoutées lui-même.
+   */
+  versionSource?: number;
 };
 
 export type ArticleEnCours = {
@@ -136,6 +144,22 @@ export type ArticleEnCours = {
   /** Échec du dernier enregistrement. Par fiche : l'ancienne version lisait
    *  `updateArticle.isError`, partagé, donc accroché à la mauvaise fiche. */
   erreurEnregistrement: string | null;
+  /**
+   * Ce que le Studio sait du sac : images validées (Version 1) et versions
+   * enregistrées (2, 3…). null = pas chargé (sac hors Hipobuy, ou Studio muet) :
+   * pas de menu « Version », la fiche se comporte comme avant. Jamais persisté :
+   * relu à chaque résolution du SKU, donc frais.
+   */
+  studio: StudioDuSac | null;
+  /** Numéro de la version à publier (1 = l'état actuel, le comportement d'avant). */
+  version: number;
+  /**
+   * Quand l'annonce de la fiche est le texte d'une VERSION (et non celui de
+   * l'IA) : son numéro et le SKU d'annonce qui accompagne ce texte. Fixé à la
+   * génération, pour que le SKU copié reste celui du texte même si le menu
+   * change ensuite. null = texte rédigé par l'IA, SKU du sac.
+   */
+  texteDeVersion: { numero: number; skuAnnonce: string } | null;
 };
 
 export type Etape = 1 | 2 | 3 | 4;
@@ -170,10 +194,20 @@ export type ActionMev =
     }
   | { type: "photo/selection"; id: string; photoId: string }
   | { type: "photo/liberer-base" }
+  /** Le Studio a répondu pour ce sac : ses images validées, ses versions, et la version à afficher d'abord. */
+  | { type: "studio/charge"; id: string; studio: StudioDuSac; version: number }
+  /** Menu « Version » : retire les photos des AUTRES versions (celles ajoutées à la main restent). */
+  | { type: "version/choix"; id: string; version: number }
   | { type: "qcm"; id: string; champ: keyof Qcm; valeur: string | boolean | number[] }
   | { type: "prompt"; id: string; promptId: string | null }
   | { type: "generation/debut"; id: string }
-  | { type: "generation/ok"; id: string; resultat: GenerateResult }
+  | {
+      type: "generation/ok";
+      id: string;
+      resultat: GenerateResult;
+      /** Présent quand le texte est celui d'une version (aucun appel à l'IA). */
+      deVersion?: { numero: number; skuAnnonce: string };
+    }
   | { type: "generation/echec"; id: string; message: string }
   | {
       type: "annonce";
@@ -216,6 +250,9 @@ export function ficheVide(id: string): ArticleEnCours {
     annonce: { titre: "", description: "", motsCles: "" },
     enregistre: null,
     erreurEnregistrement: null,
+    studio: null,
+    version: 1,
+    texteDeVersion: null,
   };
 }
 
@@ -267,6 +304,9 @@ export function reducerMev(etat: EtatMev, action: ActionMev): EtatMev {
         // à moitié retapé garderait l'article de l'ancien.
         article: null,
         lookup: { phase: "idle" },
+        // Les versions sont celles de l'ancien SKU : le menu repart de zéro.
+        studio: null,
+        version: 1,
       }));
 
     case "sku/lookup":
@@ -351,6 +391,20 @@ export function reducerMev(etat: EtatMev, action: ActionMev): EtatMev {
         })),
       };
 
+    case "studio/charge":
+      return surFiche(etat, action.id, (f) => ({ ...f, studio: action.studio, version: action.version }));
+
+    case "version/choix":
+      return surFiche(etat, action.id, (f) => {
+        const photos = f.photos.filter((p) => p.versionSource === undefined || p.versionSource === action.version);
+        return {
+          ...f,
+          version: action.version,
+          photos,
+          selected: f.selected.filter((pid) => photos.some((p) => p.id === pid)),
+        };
+      });
+
     case "qcm":
       return surFiche(etat, action.id, (f) => ({
         ...f,
@@ -375,6 +429,7 @@ export function reducerMev(etat: EtatMev, action: ActionMev): EtatMev {
         // Un nouveau texte n'est pas l'ancien : l'enregistrement redevient à faire.
         enregistre: null,
         erreurEnregistrement: null,
+        texteDeVersion: action.deVersion ?? null,
       }));
 
     case "generation/echec":
@@ -425,12 +480,13 @@ export function reducerMev(etat: EtatMev, action: ActionMev): EtatMev {
 
 // ── Sélecteurs dérivés (purs, testés) ─────────────────────────────────────
 
-/** Une fiche est générable quand son article existe, qu'elle a assez de
- *  photos sélectionnées, et que taille et état sont renseignés. */
+/** Une fiche est prête quand son article existe, qu'elle a assez de photos
+ *  sélectionnées (seulement si l'IA doit rédiger : une version qui a son texte
+ *  n'a pas besoin de photos pour l'IA), et que taille et état sont renseignés. */
 export function fichePrete(f: ArticleEnCours): boolean {
   return (
     f.article !== null &&
-    f.selected.length >= MIN_SELECT &&
+    (!faudraitGenerer(f) || f.selected.length >= MIN_SELECT) &&
     f.qcm.taille !== "" &&
     f.qcm.etat !== ""
   );
@@ -440,7 +496,7 @@ export function fichePrete(f: ArticleEnCours): boolean {
 export function manquePourGenerer(f: ArticleEnCours): string[] {
   const manque: string[] = [];
   if (!f.article) manque.push("un SKU valide");
-  if (f.selected.length < MIN_SELECT)
+  if (faudraitGenerer(f) && f.selected.length < MIN_SELECT)
     manque.push(`${MIN_SELECT} photos sélectionnées`);
   if (!f.qcm.taille) manque.push("la taille");
   if (!f.qcm.etat) manque.push("l'état");
