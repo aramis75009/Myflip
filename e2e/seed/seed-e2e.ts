@@ -90,10 +90,15 @@ import { Prisma, PrismaClient, type CompteVente } from "@prisma/client";
 import { deriveVente, STATUT_A_COMPTABILISER, STATUT_PHOTOS_PRETES, STATUT_VENDU, STATUTS } from "@/lib/calc";
 import { chiffrer } from "@/lib/crypto";
 import { DEFAULT_PROMPT_CONTENU } from "@/lib/promptSelect";
-import { MODELE_MANUEL } from "@/lib/studioFiche";
-import { nomPrise, promptVariante } from "@/lib/studioCases";
+import { nomPrise } from "@/lib/studioCases";
 
 import { COMPTES, MOT_DE_PASSE_E2E } from "../compte-test";
+
+// Données d'avant le 17/11/2026 (génération d'images IA supprimée du Studio) : la valeur par
+// défaut de `StudioEssai.modele` et le texte rangé dans `promptUtilise` (prompt maître, puis
+// prompt d'angle), recopiés ici pour recréer des essais comme ceux qui restent en base.
+const MODELE_MANUEL = "manuel";
+const promptVariante = (maitre: string, angle: string) => (maitre.trim() ? `${maitre.trim()}\n\n${angle.trim()}` : angle.trim());
 
 // ── Constantes ──────────────────────────────────────────────────────────────
 

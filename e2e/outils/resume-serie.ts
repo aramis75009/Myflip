@@ -163,20 +163,8 @@ const MESURE_CLE: Record<string, (m: Mesure, e: ResultatSonde[]) => string> = {
   },
   MO3: (m) => `toast en thème ${lire(m, "theme")} : fond ${lire(m, "fond")}, suit le thème : ${lire(m, "suitLeTheme")}, police de l'app : ${lire(m, "policeDeLApp")}`,
   MO4: (m) => `pouce de défilement ${lire(m, "pouce")} (luminance ${lire(m, "luminancePouce")}), contraste avec le fond ${lire(m, "contrastePouceFond")}:1`,
-  S1: (m) => `planche à y=${lire(m, "plancheY")} px, file « À juger » à y=${lire(m, "jugerY")} px (visible : ${lire(m, "jugerVisible")})`,
   S2: (m) => `${lire(m, "photos")} photos, ${lire(m, "retirer")} commande « retirer », ${lire(m, "remplacer")} « remplacer »`,
-  S3: (m) => {
-    const delais = [lire(m, "rejet", "patches", "0", "delaiMs"), lire(m, "validation", "patches", "0", "delaiMs")].map(nombre).filter((v): v is number => v !== null);
-    // Le délai exact (5 à 8 ms) change d'un lancement à l'autre : on ne garde que « immédiat ou non ».
-    const immediat = delais.length > 0 && Math.max(...delais) < 100;
-    return `PATCH envoyé ${immediat ? "sans délai (< 100 ms)" : `${Math.max(...delais)} ms`} après la touche, « Annuler » : ${lire(m, "rejet", "annulerApres300ms")}`;
-  },
-  S4: (m) => `${lire(m, "controlesHistorique")} contrôle d'historique, ${lire(m, "decisionsAffichees")} décision affichée`,
   S5: (m) => `${lire(m, "mecanismes")} mécanismes concurrents (glisser, toucher puis case, fichier par case, sélecteur), alternative clavier : ${lire(m, "alternativeClavier")}`,
-  S6: (m) => `${lire(m, "requetesFavorisApresClic")} requête de favori après clic sur l'étoile, bascules ${lire(m, "apresClicEtoile", "bascules")}`,
-  S7: (m) => `menu « ${lire(m, "menu")} », titre de barre « ${lire(m, "titreBarre")} »`,
-  S8: (m) => `${lire(m, "initial", "pilules")} pilules, ${lire(m, "initial", "options")} options, coût par sac : ${lire(m, "initial", "parSac")}, « Hors budget » : ${lire(m, "initial", "horsBudget")}, ${lire(m, "nbModelesDuPayload")} modèle dans le payload`,
-  X0: (m) => `${lire(m, "requetesVerifier")} requête /verifier partie à l'ouverture (interceptée, aucun coût réel)`,
   X1: (m) => `dialogue décalé de ${lire(m, "haut")} px, hauteur ${lire(m, "hauteur")} px pour une fenêtre de ${lire(m, "hauteurFenetre")} px`,
   X2: (m) => `bulle du chat sur le bouton principal : aire ${lire(m, "aire")} px², point du bouton = « ${lire(m, "pointDuBouton")} »`,
   X3: (m) => `pied de la sidebar atteignable : ${lire(m, "atteignable")}, couvert par ${lire(m, "couvertPar")}`,
@@ -188,7 +176,6 @@ const MESURE_CLE: Record<string, (m: Mesure, e: ResultatSonde[]) => string> = {
   X9: (m) => `scrollWidth ${lire(m, "scrollW")} px pour ${lire(m, "clientW")} px, hors écran : ${JSON.stringify(lire(m, "horsEcran"))}`,
   X10: (m) => `${lire(m, "posts")} envoi de photos, toast « ${lire(m, "toasts", "0")} »`,
   X11: (m) => `filtre actif avant rechargement : ${lire(m, "pressedAvantRechargement")}, après : ${lire(m, "pressedApresRechargement")}`,
-  X12: (m) => `tableau des angles : scrollWidth ${lire(m, "scrollW")} px pour ${lire(m, "clientW")} px (${lire(m, "angles")} angles)`,
   X13: (m) => `libellé « ${lire(m, "label")} » au lieu de « ${lire(m, "attendu")} »`,
   X14: (m) => `fichier cité existe : ${lire(m, "fichierExiste")} (${JSON.stringify(lire(m, "citationsDansLaDoc"))})`,
   X15: (m) => `toasts affichés après ?trello=ok : ${tailleListe(lire(m, "toasts"))} (URL nettoyée : ${lire(m, "urlApres")})`,

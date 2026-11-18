@@ -7,10 +7,9 @@
  *  - un FILET D'ÉCRITURE, actif partout : toute requête d'écriture (POST, PUT,
  *    PATCH, DELETE) vers /api/ (hors /api/auth/) que la sonde n'a pas simulée
  *    elle-même par `page.route` est avortée et listée dans `ecrituresBloquees`.
- *    Une sonde ne modifie donc jamais rien « par accident », et ne presse jamais
- *    V ou R sur le Studio sans avoir intercepté le PATCH ;
- *  - la vérification IA lancée toute seule à l'ouverture d'une fiche du Studio
- *    (POST /api/studio/essais/<id>/verifier) répond 503 sans atteindre le serveur.
+ *    Une sonde ne modifie donc jamais rien « par accident ». (La vérification IA
+ *    du Studio, interceptée ici jusqu'au 17/11/2026, est partie avec la
+ *    génération d'images : une telle requête serait avortée par le filet.)
  */
 import path from "node:path";
 
@@ -27,8 +26,6 @@ export type FixturesSondes = {
   projetsAutorises: string[] | null;
   /** Écritures avortées par le filet, « METHODE /chemin ». */
   ecrituresBloquees: string[];
-  /** Requêtes POST /verifier du Studio interceptées (jamais servies). */
-  verificationsDemandees: string[];
 };
 
 export const test = base.extend<FixturesSondes>({
@@ -47,12 +44,8 @@ export const test = base.extend<FixturesSondes>({
     await use(compte === "aucun" ? undefined : cheminEtatSession(compte));
   },
 
-  verificationsDemandees: async ({}, use) => {
-    await use([]);
-  },
-
   ecrituresBloquees: [
-    async ({ context, verificationsDemandees }, use) => {
+    async ({ context }, use) => {
       const liste: string[] = [];
       await context.route(
         (u) => u.pathname.startsWith("/api/") && !u.pathname.startsWith("/api/auth/"),
@@ -62,11 +55,6 @@ export const test = base.extend<FixturesSondes>({
           const chemin = new URL(requete.url()).pathname;
           if (methode === "GET" || methode === "HEAD" || methode === "OPTIONS") {
             await route.fallback();
-            return;
-          }
-          if (methode === "POST" && /^\/api\/studio\/essais\/[^/]+\/verifier$/.test(chemin)) {
-            verificationsDemandees.push(chemin);
-            await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "sonde : vérification simulée" }) });
             return;
           }
           liste.push(`${methode} ${chemin}`);

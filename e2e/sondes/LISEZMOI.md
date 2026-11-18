@@ -5,6 +5,11 @@ même commande. Une sonde ne regarde pas une capture : elle **mesure** dans la p
 (`getComputedStyle`, `getBoundingClientRect`, `scrollHeight`, DevTools, pixels d'une
 capture, contraste WCAG calculé) et range des valeurs brutes plus un verdict.
 
+> **17/11/2026** : la génération d'images IA du Studio est supprimée (PRD 2026-11-16, étape 6).
+> Ses sondes (S1, S3, S4, S6, S7, S8, X0, X12 : file « À juger », touches V et R, historique,
+> favoris, réglages, modèles, avis IA, tableau des angles) sont retirées du code ; les
+> mentions qui restent plus bas décrivent les mesures d'avant.
+
 | Quoi | Où |
 |---|---|
 | Sondes des 21 bugs du PRD § 1, des 15 relevés en plus de l'étude, et globales par route | `e2e/sondes-bugs.spec.ts` (définitions : `e2e/sondes/bugs-*.ts`, `globales.ts`) |
@@ -22,7 +27,7 @@ imaginées), PRD `docs/prd/2026-10-20-refonte-design.md` (§ 1, 3, 11, 12).
 E2E_DECALAGE=100 npx playwright test e2e/sondes-bugs.spec.ts e2e/a11y.spec.ts   # l'« avant » : ne fait jamais échouer sur un bug
 SONDES_STRICT=1 npx playwright test e2e/sondes-bugs.spec.ts                      # la refonte doit le faire passer au vert
 A11Y_STRICT=1   npx playwright test e2e/a11y.spec.ts                             # échoue sur toute violation serious ou critical
-npx playwright test e2e/sondes-bugs.spec.ts --project=desktop-clair -g "S3 "     # une sonde (le titre commence par son id et une espace)
+npx playwright test e2e/sondes-bugs.spec.ts --project=desktop-clair -g "S2 "     # une sonde (le titre commence par son id et une espace)
 CAPTURES_SERIE=avant npx playwright test e2e/sondes-bugs.spec.ts e2e/a11y.spec.ts  # écrit dans e2e/rapports/avant/ (commité)
 ```
 
@@ -82,11 +87,6 @@ Garde-fous propres aux sondes (`e2e/sondes/test.ts`) :
   `/api/auth/`) qu'une sonde n'a pas simulée elle-même par `page.route` est avortée et journalisée
   dans `e2e/rapports/<serie>/sondes-ecritures-avortees.jsonl`. Aucune sonde ne modifie donc une
   donnée « par accident ».
-- La vérification IA que la fiche Studio lance toute seule à l'ouverture
-  (`POST /api/studio/essais/<id>/verifier`) répond 503 sans atteindre le serveur.
-- **S3** est la seule sonde qui presse V et R : le `PATCH /api/studio/essais/*` est intercepté
-  et simulé AVANT la première touche (et le filet avorterait de toute façon la requête).
-- Génération (S8) : `POST /api/studio/generations` simulé en 409, jamais d'appel OpenRouter.
 - Images : jamais de vraie photo ni d'image générée (`e2e/sondes/png.ts` fabrique des PNG
   synthétiques).
 
@@ -134,20 +134,13 @@ l'interface (`next dev`, Chromium, barres de défilement visibles).
 
 | Id | Ce que la sonde mesure | Projets | Corrigé quand |
 |---|---|---|---|
-| **S1** | `/studio/probe-noir` : positions Y de « Photographie le sac » et « À juger » au chargement | desktop clair et sombre | « À juger » visible sans défiler et avant la planche, ou planche repliée |
 | **S2** | Contrôles Retirer / Remplacer par photo de la planche (survol et focus compris). N'en clique aucun | desktop clair | au moins un Retirer et un Remplacer par photo |
-| **S3** | Touches R puis V avec le PATCH simulé : délai du PATCH, bouton « Annuler » à 300 ms et à 4 s, toast | desktop clair et sombre | un toast avec « Annuler » reste au moins 4 s, pour R comme pour V |
-| **S4** | Historique de la prise 01 : image rejetée affichée, décision « Rejetée », action « Retenir cette version », état des cases de la ligne 01 | desktop clair | image rejetée visible dans un historique avec sa décision et l'action |
 | **S5** | `/studio/probe-14` : glisser, toucher puis case, dépôt par case vide, `<select>` du tableau | desktop clair | plus de `<select>`, de toucher puis case, de dépôt par case ; glisser + alternative clavier (`aria-keyshortcuts` / `aria-describedby`) |
-| **S6** | `/studio/5039-white-volt` avec un catalogue factice (6 modèles, favori m2) : bascules favori, étoiles, requêtes `/favoris` après un clic sur l'étoile | desktop clair | une bascule par modèle et un clic envoie exactement 1 POST ou DELETE |
-| **S7** | Liens vers les réglages Studio depuis `/studio` et une fiche ; libellé du menu et titre de la barre sur `/parametres` | desktop clair | au moins un lien vers les réglages et aucune entrée nommée seulement « Prompts » |
-| **S8** | Zone « MODÈLE » avec un catalogue factice de 8 modèles : pilules, options du `<select>`, mention d'un coût par sac, d'euros, d'un taux de réussite, « Hors budget », payload d'un lancement simulé | desktop clair | coût par sac, euros, taux et « Hors budget » présents et 2 ou 3 modèles dans un lancement |
 
 ### Relevés en plus de l'étude
 
 | Id | Ce que la sonde mesure | Projets | Corrigé quand |
 |---|---|---|---|
-| **X0** | `/studio/probe-sansverif` : requêtes `POST …/verifier` envoyées par le navigateur à l'ouverture | desktop clair | aucune requête sans action de l'utilisateur (**décision produit à trancher** : aujourd'hui l'avis manquant est relancé à l'ouverture) |
 | **X1** | `/a-comptabiliser` (30 lignes), « Valider » : voile du dialogue (haut, hauteur), couverture de la barre du haut, dialogue visible | desktop clair et sombre | `haut = 0`, `hauteur = innerHeight`, barre du haut couverte, dialogue visible |
 | **X2** | `/mise-en-vente` : aire d'intersection entre « Continuer » et la bulle du chat, élément qui reçoit le clic | desktop clair, mobile clair | aire = 0 et le clic va au bouton d'action |
 | **X3** | `/mise-en-vente` : le lien MENTIONS de la sidebar reçoit-il le clic ? | desktop clair et sombre | oui |
@@ -158,7 +151,6 @@ l'interface (`next dev`, Chromium, barres de défilement visibles).
 | **X8** | Règle axe `color-contrast` sur toutes les routes du catalogue (pages publiques, demo, neuf) ; ratio du kicker de `/dashboard` | desktop clair et sombre | aucune violation `color-contrast` |
 | **X10** | `/studio/probe-14` (1 prise libre) : dépôt de 3 images, POST envoyés (simulés), message affiché | desktop clair | 1 POST avec 1 fichier et un message qui signale 2 photos en trop |
 | **X11** | `/studio` : `location.search` après un clic sur la puce V1, puis état de la puce après rechargement | desktop clair | la génération est dans l'URL et la puce reste active |
-| **X12** | `/studio/probe-noir` (9 angles) : `scrollWidth` vs `clientWidth` du tableau des angles | desktop clair | `scrollW <= clientW` |
 | **X13** | `/dashboard` en sombre, scripts avortés : étiquette du bouton de thème vs thème posé | desktop sombre | étiquette cohérente (« Passer en thème clair » en sombre) |
 | **X14** | Fichiers : `components/WelcomeModal.tsx` existe-t-il, `CLAUDE.md` le cite-t-il ? | desktop clair | la doc ne le cite plus, ou le fichier existe |
 | **X15** | (hors étude) `/compte?trello=ok` : toast « Trello est connecté » visible après chargement | desktop clair | un toast « connecté » est affiché |
