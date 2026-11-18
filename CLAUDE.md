@@ -181,41 +181,44 @@ SacBase n'ouvre aucune route d'écriture. Code : `lib/sacbaseAuth.ts`,
   ⚠️ **Pas dans l'API Hermes** (`POST /api/hermes/stock/statut` n'active pas
   l'option) : décision laissée à Aramis. Pas de rattrapage des articles existants.
 
-### Studio — `/studio` (variantes d'angle, 20/10/2026)
+### Studio — `/studio` (photos réelles, retouches par lot et versions, 17/11/2026)
 
-Génère des variantes d'angle des vraies photos d'un sac ; **une image validée par
-Aramis part dans l'annonce du sac cible** (`StudioEssai.skuCible`). Ce n'est plus
-un banc de test. Spec : `docs/superpowers/specs/2026-10-17-studio-ia-design.md`
-(§2 remplacé par le PRD `2026-10-19-studio-ia-generation-api-prd.md`, §7
-assoupli le 20/10), maquettes : projet Claude Design « Fiche coloris -
-lisibilite », tour 2. Desktop uniquement : les règles mobile de ce fichier ne
-s'appliquent pas à ces écrans.
+Part des **vraies photos** d'un sac pour en tirer des **versions** d'annonce (photos retouchées
+par lot, titre et mots-clés reformulés, SKU saisi). PRD : `docs/prd/2026-11-16-studio-retouches-par-lot.md`.
+Desktop uniquement : les règles mobile de ce fichier ne s'appliquent pas à ces écrans. Le bandeau
+« Studio en chantier » reste tant qu'Aramis ne dit pas de l'enlever.
 
-- **Écrans** : `/studio` (catalogue rangé par prochaine action : « Juger 3 images »,
-  « Photographier le sac », « Générer pour SDN3 », « Rien à préparer » ; filtres
-  génération / filtre / recherche **dans l'URL**, `?generation=V2&filtre=a_juger&q=…`),
-  `/studio/[cle]` (fiche, refaite le 22/10 : carte **« Prochaine action »** en haut,
-  puis cinq étapes repliables dans l'ordre du travail — Photos (planche), Angles
-  (tableau **une ligne par vraie photo × une colonne par prompt d'angle**, sans
-  sélecteur de prise), Génération, À juger, Validées ; seule l'étape de la
-  prochaine action est dépliée à l'ouverture), `/studio/bilan`, et l'onglet
-  « Studio » de `/parametres` (`?onglet=studio`, `components/parametres/PromptsStudio.tsx`),
-  joignable depuis la fiche (« Réglages du Studio ») et la sous-navigation.
-  Logique pure du parcours : `app/studio/_parcours.ts` (phrase d'action, prochaine
-  action, filtres d'URL, répartition d'un dépôt) et `app/studio/_decisions.ts`.
+- ⚠️ **Génération d'images IA SUPPRIMÉE le 17/11/2026** (étape 6 du PRD, décision d'Aramis : « ne plus
+  voir angle, génération, juger, valider »). Partis : onglets Angles / Génération / À juger / Validées,
+  carte « Prochaine action », aperçu du prompt, détails vérifiés par l'IA, avis IA, sélecteur et
+  comparaison de modèles, historique d'une prise, confirmation de dépense, bandeau « Images générées
+  par IA », sous-navigation, `/studio/bilan`, onglet Studio de `/parametres` (prompt maître, prompts
+  d'angle, budget), « Pivoter la photo… » (remplacé par la retouche par lot), routes
+  `/api/studio/{generations,essais,essais/[id],essais/[id]/verifier,historique,modeles,modeles/favoris,angles,angles/[id],reglages,coloris/[cle],references/[id]/pivoter}`
+  et modules `lib/studio{Generation,Lancement,Catalogue,Modeles,Agregats,Verif,Historique,Decision,Stats,Prompts,Angles}.ts`.
+  **Aucune migration, aucun SQL** : les tables restent. `StudioEssai` est toujours LU (images IA validées
+  avant le 17/11 : Version 1 de la fiche, `GET /api/studio/annonce` pour la Mise en vente, zip, état
+  « Prêt », photos « qui ont servi » non retirables). Sans plus aucune lecture ni écriture dans le code :
+  `StudioAngle`, `StudioEchec`, `StudioModeleFavori`, `StudioReglages` (et `StudioColoris.details`,
+  `StudioEssai.verifIA`). Les supprimer serait une migration à décider avec Aramis.
+- **Écrans** : `/studio` (vue « chez toi », puis le catalogue rangé par action : « Photographier le sac »,
+  « Retoucher pour SDN3 », « Rien à préparer » ; génération du SAC V1/V2/V3, filtre et recherche **dans
+  l'URL**, `?generation=V2&filtre=photographies&q=…`) et `/studio/[cle]` (en-tête : coloris et sacs, le
+  sac choisi donne la Version 1 ; section **Photos** (planche, cases à cocher, « Retoucher N photos »),
+  section **Versions**). Logique pure : `app/studio/_parcours.ts`.
   ⚠️ **Aucun `loading.tsx` dans `app/studio/` ni `app/studio/[cle]/`** : un
   squelette de segment enveloppe la fiche, le statut part avec lui (200) et une
   clé inconnue ne répond plus 404 (`[cle]/not-found.tsx`). Le squelette du
   catalogue est un `<Suspense>` dans `app/studio/page.tsx`.
 - **Vue « chez toi »** (10/11, en tête de `/studio` : `app/studio/_components/ChezToi.tsx`, règles pures
   dans `lib/studioChezToi.ts`) : « N sacs chez toi », trois tuiles cliquables (`?etat=a_photographier|
-  a_generer|pret`, un second clic l'enlève), puis les sacs **rangés par Commande**, la plus récente
-  d'abord (à prendre en photo, puis à générer, puis prêts). Un sac est « chez toi » selon `estChezToi`
+  a_retoucher|pret`, l'ancien `a_generer` se lit `a_retoucher`, un second clic l'enlève), puis les sacs **rangés par Commande**, la plus récente
+  d'abord (à prendre en photo, puis à retoucher, puis prêts). Un sac est « chez toi » selon `estChezToi`
   (`lib/studioCases.ts`, la règle du sac cible) : non vendu, statut En stock ou Photos prêtes, le statut
   MyFlip l'emportant sur celui de SacBase. État (`etatSac`) : **prêt** = au moins une image validée pour
   ce SKU, au sens de `whereImagesValidees` (`lib/studioAnnonce.ts`, **la même condition que
   `GET /api/studio/annonce`**, lue par les deux : ne pas la réécrire) ; sinon **à prendre en photo** si la
-  carte du coloris a `photos === 0`, sinon **à générer**. Le numéro de Commande vient de FLIPO :
+  carte du coloris a `photos === 0`, sinon **à retoucher**. Le numéro de Commande vient de FLIPO :
   `commande` (entier ≥ 1 ou null) sur chaque sac de `GET /api/studio/coloris`, **facultatif** (absent
   ou invalide = null : ce champ ne rejette **jamais** le catalogue) ; sans numéro, un seul groupe « Chez toi » (« Commande inconnue » pour les sacs
   sans numéro quand d'autres en ont). L'alias Studio s'applique avant : SDN60 sort sous 5880 Black Gold.
@@ -228,24 +231,21 @@ s'appliquent pas à ces écrans.
   « Avec vraies photos » (`photographies` : au moins une vraie photo importée, **tableau ou non** —
   les photos gardées à la mise en vente ont `ordre` null et ne comptent pas dans `prises`), « Sans
   vraies photos » (`jamais_photographies`, le complément ; rangée en deux sections chez toi / à
-  commander), « À juger » (`a_juger`), « Doublons chez toi ». L'ancien id `a_photographier` reste
+  commander), « Doublons chez toi » (« À juger », `a_juger`, est parti le 17/11 ; l'ancien id est ignoré). L'ancien id `a_photographier` reste
   lu dans l'URL et mène à `a_photographier_chez_toi` (`FILTRES_ANCIENS`). Le compte « photos » d'une
   carte = toutes les `StudioReference` rattachées au coloris.
 - ⚠️ **« Jamais acheté »** (`libelleStock`, `app/studio/_parcours.ts`) : seulement si SacBase
   ne connaît **aucun sac** du coloris (`nbSacs` = 0) ET qu'aucune photo n'a été importée. Avant
   le 10/11, la carte l'affichait dès qu'aucun sac n'était « chez toi » (En stock / Photos
   prêtes) ni vendu : un sac « En vente » ou « En livraison » passait pour jamais acheté.
-- ⚠️ **V / R ne partent pas tout de suite** : l'image quitte la file, un toast
-  « Annuler » de 5 s s'affiche, et le `PATCH` n'est envoyé qu'après
-  (`DecisionsDifferees`) ; quitter la page envoie ce qui attend (`keepalive`).
-  Un « Annuler » après l'envoi remet la décision à `null`. Les tests e2e qui
-  pressent V ou R DOIVENT intercepter `/api/studio/essais/**`.
 - **Planche** : une seule façon de ranger (glisser ; au clavier, menu de la photo
   « Déplacer vers… »). Un dépôt remplit les cases libres et nomme le surplus.
   « Retirer » = `DELETE` ; « Remplacer » sort l'ancienne de la planche (`ordre: null`,
   gardée hors tableau) puis dépose la nouvelle. Une photo qui a servi ne se retire ni
   ne se remplace (409, et le menu le dit avant).
-- **Copies pivotées** (16/11/2026, « Pivoter la photo… » dans le menu d'une photo de la planche) :
+- **Copies pivotées** (16/11/2026 ; **le bouton « Pivoter la photo… », sa route `POST …/pivoter`,
+  `PivoterPhoto.tsx`, `creerCopiePivotee` et `rendreCopiePivotee` ont été RETIRÉS le 17/11**, remplacés
+  par la retouche par lot ; les copies déjà faites restent et sont relues comme « angle seul, zoom ») :
   curseur de −45° à +45°, au degré, plus une case où l'on tape l'angle (les deux restent
   synchronisés), aperçu CSS en direct sans aller-retour serveur (`PivoterPhoto.tsx`).
   « Enregistrer » = `POST /api/studio/references/[id]/pivoter` `{ angle }` : une **nouvelle copie**,
@@ -319,8 +319,7 @@ s'appliquent pas à ces écrans.
     d'abord `StudioVersion`, ce que fait le seed e2e). Les copies qu'une version
     montre ne s'affichent plus sous leur photo sur la planche (elles sont dans « Versions »).
   - Migration `20261117120000_studio_versions`, idempotente, **à coller dans Supabase AVANT le merge**.
-  - Hors de l'étape 2 : le choix de la version dans Mise en vente (étape 5), la suppression de la
-    génération (étape 6). « Pivoter la photo… » reste dans le menu.
+  - Hors de l'étape 2 : le choix de la version dans Mise en vente (étape 5).
 - **« Reformuler », texte modifiable à la main, zip des photos, réglages affichés** (17/11/2026, étape 4,
   aucune migration : `titre`, `description`, `motsCles` existent déjà sur `StudioVersion`).
   - **« Reformuler »** (Version 2 et suivantes seulement ; la Version 1 dit « elle n'est pas
@@ -339,8 +338,7 @@ s'appliquent pas à ces écrans.
     (JSON illisible, titre > 100 caractères, mots-clés vides) : « Proposition inutilisable, réessaie »
     (502), rien n'est enregistré ; panne du fournisseur (clé, crédits) : son message passe tel quel.
   - ⚠️ **`lib/studioReformulationServeur.ts` est le SEUL fichier du Studio qui importe
-    `lib/fournisseurIA`** (texte). La génération d'images et l'avis IA restent sur OpenRouter, avec la
-    clé OpenRouter du compte ; `lib/studioReformulation.test.ts` le garde. **Jamais vérifié par un
+    `lib/fournisseurIA`** (texte) ; `lib/studioReformulation.test.ts` le garde. **Jamais vérifié par un
     appel réel** : le premier appel dira si le prompt rend un JSON utilisable chez chaque fournisseur.
   - **Modifier à la main** (Version 2+ ; la Version 1 reste en lecture seule, refusée en 400) : titre,
     tirets et mots-clés sont des champs (`TexteAnnonce.tsx`) enregistrés par `PATCH
@@ -365,81 +363,11 @@ s'appliquent pas à ces écrans.
     `versionEnBase`) : « Pivoté 8° (zoom) · Recadré 10 % · Cadre beige 4 %, bord adouci 35 % », réglages
     neutres omis, « Photos d'origine » si rien n'est réglé, « Réglages variés » (détail au survol) quand
     les photos diffèrent. Pas de ligne pour la Version 1.
-  - Hors de cette étape : le choix de la version dans Mise en vente (étape 5), la suppression de la
-    génération (étape 6).
-- **Avis IA** : plus jamais lancé à l'ouverture d'une fiche (c'était payant) ;
-  seulement après une génération, ou par « Demander l'avis ». Un échec est rangé
-  dans `verifIA` (`{ erreur: { code, message } }`, sans migration, jamais
-  par-dessus un avis lisible) : « Avis IA en échec » reste distinct de « Pas
-  encore d'avis » après un rechargement.
-- **Sélecteur de modèles** (`SelecteurModeles.tsx`, logique pure
-  `app/studio/_modeles.ts`) : recherche, favoris épinglés, filtres « dans le
-  budget » / « déjà testé », tri par coût du sac ou par réussite ; pour chaque
-  modèle, prix par image, coût d'un sac complet (15 prises) en € contre le
-  budget (« Hors budget », « 2,1 × le budget »), réussite du premier coup et coût
-  réel moyen (`agregats` de `GET /api/studio/modeles` ; « jamais essayé », jamais
-  0 % sans décision). 1 à 3 modèles, mémorisés dans le navigateur ; catalogue en
-  panne ⇒ dernier relevé (serveur, sinon ce navigateur) et « Rafraîchir »
-  (`?rafraichir=1`).
-- **Comparaison** : 2 ou 3 modèles sur les mêmes cases en un lancement (un
-  `lancementId`). Dans « À juger », les images d'une même case et d'un même
-  lancement se jugent côte à côte (`Comparaison.tsx`, `app/studio/_comparaison.ts`) :
-  « Retenir celle-ci » valide l'une et REJETTE les autres (touches 1 / 2 / 3),
-  « Aucune ne convient » les rejette toutes ; différé de 5 s comme V / R.
-- **Historique d'une prise** (`HistoriquePrise.tsx`, `GET /api/studio/historique`) :
-  toutes les tentatives, rejets purgés et échecs compris. « Retenir cette
-  version » = DEUX appels : rejeter l'image qui tient la case, puis valider
-  celle-ci (remise en l'état si le second échoue).
-- **Prompts** : un **prompt maître** par compte (`StudioReglages`), collé une
-  fois par conversation Gemini, placé en tête de chaque appel API ; des **prompts
-  d'angle** courts (`StudioAngle`, « Angle: … »). Aucun amorçage : Aramis les
-  saisit. Un angle qui a pris une case ne se supprime pas, et changer son texte
-  **archive l'ancien et crée une nouvelle version** (`archiveLe`).
-- **Cases** (`lib/studioCases.ts`, pur) : une case = (vraie photo, prompt
-  d'angle). Verrouillée si un essai non rejeté y existe (« à juger »,
-  « validée », ou « en vente » quand l'`Article` du `skuCible` n'est plus En
-  stock / Photos prêtes). **Un rejet libère la case.** Choix automatique : la
-  première case libre de chaque photo pas encore couverte pour le sac cible.
-  Le serveur revérifie le verrou (409 `case_prise`) ; seule une correction
-  (`essaiParentId`) régénère une case prise.
+  - Hors de cette étape : le choix de la version dans Mise en vente (étape 5).
 - **Vraies photos** : `StudioReference.ordre` (1 à 15) = la ligne,
   `prise` = son nom (liste fixe `PRISES`). `ordre` null = photo gardée hors
   tableau (photos conservées à la mise en vente).
-- **Génération par API (19/10)** : `POST /api/studio/generations`, **une requête
-  par modèle** en parallèle (`maxDuration = 300`), regroupées par `lancementId`.
-  Modules : `lib/studioModeles.ts` (pur, isomorphe : tarif, estimation, devis,
-  budget), `lib/studioCatalogue.ts` (`/images/models` + `/images/models/{id}/endpoints`
-  pour le prix par image, cache 10 min, dernière bonne réponse, ne lève jamais),
-  `lib/studioGeneration.ts` (`/images`, repli `chat/completions` sur 404/405,
-  erreurs typées), `lib/studioLancement.ts` (orchestration à dépendances
-  injectées, testée sans réseau). Catalogue et favoris : `GET /api/studio/modeles`,
-  `POST|DELETE /api/studio/modeles/favoris`.
-- ⚠️ **Budget par sac** (`StudioReglages.budgetParSacEur`, 1 € par défaut, et
-  `tauxEurParUsd`, 0,86 : réglables dans l'onglet Studio de /parametres et depuis
-  l'étape Génération, `PUT /api/studio/reglages`). Le devis d'un lancement (cases ×
-  modèles, `devisDuLancement`) est en euros et **vérifié côté serveur** : total
-  estimé > budget strict, ou un seul tarif inconnu (« au jeton », au mégapixel,
-  absent) ⇒ 409 `confirmation_requise` avec le devis, sans `confirme: true`. Le
-  bouton de confirmation affiche le montant au centime supérieur (« Confirmer
-  1,34 € »). Le seuil fixe de 0,10 $ n'existe plus. **Jamais un prix inventé** : l'estimation est un majorant (max des
-  fournisseurs et variantes, coût par référence `input_reference` compris — il
-  atteint 0,20 $ sur riverflow). Le coût réel (`usage.cost`) est rangé sur
-  l'essai, null s'il manque, **jamais compté zéro**.
-- ⚠️ **Clé OpenRouter du compte uniquement** pour générer (`cleDuCompte`) : **pas
-  de repli `OPENROUTER_API_KEY`**, sinon tout compte générerait aux frais du
-  déploiement (même trou que Trello). La vérification IA garde, elle, la cascade
-  de `resoudreReglages`.
-- **Numérotation par coloris × angle × modèle** (unique
-  `colorisId, angleId, modele, numero`, gardé tel quel au 20/10) : le numéro
-  court par colonne, pas par case ; le « premier essai » d'une case est celui
-  sans `essaiParentId`. « Corriger un détail » sur un essai API régénère avec
-  le même modèle, l'image ratée en 1re référence ; l'essai raté passe `rejete`,
-  le nouveau pointe vers lui (`essaiParentId`).
-- **Échecs** dans `StudioEchec` (code, message, coût éventuel) : ni numéro
-  d'essai ni taux, comptés à part au bilan (blocages `securite` distingués).
-  `incertain` (502/504, délai) = peut-être facturé : vérifier l'activité
-  OpenRouter avant de relancer.
-- **Sept tables** (migrations `20261018120000_studio_ia`,
+- **Sept tables d'origine** (toujours en base, voir la suppression du 17/11 plus haut) (migrations `20261018120000_studio_ia`,
   `20261019120000_studio_generation_api` et `20261020120000_studio_variantes_angle`,
   écrites à la main, sans DROP de donnée ; la troisième ajoute `StudioReglages`,
   `StudioAngle.archiveLe` (les 7 angles du banc archivés), `StudioReference.ordre/prise`,
@@ -484,8 +412,6 @@ s'appliquent pas à ces écrans.
   Hipobuy uniquement (filtre client sur `commandeFournisseur`, revérifié par
   `whereSacbase` côté serveur **avant** tout envoi au Blob). Rotation : la photo
   conservée est celle du dépôt, non tournée.
-- **Un essai rejeté se purge** (image effacée du Blob), **la ligne reste** avec
-  `urlImage = ""` : effacer un rejet gonflerait le taux de réussite.
 - ⚠️ **Cloisonnement (spec §7, assoupli le 20/10)**, gardé par
   **`lib/studioCloisonnement.test.ts`** : `app/mise-en-vente/**`,
   `app/api/hermes/**`, `app/api/sacbase/**` et `extension-vinted/*.js`
@@ -500,10 +426,8 @@ s'appliquent pas à ces écrans.
 - **Vignettes** : `GET /api/studio/vignette?cle=` relaie `/img/…` de SacBase
   avec `SACBASE_STUDIO_TOKEN` (SacBase accepte ce jeton en GET sur `/img/*`
   depuis le 20/10) ; le chemin vient du catalogue, jamais du client.
-- **Non fait, connu** : **aucune génération réelle par API n'a encore été
-  faite** (premier test prévu en prod) ; pas de déclaration manuelle des cases
-  utilisées avant le Studio (décision du 20/10) ; choisir plusieurs sacs d'un
-  coup dans la fiche est hors périmètre.
+- **Non fait, connu** : la Mise en vente lit toujours les images IA validées, pas la version choisie
+  (étape 5 du PRD) ; choisir plusieurs sacs d'un coup dans la fiche est hors périmètre.
 
 ---
 
@@ -788,7 +712,7 @@ OLLAMA_API_KEY         # génération d'annonces + assistant (Ollama Cloud, four
 ANTHROPIC_API_KEY      # génération d'annonces + assistant quand le compte choisit Anthropic : repli quand il n'a pas sa clé
 ANTHROPIC_BASE_URL     # e2e seulement : serveur factice local ; absente = https://api.anthropic.com/v1 (lib/anthropicBase.ts, toute adresse non locale est ignorée)
 OLLAMA_BASE_URL        # e2e seulement : serveur factice local ; absente = https://ollama.com/v1 (lib/ollamaBase.ts, toute adresse non locale est ignorée)
-OPENROUTER_API_KEY      # génération d'annonces + assistant quand le compte choisit OpenRouter : repli quand il n'a pas sa clé (JAMAIS pour la génération d'images du Studio)
+OPENROUTER_API_KEY      # génération d'annonces + assistant quand le compte choisit OpenRouter : repli quand il n'a pas sa clé
 OPENROUTER_BASE_URL     # e2e seulement : serveur factice local ; absente = https://openrouter.ai/api/v1 (lib/openrouterBase.ts, toute adresse non locale est ignorée)
 TRELLO_API_KEY          # clé de l'APPLICATION MyFlip (trello.com/power-ups/admin)
 TRELLO_API_SECRET       # « OAuth Secret » : signe l'OAuth et valide les webhooks
