@@ -44,12 +44,13 @@ const MARQUES_CHIPS = [
   "Dickies",
   "Helly Hansen",
   "Nike",
+  "Arc'teryx",
 ];
 
 const MARQUES_LIST = [
   "Nike", "Adidas", "Puma", "Lacoste", "Lacoste Sport", "Reebok",
   "Under Armour", "Fila", "Le Coq Sportif", "Champion", "Columbia",
-  "Hurley", "Ralph Lauren", "Tommy Hilfiger", "Levi's",
+  "Hurley", "Ralph Lauren", "Tommy Hilfiger", "Levi's", "Arc'teryx",
 ];
 
 const CATEGORIES_LIST = [

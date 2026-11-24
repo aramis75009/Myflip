@@ -48,6 +48,7 @@ const MARQUES_LIST = [
   "Ralph Lauren",
   "Tommy Hilfiger",
   "Levi's",
+  "Arc'teryx",
 ];
 
 const CATEGORIES_LIST = [
