@@ -13,7 +13,7 @@ import {
   skuPrefix,
 } from "@/lib/calc";
 
-const MARQUES = ["Polo Ralph Lauren", "Lacoste", "Tommy Hilfiger"];
+const MARQUES = ["Polo Ralph Lauren", "Lacoste", "Tommy Hilfiger", "Nike", "Arc'teryx"];
 
 /** Une pièce saisie individuellement. Le prix reste une chaîne tant qu'on tape. */
 type PieceForm = { id: number; prix: string };
