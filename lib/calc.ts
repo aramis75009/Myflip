@@ -2,8 +2,12 @@
 // et le client (aperçus en temps réel). Une seule source de vérité pour les
 // formules afin d'éviter toute divergence.
 
-/** Taux appliqué au prix de vente pour obtenir la marge nette (TVA 20% sur marge). */
-export const TVA_MARGE = 0.0638;
+/**
+ * Frais d'expédition par vente (pochette Vinted : 50 € les 100 = 0,50 €). Seul frais réel d'Aramis :
+ * la marge nette = marge brute − ces frais. (Avant le 26/11/2026 on retirait en plus 6,38 % du prix de
+ * vente comme « TVA sur marge », ce qui sous-estimait la vraie marge — décision Aramis.)
+ */
+export const FRAIS_EXPEDITION = 0.5;
 
 /** Statut « vendu » : déclenche le calcul des champs de vente. */
 export const STATUT_VENDU = "Vendu";
@@ -266,9 +270,9 @@ export function margeBrute(prixVente: number, prixAchat: number): number {
   return prixVente - prixAchat;
 }
 
-/** Marge nette = prix de vente - prix d'achat - (prix de vente × TVA_MARGE). */
+/** Marge nette = prix de vente - prix d'achat - frais d'expédition (pochette). */
 export function margeNette(prixVente: number, prixAchat: number): number {
-  return prixVente - prixAchat - prixVente * TVA_MARGE;
+  return prixVente - prixAchat - FRAIS_EXPEDITION;
 }
 
 /** Coefficient = prix de vente ÷ prix d'achat. */
